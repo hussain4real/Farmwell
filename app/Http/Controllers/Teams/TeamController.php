@@ -7,7 +7,9 @@ use App\Enums\TeamRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Teams\DeleteTeamRequest;
 use App\Http\Requests\Teams\SaveTeamRequest;
+use App\Models\Membership;
 use App\Models\Team;
+use App\Models\TeamInvitation;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -56,18 +58,18 @@ class TeamController extends Controller
                 'slug' => $team->slug,
                 'isPersonal' => $team->is_personal,
             ],
-            'members' => $team->members()->get()->map(fn ($member) => [
-                'id' => $member->id,
-                'name' => $member->name,
-                'email' => $member->email,
-                'avatar' => $member->avatar ?? null,
-                'role' => $member->pivot->role->value,
-                'role_label' => $member->pivot->role->label(),
+            'members' => $team->memberships()->with('user')->get()->map(fn (Membership $membership) => [
+                'id' => $membership->user->id,
+                'name' => $membership->user->name,
+                'email' => $membership->user->email,
+                'avatar' => null,
+                'role' => $membership->role->value,
+                'role_label' => $membership->role->label(),
             ]),
             'invitations' => $team->invitations()
                 ->whereNull('accepted_at')
                 ->get()
-                ->map(fn ($invitation) => [
+                ->map(fn (TeamInvitation $invitation) => [
                     'code' => $invitation->code,
                     'email' => $invitation->email,
                     'role' => $invitation->role->value,

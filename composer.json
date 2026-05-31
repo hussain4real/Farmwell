@@ -19,6 +19,7 @@
     },
     "require-dev": {
         "fakerphp/faker": "^1.24",
+        "larastan/larastan": "^3.10",
         "laravel/boost": "^2.2",
         "laravel/pail": "^1.2.5",
         "laravel/pao": "^1.0.6",
@@ -55,17 +56,26 @@
             "npx concurrently -c \"#93c5fd,#c4b5fd,#fb7185,#fdba74\" \"php artisan serve --host=localhost\" \"php artisan queue:listen --tries=1 --timeout=0\" \"php artisan pail --timeout=0\" \"npm run dev\" --names=server,queue,logs,vite --kill-others"
         ],
         "lint": [
-            "pint --parallel"
+            "pint"
         ],
         "lint:check": [
-            "pint --parallel --test"
+            "pint --test"
         ],
         "ci:check": [
             "Composer\\Config::disableProcessTimeout",
+            "@lint:check",
             "npm run lint:check",
             "npm run format:check",
             "npm run types:check",
-            "@test"
+            "npm run build",
+            "@analyse",
+            "@coverage"
+        ],
+        "analyse": [
+            "phpstan analyse --memory-limit=2G"
+        ],
+        "coverage": [
+            "@php -d pcov.directory=. vendor/bin/pest --coverage --min=100 --compact"
         ],
         "test": [
             "@php artisan config:clear --ansi",
