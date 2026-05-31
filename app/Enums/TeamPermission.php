@@ -16,4 +16,7 @@ enum TeamPermission: string
 
     case ManageSettings = 'settings:manage';
     case ViewAuditEvents = 'audit-events:view';
+
+    case ViewFarmOperations = 'farm-operations:view';
+    case ManageFarmOperations = 'farm-operations:manage';
 }

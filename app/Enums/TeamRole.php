@@ -30,8 +30,12 @@ enum TeamRole: string
                 TeamPermission::CreateInvitation,
                 TeamPermission::CancelInvitation,
                 TeamPermission::ManageSettings,
+                TeamPermission::ViewFarmOperations,
+                TeamPermission::ManageFarmOperations,
             ],
-            self::Member => [],
+            self::Member => [
+                TeamPermission::ViewFarmOperations,
+            ],
         };
     }
 

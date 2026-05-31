@@ -179,6 +179,8 @@ trait HasTeams
             canCancelInvitation: $this->hasTeamPermission($team, TeamPermission::CancelInvitation),
             canManageSettings: $this->hasTeamPermission($team, TeamPermission::ManageSettings),
             canViewAuditEvents: $this->hasTeamPermission($team, TeamPermission::ViewAuditEvents),
+            canViewFarmOperations: $this->hasTeamPermission($team, TeamPermission::ViewFarmOperations),
+            canManageFarmOperations: $this->hasTeamPermission($team, TeamPermission::ManageFarmOperations),
         );
     }
 
@@ -195,7 +197,13 @@ trait HasTeams
      */
     public function hasTeamPermission(Team $team, TeamPermission $permission): bool
     {
-        if ($this->teamRole($team)?->hasPermission($permission) ?? false) {
+        $role = $this->teamRole($team);
+
+        if ($role === null) {
+            return false;
+        }
+
+        if ($role->hasPermission($permission)) {
             return true;
         }
 

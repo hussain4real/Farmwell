@@ -56,7 +56,8 @@ test('team roles expose permissions hierarchy and assignable roles', function ()
     expect(TeamRole::Owner->permissions())->toContain(TeamPermission::DeleteTeam)
         ->and(TeamRole::Admin->permissions())->toContain(TeamPermission::UpdateTeam)
         ->and(TeamRole::Admin->permissions())->toContain(TeamPermission::ManageSettings)
-        ->and(TeamRole::Member->permissions())->toBe([])
+        ->and(TeamRole::Admin->permissions())->toContain(TeamPermission::ManageFarmOperations)
+        ->and(TeamRole::Member->permissions())->toBe([TeamPermission::ViewFarmOperations])
         ->and(TeamRole::Owner->level())->toBe(3)
         ->and(TeamRole::Admin->level())->toBe(2)
         ->and(TeamRole::Member->level())->toBe(1)
@@ -163,6 +164,8 @@ test('team policies cover baseline permissions', function () {
         ->and($policy->cancelInvitation($owner, $team))->toBeTrue()
         ->and($policy->manageSettings($owner, $team))->toBeTrue()
         ->and($policy->viewAuditEvents($owner, $team))->toBeTrue()
+        ->and($policy->viewFarmOperations($owner, $team))->toBeTrue()
+        ->and($policy->manageFarmOperations($owner, $team))->toBeTrue()
         ->and($policy->delete($owner, $team))->toBeTrue();
 });
 

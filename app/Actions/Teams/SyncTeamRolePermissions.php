@@ -63,4 +63,22 @@ class SyncTeamRolePermissions
             setPermissionsTeamId($previousTeamId);
         }
     }
+
+    /**
+     * Remove one membership's package-backed roles for a team.
+     */
+    public function removeMembership(User $user, Team $team): void
+    {
+        $previousTeamId = getPermissionsTeamId();
+
+        setPermissionsTeamId($team->id);
+
+        try {
+            $user->unsetRelation('roles')->unsetRelation('permissions');
+            $user->syncRoles([]);
+        } finally {
+            $user->unsetRelation('roles')->unsetRelation('permissions');
+            setPermissionsTeamId($previousTeamId);
+        }
+    }
 }

@@ -98,6 +98,46 @@ class Team extends Model
     }
 
     /**
+     * Get all commodities for this team.
+     *
+     * @return HasMany<Commodity, $this>
+     */
+    public function commodities(): HasMany
+    {
+        return $this->hasMany(Commodity::class);
+    }
+
+    /**
+     * Get all farms for this team.
+     *
+     * @return HasMany<Farm, $this>
+     */
+    public function farms(): HasMany
+    {
+        return $this->hasMany(Farm::class);
+    }
+
+    /**
+     * Get all production units for this team.
+     *
+     * @return HasMany<ProductionUnit, $this>
+     */
+    public function productionUnits(): HasMany
+    {
+        return $this->hasMany(ProductionUnit::class);
+    }
+
+    /**
+     * Get all production cycles for this team.
+     *
+     * @return HasMany<ProductionCycle, $this>
+     */
+    public function productionCycles(): HasMany
+    {
+        return $this->hasMany(ProductionCycle::class);
+    }
+
+    /**
      * Get all audit events for this team.
      *
      * @return HasMany<AuditEvent, $this>

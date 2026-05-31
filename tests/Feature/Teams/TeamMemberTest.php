@@ -1,9 +1,12 @@
 <?php
 
+use App\Actions\Teams\SyncTeamRolePermissions;
+use App\Enums\TeamPermission;
 use App\Enums\TeamRole;
 use App\Models\AuditEvent;
 use App\Models\Team;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 
 test('team member roles can be updated by owners', function () {
     $owner = User::factory()->create();
@@ -72,6 +75,37 @@ test('team members can be removed by owners', function () {
     $response->assertRedirect(route('teams.edit', $team));
 
     expect($member->fresh()->belongsToTeam($team))->toBeFalse();
+});
+
+test('removed members lose team scoped package permissions', function () {
+    $owner = User::factory()->create();
+    $admin = User::factory()->create();
+    $team = Team::factory()->create();
+
+    $team->members()->attach($owner, ['role' => TeamRole::Owner->value]);
+    $team->members()->attach($admin, ['role' => TeamRole::Admin->value]);
+
+    app(SyncTeamRolePermissions::class)->syncMembership($admin, $team, TeamRole::Admin);
+
+    expect($admin->fresh()->hasTeamPermission($team, TeamPermission::ManageSettings))->toBeTrue();
+
+    $this
+        ->actingAs($owner)
+        ->delete(route('teams.members.destroy', [$team, $admin]))
+        ->assertRedirect(route('teams.edit', $team));
+
+    setPermissionsTeamId($team->id);
+
+    expect($admin->fresh()->belongsToTeam($team))->toBeFalse()
+        ->and($admin->fresh()->hasTeamPermission($team, TeamPermission::ManageSettings))->toBeFalse()
+        ->and($admin->fresh()->can(TeamPermission::ManageSettings->value))->toBeFalse()
+        ->and(DB::table(config('permission.table_names.model_has_roles'))
+            ->where('team_id', $team->id)
+            ->where('model_id', $admin->id)
+            ->where('model_type', $admin->getMorphClass())
+            ->exists())->toBeFalse();
+
+    setPermissionsTeamId(null);
 });
 
 test('team members cannot be removed by non owners', function () {

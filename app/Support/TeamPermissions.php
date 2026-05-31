@@ -14,6 +14,8 @@ readonly class TeamPermissions
         public bool $canCancelInvitation,
         public bool $canManageSettings,
         public bool $canViewAuditEvents,
+        public bool $canViewFarmOperations,
+        public bool $canManageFarmOperations,
     ) {
         //
     }

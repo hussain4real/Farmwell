@@ -77,6 +77,8 @@ class TeamMemberController extends Controller
 
         abort_if($team->owner()?->is($user), 403, __('The team owner cannot be removed.'));
 
+        $this->syncTeamRolePermissions->removeMembership($user, $team);
+
         $team->memberships()
             ->where('user_id', $user->id)
             ->delete();

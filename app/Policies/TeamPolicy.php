@@ -97,6 +97,22 @@ class TeamPolicy
     }
 
     /**
+     * Determine whether the user can view farm operating records.
+     */
+    public function viewFarmOperations(User $user, Team $team): bool
+    {
+        return $user->hasTeamPermission($team, TeamPermission::ViewFarmOperations);
+    }
+
+    /**
+     * Determine whether the user can manage farm operating records.
+     */
+    public function manageFarmOperations(User $user, Team $team): bool
+    {
+        return $user->hasTeamPermission($team, TeamPermission::ManageFarmOperations);
+    }
+
+    /**
      * Determine whether the user can delete the model.
      */
     public function delete(User $user, Team $team): bool
