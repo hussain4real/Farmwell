@@ -2,6 +2,8 @@
 
 namespace Database\Seeders;
 
+use App\Actions\Teams\SyncTeamRolePermissions;
+use App\Enums\TeamRole;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
@@ -13,13 +15,17 @@ class DatabaseSeeder extends Seeder
     /**
      * Seed the application's database.
      */
-    public function run(): void
+    public function run(SyncTeamRolePermissions $syncTeamRolePermissions): void
     {
         // User::factory(10)->create();
 
-        User::factory()->create([
+        $user = User::factory()->create([
             'name' => 'Test User',
             'email' => 'test@example.com',
         ]);
+
+        if ($team = $user->personalTeam()) {
+            $syncTeamRolePermissions->syncMembership($user, $team, TeamRole::Owner);
+        }
     }
 }

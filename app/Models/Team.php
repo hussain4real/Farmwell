@@ -88,6 +88,26 @@ class Team extends Model
     }
 
     /**
+     * Get all settings for this team.
+     *
+     * @return HasMany<TeamSetting, $this>
+     */
+    public function settings(): HasMany
+    {
+        return $this->hasMany(TeamSetting::class);
+    }
+
+    /**
+     * Get all audit events for this team.
+     *
+     * @return HasMany<AuditEvent, $this>
+     */
+    public function auditEvents(): HasMany
+    {
+        return $this->hasMany(AuditEvent::class);
+    }
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>

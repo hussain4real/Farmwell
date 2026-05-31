@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Teams;
 
+use App\Actions\Teams\SyncTeamRolePermissions;
 use App\Enums\TeamRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Teams\AcceptTeamInvitationRequest;
@@ -17,6 +18,11 @@ use Inertia\Inertia;
 
 class TeamInvitationController extends Controller
 {
+    public function __construct(private SyncTeamRolePermissions $syncTeamRolePermissions)
+    {
+        //
+    }
+
     /**
      * Store a newly created invitation.
      */
@@ -65,10 +71,12 @@ class TeamInvitationController extends Controller
         DB::transaction(function () use ($user, $invitation) {
             $team = $invitation->team;
 
-            $team->memberships()->firstOrCreate(
+            $membership = $team->memberships()->firstOrCreate(
                 ['user_id' => $user->id],
                 ['role' => $invitation->role],
             );
+
+            $this->syncTeamRolePermissions->syncMembership($user, $team, $membership->role);
 
             $invitation->update(['accepted_at' => now()]);
 

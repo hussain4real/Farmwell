@@ -18,6 +18,17 @@ class UpdateTeamMemberRequest extends FormRequest
     {
         return [
             'role' => ['required', 'string', Rule::in(array_column(TeamRole::assignable(), 'value'))],
+            'reason' => ['nullable', 'string', 'max:500'],
         ];
+    }
+
+    /**
+     * Get the validated role change reason.
+     */
+    public function reason(): ?string
+    {
+        $reason = $this->validated('reason');
+
+        return is_string($reason) ? $reason : null;
     }
 }

@@ -13,4 +13,7 @@ enum TeamPermission: string
 
     case CreateInvitation = 'invitation:create';
     case CancelInvitation = 'invitation:cancel';
+
+    case ManageSettings = 'settings:manage';
+    case ViewAuditEvents = 'audit-events:view';
 }

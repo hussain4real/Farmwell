@@ -81,6 +81,22 @@ class TeamPolicy
     }
 
     /**
+     * Determine whether the user can manage team settings.
+     */
+    public function manageSettings(User $user, Team $team): bool
+    {
+        return $user->hasTeamPermission($team, TeamPermission::ManageSettings);
+    }
+
+    /**
+     * Determine whether the user can view team audit events.
+     */
+    public function viewAuditEvents(User $user, Team $team): bool
+    {
+        return $user->hasTeamPermission($team, TeamPermission::ViewAuditEvents);
+    }
+
+    /**
      * Determine whether the user can delete the model.
      */
     public function delete(User $user, Team $team): bool

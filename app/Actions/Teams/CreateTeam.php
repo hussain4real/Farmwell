@@ -9,6 +9,11 @@ use Illuminate\Support\Facades\DB;
 
 class CreateTeam
 {
+    public function __construct(private SyncTeamRolePermissions $syncTeamRolePermissions)
+    {
+        //
+    }
+
     /**
      * Create a new team and add the user as owner.
      */
@@ -20,10 +25,12 @@ class CreateTeam
                 'is_personal' => $isPersonal,
             ]);
 
-            $membership = $team->memberships()->create([
+            $team->memberships()->create([
                 'user_id' => $user->id,
                 'role' => TeamRole::Owner,
             ]);
+
+            $this->syncTeamRolePermissions->syncMembership($user, $team, TeamRole::Owner);
 
             $user->switchTeam($team);
 
