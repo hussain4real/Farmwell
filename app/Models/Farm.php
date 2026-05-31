@@ -70,6 +70,26 @@ class Farm extends Model
     }
 
     /**
+     * Get activities recorded for this farm.
+     *
+     * @return HasMany<FarmActivity, $this>
+     */
+    public function farmActivities(): HasMany
+    {
+        return $this->hasMany(FarmActivity::class);
+    }
+
+    /**
+     * Get tasks scheduled for this farm.
+     *
+     * @return HasMany<FarmTask, $this>
+     */
+    public function farmTasks(): HasMany
+    {
+        return $this->hasMany(FarmTask::class);
+    }
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>

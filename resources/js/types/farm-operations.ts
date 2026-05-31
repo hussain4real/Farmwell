@@ -10,6 +10,9 @@ export type FarmStats = {
     productionUnits: number;
     productionCycles: number;
     commodities: number;
+    activities: number;
+    openTasks: number;
+    pendingIntakes: number;
 };
 
 export type Commodity = {
@@ -84,12 +87,94 @@ export type ProductionPlanChange = {
     createdAt: string | null;
 };
 
+export type Evidence = {
+    id: number;
+    name: string;
+    fileName: string;
+    mimeType: string | null;
+    size: number;
+    caption: string | null;
+    visibility: string;
+    capturedOn: string | null;
+    downloadUrl: string;
+};
+
+export type FarmActivity = {
+    id: number;
+    farmId: number;
+    farmName: string;
+    productionUnitId: number | null;
+    productionUnitName: string | null;
+    productionCycleId: number | null;
+    productionCycleName: string | null;
+    commodityId: number | null;
+    commodityName: string | null;
+    activityDate: string;
+    activityType: string;
+    description: string;
+    inputsUsed: string | null;
+    labourUsed: string | null;
+    cost: string | null;
+    remarks: string | null;
+    nextActivity: string | null;
+    status: string;
+    statusLabel: string;
+    investorSafeSummary: string | null;
+    recordedBy: string | null;
+    evidence: Evidence[];
+};
+
+export type FarmTask = {
+    id: number;
+    farmId: number;
+    farmName: string;
+    productionUnitName: string | null;
+    productionCycleName: string | null;
+    assignedTo: string | null;
+    title: string;
+    activityType: string | null;
+    description: string | null;
+    plannedFor: string | null;
+    dueOn: string;
+    reminderAt: string | null;
+    status: string;
+    statusLabel: string;
+    statusReason: string | null;
+    investorVisible: boolean;
+};
+
+export type WhatsappIntake = {
+    id: number;
+    farmId: number | null;
+    farmName: string | null;
+    productionUnitId: number | null;
+    productionCycleId: number | null;
+    commodityId: number | null;
+    sourceMessage: string;
+    sourceSender: string | null;
+    sourceDate: string | null;
+    normalizedActivityDate: string | null;
+    normalizedActivityType: string | null;
+    normalizedDescription: string | null;
+    normalizedCost: string | null;
+    normalizedNextActivity: string | null;
+    normalizedInvestorSafeSummary: string | null;
+    reviewStatus: string;
+    reviewStatusLabel: string;
+    importedBy: string | null;
+    evidence: Evidence[];
+};
+
 export type FarmOperationOptions = {
     farmTypes: FarmOption[];
     productionUnitTypes: FarmOption[];
     productionCycleStatuses: FarmOption[];
     commodityRoles: FarmOption[];
     planChangeTypes: FarmOption[];
+    activityStatuses: FarmOption[];
+    taskStatuses: FarmOption[];
+    whatsappIntakeStatuses: FarmOption[];
+    evidenceVisibilities: FarmOption[];
 };
 
 export type FarmOperationPermissions = TeamPermissions;

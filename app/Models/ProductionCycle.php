@@ -109,6 +109,26 @@ class ProductionCycle extends Model
     }
 
     /**
+     * Get activities recorded for the cycle.
+     *
+     * @return HasMany<FarmActivity, $this>
+     */
+    public function farmActivities(): HasMany
+    {
+        return $this->hasMany(FarmActivity::class);
+    }
+
+    /**
+     * Get tasks scheduled for the cycle.
+     *
+     * @return HasMany<FarmTask, $this>
+     */
+    public function farmTasks(): HasMany
+    {
+        return $this->hasMany(FarmTask::class);
+    }
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>

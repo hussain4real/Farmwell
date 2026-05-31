@@ -1,11 +1,15 @@
 <?php
 
 use App\Http\Controllers\FarmOperations\CommodityController;
+use App\Http\Controllers\FarmOperations\EvidenceController;
+use App\Http\Controllers\FarmOperations\FarmActivityController;
 use App\Http\Controllers\FarmOperations\FarmController;
 use App\Http\Controllers\FarmOperations\FarmDashboardController;
+use App\Http\Controllers\FarmOperations\FarmTaskController;
 use App\Http\Controllers\FarmOperations\ProductionCycleController;
 use App\Http\Controllers\FarmOperations\ProductionPlanChangeController;
 use App\Http\Controllers\FarmOperations\ProductionUnitController;
+use App\Http\Controllers\FarmOperations\WhatsappIntakeController;
 use App\Http\Controllers\Teams\TeamInvitationController;
 use App\Http\Middleware\EnsureTeamMembership;
 use Illuminate\Support\Facades\Route;
@@ -24,6 +28,15 @@ Route::prefix('{current_team}')
         Route::post('farms/{farm}/production-cycles', [ProductionCycleController::class, 'store'])->name('farms.production-cycles.store');
         Route::post('farms/{farm}/production-cycles/{production_cycle}/plan-changes', [ProductionPlanChangeController::class, 'store'])
             ->name('farms.production-cycles.plan-changes.store');
+        Route::post('farm-activities', [FarmActivityController::class, 'store'])->name('farm-activities.store');
+        Route::post('farm-tasks', [FarmTaskController::class, 'store'])->name('farm-tasks.store');
+        Route::patch('farm-tasks/{farm_task}/status', [FarmTaskController::class, 'updateStatus'])->name('farm-tasks.status.update');
+        Route::post('whatsapp-intakes', [WhatsappIntakeController::class, 'store'])->name('whatsapp-intakes.store');
+        Route::patch('whatsapp-intakes/{whatsapp_intake}/convert', [WhatsappIntakeController::class, 'convert'])->name('whatsapp-intakes.convert');
+        Route::patch('whatsapp-intakes/{whatsapp_intake}/reject', [WhatsappIntakeController::class, 'reject'])->name('whatsapp-intakes.reject');
+        Route::get('evidence/{media}', [EvidenceController::class, 'show'])
+            ->withoutScopedBindings()
+            ->name('farm-evidence.show');
     });
 
 Route::middleware(['auth'])->group(function () {

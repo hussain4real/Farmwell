@@ -138,6 +138,36 @@ class Team extends Model
     }
 
     /**
+     * Get all farm activities for this team.
+     *
+     * @return HasMany<FarmActivity, $this>
+     */
+    public function farmActivities(): HasMany
+    {
+        return $this->hasMany(FarmActivity::class);
+    }
+
+    /**
+     * Get all farm tasks for this team.
+     *
+     * @return HasMany<FarmTask, $this>
+     */
+    public function farmTasks(): HasMany
+    {
+        return $this->hasMany(FarmTask::class);
+    }
+
+    /**
+     * Get all WhatsApp intake records for this team.
+     *
+     * @return HasMany<WhatsappIntake, $this>
+     */
+    public function whatsappIntakes(): HasMany
+    {
+        return $this->hasMany(WhatsappIntake::class);
+    }
+
+    /**
      * Get all audit events for this team.
      *
      * @return HasMany<AuditEvent, $this>
