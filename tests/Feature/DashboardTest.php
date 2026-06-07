@@ -26,8 +26,10 @@ test('authenticated users can visit the dashboard', function () {
     $response
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->component('farms/Index')
+            ->component('Dashboard')
             ->where('stats.farms', 0)
+            ->where('stats.activities', 0)
+            ->missing('farms')
         );
 });
 

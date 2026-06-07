@@ -10,9 +10,9 @@ Last updated: 2026-06-07
 
 ## Current Assessment
 
-Phases 0 through 3 are functionally complete against the approved MVP plan. Phase 3 achieves its stated goal: diary/activity entries, task calendar records, delayed-task reasons, private evidence uploads, and WhatsApp intake review/convert/reject flows are implemented and covered by tests.
+Phases 0 through 3 are complete against the approved MVP plan. Phase 3 achieves its stated goal: diary/activity entries, task calendar records, delayed-task reasons, private evidence uploads, and WhatsApp intake review/convert/reject flows are implemented and covered by tests.
 
-One product structure follow-up remains: the current Dashboard and Farm Operations workspace are overloaded into the same page. This does not block the Phase 3 functional exit criteria, but it should be handled before or at the start of Phase 4 so the app has a clearer operational information architecture.
+The pre-Phase-4 product structure follow-up is complete: Dashboard, Farm Operations, Field Diary, Task Calendar, and WhatsApp Intake now have separate route-backed page boundaries.
 
 ## Phase Progress
 
@@ -21,7 +21,7 @@ One product structure follow-up remains: the current Dashboard and Farm Operatio
 | 0. Quality Gate | Make the repo enforce the standard before domain work starts. | [x] Complete | Static analysis, formatting, frontend checks, build, and 100% coverage gates are in place. |
 | 1. Tenant, Roles, Settings, Audit | Establish Farmwell's control layer. | [x] Complete | Team-scoped permissions, team settings, audit events, and cross-team denial coverage are implemented. |
 | 2. Farm Operating Core | Let a tenant define what is being farmed. | [x] Complete | Farms, units, commodities, production cycles, mixed/intercropped commodities, plan changes, and scoped routes are implemented. |
-| 3. Diary, Tasks, Evidence, WhatsApp Intake | Replace WhatsApp-only/spreadsheet-only field operations. | [~] Functionally complete | All functional deliverables are complete. Follow-up: split Dashboard and Farm Operations into clearer pages. |
+| 3. Diary, Tasks, Evidence, WhatsApp Intake | Replace WhatsApp-only/spreadsheet-only field operations. | [x] Complete | All functional deliverables and the pre-Phase-4 page-structure follow-up are complete. |
 | 4. Budgets, Expenses, Funding, Transfers | Track operating money without wallet/escrow behavior. | [ ] Not started | Next domain phase after resolving the page-structure follow-up. |
 | 5. Investor Agreements and Approvals | Add private investor transparency safely. | [ ] Not started | Pending Phase 4. |
 | 6. Harvest, Sales, Capital Recovery | Close the farm season financial loop. | [ ] Not started | Pending Phase 5. |
@@ -72,6 +72,7 @@ One product structure follow-up remains: the current Dashboard and Farm Operatio
 - [x] Converted intake copies attached evidence to the official activity.
 - [x] Activity, task, intake, conversion, rejection, and evidence authorization flows are audited/tested.
 - [x] Mobile/browser smoke path was tested against the Farm Operations page.
+- [x] Dashboard, Farm Operations, Field Diary, Task Calendar, and WhatsApp Intake are split into separate route-backed pages.
 
 ## Planned Phase Details
 
@@ -166,15 +167,15 @@ One product structure follow-up remains: the current Dashboard and Farm Operatio
 
 ## Open Follow-up Before Phase 4
 
-- [ ] Split the current combined Dashboard/Farm Operations page into clearer navigation:
+- [x] Split the current combined Dashboard/Farm Operations page into clearer navigation:
   - Dashboard: high-level farm, task, activity, intake, and finance summaries.
   - Farm Operations: farms, units, cycles, commodities, plan changes.
   - Field Diary: activities, evidence, and activity history.
   - Task Calendar: open tasks, delay reasons, completion flow.
   - WhatsApp Intake: pending review, conversion, rejection.
-- [ ] Keep route names and Wayfinder helpers stable or add redirects if routes move.
-- [ ] Preserve current test coverage and add Inertia assertions for the new page boundaries.
+- [x] Keep route names and Wayfinder helpers stable or add redirects if routes move.
+- [x] Preserve current test coverage and add Inertia assertions for the new page boundaries.
 
 ## Next Recommended Goal
 
-Before starting Phase 4, first complete the page-structure follow-up so budgets and finance workflows do not make the current Farm Operations page even heavier.
+Start Phase 4: Budgets, Expenses, Funding, and Transfers.

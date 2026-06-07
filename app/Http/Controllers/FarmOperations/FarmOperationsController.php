@@ -11,10 +11,10 @@ use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
 
-class FarmDashboardController extends Controller
+class FarmOperationsController extends Controller
 {
     /**
-     * Show the tenant-scoped operating summary dashboard.
+     * Show farms, production units, cycles, commodities, and plan changes.
      */
     public function __invoke(Request $request, Team $currentTeam, BuildFarmOperationsPageData $pageData): Response
     {
@@ -23,6 +23,6 @@ class FarmDashboardController extends Controller
         $user = $request->user();
         assert($user instanceof User);
 
-        return Inertia::render('Dashboard', $pageData->dashboard($currentTeam, $user));
+        return Inertia::render('farms/Index', $pageData->farmOperations($currentTeam, $user));
     }
 }

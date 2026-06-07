@@ -31,6 +31,6 @@ class FarmActivityController extends Controller
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Activity recorded.')]);
 
-        return to_route('farms.index', ['current_team' => $currentTeam]);
+        return to_route('field-diary.index', ['current_team' => $currentTeam]);
     }
 }

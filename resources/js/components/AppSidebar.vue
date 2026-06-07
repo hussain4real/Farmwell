@@ -1,6 +1,14 @@
 <script setup lang="ts">
 import { Link, usePage } from '@inertiajs/vue3';
-import { BookOpen, FolderGit2, LayoutGrid, Tractor } from 'lucide-vue-next';
+import {
+    BookOpen,
+    ClipboardList,
+    FolderGit2,
+    LayoutGrid,
+    ListTodo,
+    MessageSquare,
+    Tractor,
+} from 'lucide-vue-next';
 import { computed } from 'vue';
 import AppLogo from '@/components/AppLogo.vue';
 import NavFooter from '@/components/NavFooter.vue';
@@ -17,7 +25,10 @@ import {
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { dashboard } from '@/routes';
+import { index as farmTasksIndex } from '@/routes/farm-tasks';
 import { index as farmsIndex } from '@/routes/farms';
+import { index as fieldDiaryIndex } from '@/routes/field-diary';
+import { index as whatsappIntakesIndex } from '@/routes/whatsapp-intakes';
 import type { NavItem } from '@/types';
 
 const page = usePage();
@@ -27,6 +38,21 @@ const dashboardUrl = computed(() =>
 );
 const farmsUrl = computed(() =>
     page.props.currentTeam ? farmsIndex(page.props.currentTeam.slug).url : '/',
+);
+const fieldDiaryUrl = computed(() =>
+    page.props.currentTeam
+        ? fieldDiaryIndex(page.props.currentTeam.slug).url
+        : '/',
+);
+const farmTasksUrl = computed(() =>
+    page.props.currentTeam
+        ? farmTasksIndex(page.props.currentTeam.slug).url
+        : '/',
+);
+const whatsappIntakesUrl = computed(() =>
+    page.props.currentTeam
+        ? whatsappIntakesIndex(page.props.currentTeam.slug).url
+        : '/',
 );
 
 const mainNavItems = computed<NavItem[]>(() => [
@@ -39,6 +65,21 @@ const mainNavItems = computed<NavItem[]>(() => [
         title: 'Farms',
         href: farmsUrl.value,
         icon: Tractor,
+    },
+    {
+        title: 'Field Diary',
+        href: fieldDiaryUrl.value,
+        icon: ClipboardList,
+    },
+    {
+        title: 'Tasks',
+        href: farmTasksUrl.value,
+        icon: ListTodo,
+    },
+    {
+        title: 'WhatsApp Intake',
+        href: whatsappIntakesUrl.value,
+        icon: MessageSquare,
     },
 ]);
 

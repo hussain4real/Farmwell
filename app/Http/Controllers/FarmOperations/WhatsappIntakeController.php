@@ -35,7 +35,7 @@ class WhatsappIntakeController extends Controller
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('WhatsApp intake queued for review.')]);
 
-        return to_route('farms.index', ['current_team' => $currentTeam]);
+        return to_route('whatsapp-intakes.index', ['current_team' => $currentTeam]);
     }
 
     /**
@@ -61,7 +61,7 @@ class WhatsappIntakeController extends Controller
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('WhatsApp intake converted.')]);
 
-        return to_route('farms.index', ['current_team' => $currentTeam]);
+        return to_route('whatsapp-intakes.index', ['current_team' => $currentTeam]);
     }
 
     /**
@@ -87,6 +87,6 @@ class WhatsappIntakeController extends Controller
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('WhatsApp intake rejected.')]);
 
-        return to_route('farms.index', ['current_team' => $currentTeam]);
+        return to_route('whatsapp-intakes.index', ['current_team' => $currentTeam]);
     }
 }

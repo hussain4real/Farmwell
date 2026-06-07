@@ -27,7 +27,7 @@ class FarmTaskController extends Controller
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Task scheduled.')]);
 
-        return to_route('farms.index', ['current_team' => $currentTeam]);
+        return to_route('farm-tasks.index', ['current_team' => $currentTeam]);
     }
 
     /**
@@ -54,6 +54,6 @@ class FarmTaskController extends Controller
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Task status updated.')]);
 
-        return to_route('farms.index', ['current_team' => $currentTeam]);
+        return to_route('farm-tasks.index', ['current_team' => $currentTeam]);
     }
 }

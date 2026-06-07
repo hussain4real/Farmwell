@@ -65,6 +65,94 @@ function farmwellPhaseThreeRoute(string $name, Team $team, array $parameters = [
     return route($name, ['current_team' => $team, ...$parameters]);
 }
 
+test('farm operating workspaces render focused page boundaries', function () {
+    [$owner, $team, $farm, $unit, $cycle, $commodity] = farmwellPhaseThreeContext();
+
+    FarmActivity::factory()->create([
+        'team_id' => $team->id,
+        'farm_id' => $farm->id,
+        'production_unit_id' => $unit->id,
+        'production_cycle_id' => $cycle->id,
+        'commodity_id' => $commodity->id,
+        'recorded_by_id' => $owner->id,
+        'activity_type' => 'Inspection',
+    ]);
+    FarmTask::factory()->create([
+        'team_id' => $team->id,
+        'farm_id' => $farm->id,
+        'production_unit_id' => $unit->id,
+        'production_cycle_id' => $cycle->id,
+        'title' => 'Check irrigation',
+    ]);
+    WhatsappIntake::factory()->create([
+        'team_id' => $team->id,
+        'farm_id' => $farm->id,
+        'production_unit_id' => $unit->id,
+        'production_cycle_id' => $cycle->id,
+        'commodity_id' => $commodity->id,
+        'imported_by_id' => $owner->id,
+        'source_message' => 'Forwarded field note.',
+        'review_status' => WhatsappIntakeStatus::Pending,
+    ]);
+
+    $this
+        ->actingAs($owner)
+        ->get(farmwellPhaseThreeRoute('dashboard', $team))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('Dashboard')
+            ->where('stats.activities', 1)
+            ->where('stats.openTasks', 1)
+            ->where('stats.pendingIntakes', 1)
+            ->missing('farms')
+        );
+
+    $this
+        ->actingAs($owner)
+        ->get(farmwellPhaseThreeRoute('farms.index', $team))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('farms/Index')
+            ->has('farms', 1)
+            ->missing('latestActivities')
+            ->missing('upcomingTasks')
+            ->missing('pendingIntakes')
+        );
+
+    $this
+        ->actingAs($owner)
+        ->get(farmwellPhaseThreeRoute('field-diary.index', $team))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('field-diary/Index')
+            ->where('latestActivities.0.activityType', 'Inspection')
+            ->missing('upcomingTasks')
+            ->missing('pendingIntakes')
+        );
+
+    $this
+        ->actingAs($owner)
+        ->get(farmwellPhaseThreeRoute('farm-tasks.index', $team))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('farm-tasks/Index')
+            ->where('upcomingTasks.0.title', 'Check irrigation')
+            ->missing('latestActivities')
+            ->missing('pendingIntakes')
+        );
+
+    $this
+        ->actingAs($owner)
+        ->get(farmwellPhaseThreeRoute('whatsapp-intakes.index', $team))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('whatsapp-intakes/Index')
+            ->where('pendingIntakes.0.sourceMessage', 'Forwarded field note.')
+            ->missing('latestActivities')
+            ->missing('upcomingTasks')
+        );
+});
+
 test('activities can be recorded with private evidence and downloaded by the tenant', function () {
     Storage::fake('farmwell_private');
 
@@ -93,7 +181,7 @@ test('activities can be recorded with private evidence and downloaded by the ten
                 UploadedFile::fake()->create('planting-proof.pdf', 128, 'application/pdf'),
             ],
         ])
-        ->assertRedirect(farmwellPhaseThreeRoute('farms.index', $team));
+        ->assertRedirect(farmwellPhaseThreeRoute('field-diary.index', $team));
 
     $activity = FarmActivity::query()->firstOrFail();
     $media = $activity->getFirstMedia(FarmActivity::EvidenceCollection);
@@ -129,11 +217,10 @@ test('activities can be recorded with private evidence and downloaded by the ten
 
     $this
         ->actingAs($owner)
-        ->get(farmwellPhaseThreeRoute('farms.index', $team))
+        ->get(farmwellPhaseThreeRoute('field-diary.index', $team))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->component('farms/Index')
-            ->where('stats.activities', 1)
+            ->component('field-diary/Index')
             ->where('latestActivities.0.activityType', 'Planting')
             ->where('latestActivities.0.evidence.0.caption', 'Planting proof')
         );
@@ -179,7 +266,7 @@ test('tasks require delay reasons and status changes are audited', function () {
             'status' => FarmTaskStatus::Planned->value,
             'investor_visible' => true,
         ])
-        ->assertRedirect(farmwellPhaseThreeRoute('farms.index', $team));
+        ->assertRedirect(farmwellPhaseThreeRoute('farm-tasks.index', $team));
 
     $task = FarmTask::query()->where('title', 'Check irrigation')->firstOrFail();
 
@@ -189,7 +276,7 @@ test('tasks require delay reasons and status changes are audited', function () {
             'status' => FarmTaskStatus::Delayed->value,
             'status_reason' => 'Pump repair is pending.',
         ])
-        ->assertRedirect(farmwellPhaseThreeRoute('farms.index', $team));
+        ->assertRedirect(farmwellPhaseThreeRoute('farm-tasks.index', $team));
 
     expect($task->refresh()->status)->toBe(FarmTaskStatus::Delayed)
         ->and($task->status_reason)->toBe('Pump repair is pending.')
@@ -199,10 +286,10 @@ test('tasks require delay reasons and status changes are audited', function () {
 
     $this
         ->actingAs($owner)
-        ->get(farmwellPhaseThreeRoute('farms.index', $team))
+        ->get(farmwellPhaseThreeRoute('farm-tasks.index', $team))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->where('stats.openTasks', 1)
+            ->component('farm-tasks/Index')
             ->where('upcomingTasks.0.title', 'Check irrigation')
             ->where('upcomingTasks.0.statusReason', 'Pump repair is pending.')
         );
@@ -212,7 +299,7 @@ test('tasks require delay reasons and status changes are audited', function () {
         ->patch(farmwellPhaseThreeRoute('farm-tasks.status.update', $team, ['farm_task' => $task]), [
             'status' => FarmTaskStatus::Completed->value,
         ])
-        ->assertRedirect(farmwellPhaseThreeRoute('farms.index', $team));
+        ->assertRedirect(farmwellPhaseThreeRoute('farm-tasks.index', $team));
 
     expect($task->refresh()->status)->toBe(FarmTaskStatus::Completed)
         ->and($task->completed_at)->not->toBeNull()
@@ -248,7 +335,7 @@ test('whatsapp intake can be converted into official activities or rejected', fu
                 UploadedFile::fake()->create('compost-receipt.pdf', 64, 'application/pdf'),
             ],
         ])
-        ->assertRedirect(farmwellPhaseThreeRoute('farms.index', $team));
+        ->assertRedirect(farmwellPhaseThreeRoute('whatsapp-intakes.index', $team));
 
     $intake = WhatsappIntake::query()->firstOrFail();
     $intakeMedia = $intake->getFirstMedia(WhatsappIntake::EvidenceCollection);
@@ -260,10 +347,10 @@ test('whatsapp intake can be converted into official activities or rejected', fu
 
     $this
         ->actingAs($owner)
-        ->get(farmwellPhaseThreeRoute('farms.index', $team))
+        ->get(farmwellPhaseThreeRoute('whatsapp-intakes.index', $team))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->where('stats.pendingIntakes', 1)
+            ->component('whatsapp-intakes/Index')
             ->where('pendingIntakes.0.sourceSender', 'Field Lead')
             ->where('pendingIntakes.0.evidence.0.caption', 'Forwarded receipt')
         );
@@ -283,7 +370,7 @@ test('whatsapp intake can be converted into official activities or rejected', fu
             'investor_safe_summary' => 'Compost applied on schedule.',
             'status' => FarmActivityStatus::Completed->value,
         ])
-        ->assertRedirect(farmwellPhaseThreeRoute('farms.index', $team));
+        ->assertRedirect(farmwellPhaseThreeRoute('whatsapp-intakes.index', $team));
 
     $activity = FarmActivity::query()
         ->where('source_type', 'whatsapp_intake')
@@ -311,7 +398,7 @@ test('whatsapp intake can be converted into official activities or rejected', fu
         ->patch(farmwellPhaseThreeRoute('whatsapp-intakes.reject', $team, ['whatsapp_intake' => $rejectableIntake]), [
             'rejection_reason' => 'Duplicate of converted update.',
         ])
-        ->assertRedirect(farmwellPhaseThreeRoute('farms.index', $team));
+        ->assertRedirect(farmwellPhaseThreeRoute('whatsapp-intakes.index', $team));
 
     expect($rejectableIntake->refresh()->review_status)->toBe(WhatsappIntakeStatus::Rejected)
         ->and($rejectableIntake->reviewer_id)->toBe($owner->id)

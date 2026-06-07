@@ -1,6 +1,16 @@
 <script setup lang="ts">
 import { Link, usePage } from '@inertiajs/vue3';
-import { BookOpen, Folder, LayoutGrid, Menu, Search } from 'lucide-vue-next';
+import {
+    BookOpen,
+    ClipboardList,
+    Folder,
+    LayoutGrid,
+    ListTodo,
+    Menu,
+    MessageSquare,
+    Search,
+    Tractor,
+} from 'lucide-vue-next';
 import { computed } from 'vue';
 import AppLogo from '@/components/AppLogo.vue';
 import AppLogoIcon from '@/components/AppLogoIcon.vue';
@@ -37,6 +47,10 @@ import { useCurrentUrl } from '@/composables/useCurrentUrl';
 import { getInitials } from '@/composables/useInitials';
 import { toUrl } from '@/lib/utils';
 import { dashboard } from '@/routes';
+import { index as farmTasksIndex } from '@/routes/farm-tasks';
+import { index as farmsIndex } from '@/routes/farms';
+import { index as fieldDiaryIndex } from '@/routes/field-diary';
+import { index as whatsappIntakesIndex } from '@/routes/whatsapp-intakes';
 import type { BreadcrumbItem, NavItem } from '@/types';
 
 type Props = {
@@ -54,6 +68,24 @@ const { isCurrentUrl, whenCurrentUrl } = useCurrentUrl();
 const dashboardUrl = computed(() =>
     page.props.currentTeam ? dashboard(page.props.currentTeam.slug).url : '/',
 );
+const farmsUrl = computed(() =>
+    page.props.currentTeam ? farmsIndex(page.props.currentTeam.slug).url : '/',
+);
+const fieldDiaryUrl = computed(() =>
+    page.props.currentTeam
+        ? fieldDiaryIndex(page.props.currentTeam.slug).url
+        : '/',
+);
+const farmTasksUrl = computed(() =>
+    page.props.currentTeam
+        ? farmTasksIndex(page.props.currentTeam.slug).url
+        : '/',
+);
+const whatsappIntakesUrl = computed(() =>
+    page.props.currentTeam
+        ? whatsappIntakesIndex(page.props.currentTeam.slug).url
+        : '/',
+);
 
 const activeItemStyles =
     'text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100';
@@ -63,6 +95,26 @@ const mainNavItems = computed<NavItem[]>(() => [
         title: 'Dashboard',
         href: dashboardUrl.value,
         icon: LayoutGrid,
+    },
+    {
+        title: 'Farms',
+        href: farmsUrl.value,
+        icon: Tractor,
+    },
+    {
+        title: 'Field Diary',
+        href: fieldDiaryUrl.value,
+        icon: ClipboardList,
+    },
+    {
+        title: 'Tasks',
+        href: farmTasksUrl.value,
+        icon: ListTodo,
+    },
+    {
+        title: 'WhatsApp Intake',
+        href: whatsappIntakesUrl.value,
+        icon: MessageSquare,
     },
 ]);
 

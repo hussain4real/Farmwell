@@ -5,11 +5,15 @@ use App\Http\Controllers\FarmOperations\EvidenceController;
 use App\Http\Controllers\FarmOperations\FarmActivityController;
 use App\Http\Controllers\FarmOperations\FarmController;
 use App\Http\Controllers\FarmOperations\FarmDashboardController;
+use App\Http\Controllers\FarmOperations\FarmOperationsController;
+use App\Http\Controllers\FarmOperations\FarmTaskCalendarController;
 use App\Http\Controllers\FarmOperations\FarmTaskController;
+use App\Http\Controllers\FarmOperations\FieldDiaryController;
 use App\Http\Controllers\FarmOperations\ProductionCycleController;
 use App\Http\Controllers\FarmOperations\ProductionPlanChangeController;
 use App\Http\Controllers\FarmOperations\ProductionUnitController;
 use App\Http\Controllers\FarmOperations\WhatsappIntakeController;
+use App\Http\Controllers\FarmOperations\WhatsappIntakeReviewController;
 use App\Http\Controllers\Teams\TeamInvitationController;
 use App\Http\Middleware\EnsureTeamMembership;
 use Illuminate\Support\Facades\Route;
@@ -21,7 +25,10 @@ Route::prefix('{current_team}')
     ->scopeBindings()
     ->group(function () {
         Route::get('dashboard', FarmDashboardController::class)->name('dashboard');
-        Route::get('farms', FarmDashboardController::class)->name('farms.index');
+        Route::get('farms', FarmOperationsController::class)->name('farms.index');
+        Route::get('field-diary', FieldDiaryController::class)->name('field-diary.index');
+        Route::get('farm-tasks', FarmTaskCalendarController::class)->name('farm-tasks.index');
+        Route::get('whatsapp-intakes', WhatsappIntakeReviewController::class)->name('whatsapp-intakes.index');
         Route::post('commodities', [CommodityController::class, 'store'])->name('commodities.store');
         Route::post('farms', [FarmController::class, 'store'])->name('farms.store');
         Route::post('farms/{farm}/production-units', [ProductionUnitController::class, 'store'])->name('farms.production-units.store');
