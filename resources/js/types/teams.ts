@@ -39,6 +39,8 @@ export type TeamPermissions = {
     canViewAuditEvents: boolean;
     canViewFarmOperations: boolean;
     canManageFarmOperations: boolean;
+    canViewFinance: boolean;
+    canManageFinance: boolean;
 };
 
 export type RoleOption = {

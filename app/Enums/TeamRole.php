@@ -32,6 +32,8 @@ enum TeamRole: string
                 TeamPermission::ManageSettings,
                 TeamPermission::ViewFarmOperations,
                 TeamPermission::ManageFarmOperations,
+                TeamPermission::ViewFinance,
+                TeamPermission::ManageFinance,
             ],
             self::Member => [
                 TeamPermission::ViewFarmOperations,

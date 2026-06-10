@@ -19,4 +19,7 @@ enum TeamPermission: string
 
     case ViewFarmOperations = 'farm-operations:view';
     case ManageFarmOperations = 'farm-operations:manage';
+
+    case ViewFinance = 'finance:view';
+    case ManageFinance = 'finance:manage';
 }

@@ -3,6 +3,7 @@ import { Head, Link, usePage } from '@inertiajs/vue3';
 import {
     CalendarDays,
     ClipboardList,
+    Landmark,
     ListTodo,
     MessageSquare,
     Sprout,
@@ -15,11 +16,13 @@ import { dashboard } from '@/routes';
 import { index as farmTasksIndex } from '@/routes/farm-tasks';
 import { index as farmsIndex } from '@/routes/farms';
 import { index as fieldDiaryIndex } from '@/routes/field-diary';
+import { index as financeIndex } from '@/routes/finance';
 import { index as whatsappIntakesIndex } from '@/routes/whatsapp-intakes';
 import type {
     FarmActivity,
     FarmOperationPermissions,
     FarmStats,
+    FinanceDashboardSummary,
     FarmTask,
     ProductionPlanChange,
     Team,
@@ -33,6 +36,7 @@ type Props = {
     upcomingTasks: FarmTask[];
     pendingIntakes: WhatsappIntake[];
     latestPlanChanges: ProductionPlanChange[];
+    financeSummary: FinanceDashboardSummary | null;
 };
 
 defineProps<Props>();
@@ -83,6 +87,12 @@ const workspaceLinks = computed(() => {
             href: whatsappIntakesIndex(currentTeamSlug.value).url,
             description: 'Pending review, conversion, and rejection',
             icon: MessageSquare,
+        },
+        {
+            title: 'Finance',
+            href: financeIndex(currentTeamSlug.value).url,
+            description: 'Budgets, expenses, funding, transfers, and variance',
+            icon: Landmark,
         },
     ];
 });
@@ -138,7 +148,55 @@ const workspaceLinks = computed(() => {
             </div>
         </div>
 
-        <section class="grid gap-4 xl:grid-cols-4">
+        <section
+            v-if="financeSummary"
+            class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
+        >
+            <div class="rounded-lg border p-4">
+                <div class="flex items-center justify-between gap-3">
+                    <span class="text-sm text-muted-foreground">
+                        Budgeted
+                    </span>
+                    <Landmark class="size-4 text-muted-foreground" />
+                </div>
+                <p class="mt-3 text-2xl font-semibold">
+                    {{ financeSummary.budgeted }}
+                </p>
+            </div>
+            <div class="rounded-lg border p-4">
+                <div class="flex items-center justify-between gap-3">
+                    <span class="text-sm text-muted-foreground">Spent</span>
+                    <Landmark class="size-4 text-muted-foreground" />
+                </div>
+                <p class="mt-3 text-2xl font-semibold">
+                    {{ financeSummary.spent }}
+                </p>
+            </div>
+            <div class="rounded-lg border p-4">
+                <div class="flex items-center justify-between gap-3">
+                    <span class="text-sm text-muted-foreground">
+                        Variance
+                    </span>
+                    <Landmark class="size-4 text-muted-foreground" />
+                </div>
+                <p class="mt-3 text-2xl font-semibold">
+                    {{ financeSummary.variance.variance }}
+                </p>
+            </div>
+            <div class="rounded-lg border p-4">
+                <div class="flex items-center justify-between gap-3">
+                    <span class="text-sm text-muted-foreground">
+                        Carry-forward
+                    </span>
+                    <Landmark class="size-4 text-muted-foreground" />
+                </div>
+                <p class="mt-3 text-2xl font-semibold">
+                    {{ financeSummary.carryForward.carryForward }}
+                </p>
+            </div>
+        </section>
+
+        <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
             <Link
                 v-for="workspace in workspaceLinks"
                 :key="workspace.title"

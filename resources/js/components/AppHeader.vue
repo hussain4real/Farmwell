@@ -4,6 +4,7 @@ import {
     BookOpen,
     ClipboardList,
     Folder,
+    Landmark,
     LayoutGrid,
     ListTodo,
     Menu,
@@ -50,6 +51,7 @@ import { dashboard } from '@/routes';
 import { index as farmTasksIndex } from '@/routes/farm-tasks';
 import { index as farmsIndex } from '@/routes/farms';
 import { index as fieldDiaryIndex } from '@/routes/field-diary';
+import { index as financeIndex } from '@/routes/finance';
 import { index as whatsappIntakesIndex } from '@/routes/whatsapp-intakes';
 import type { BreadcrumbItem, NavItem } from '@/types';
 
@@ -86,6 +88,11 @@ const whatsappIntakesUrl = computed(() =>
         ? whatsappIntakesIndex(page.props.currentTeam.slug).url
         : '/',
 );
+const financeUrl = computed(() =>
+    page.props.currentTeam
+        ? financeIndex(page.props.currentTeam.slug).url
+        : '/',
+);
 
 const activeItemStyles =
     'text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100';
@@ -115,6 +122,11 @@ const mainNavItems = computed<NavItem[]>(() => [
         title: 'WhatsApp Intake',
         href: whatsappIntakesUrl.value,
         icon: MessageSquare,
+    },
+    {
+        title: 'Finance',
+        href: financeUrl.value,
+        icon: Landmark,
     },
 ]);
 

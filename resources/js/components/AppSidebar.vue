@@ -4,6 +4,7 @@ import {
     BookOpen,
     ClipboardList,
     FolderGit2,
+    Landmark,
     LayoutGrid,
     ListTodo,
     MessageSquare,
@@ -28,6 +29,7 @@ import { dashboard } from '@/routes';
 import { index as farmTasksIndex } from '@/routes/farm-tasks';
 import { index as farmsIndex } from '@/routes/farms';
 import { index as fieldDiaryIndex } from '@/routes/field-diary';
+import { index as financeIndex } from '@/routes/finance';
 import { index as whatsappIntakesIndex } from '@/routes/whatsapp-intakes';
 import type { NavItem } from '@/types';
 
@@ -52,6 +54,11 @@ const farmTasksUrl = computed(() =>
 const whatsappIntakesUrl = computed(() =>
     page.props.currentTeam
         ? whatsappIntakesIndex(page.props.currentTeam.slug).url
+        : '/',
+);
+const financeUrl = computed(() =>
+    page.props.currentTeam
+        ? financeIndex(page.props.currentTeam.slug).url
         : '/',
 );
 
@@ -80,6 +87,11 @@ const mainNavItems = computed<NavItem[]>(() => [
         title: 'WhatsApp Intake',
         href: whatsappIntakesUrl.value,
         icon: MessageSquare,
+    },
+    {
+        title: 'Finance',
+        href: financeUrl.value,
+        icon: Landmark,
     },
 ]);
 

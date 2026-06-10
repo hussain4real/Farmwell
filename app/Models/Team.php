@@ -168,6 +168,76 @@ class Team extends Model
     }
 
     /**
+     * Get all expense categories for this team.
+     *
+     * @return HasMany<ExpenseCategory, $this>
+     */
+    public function expenseCategories(): HasMany
+    {
+        return $this->hasMany(ExpenseCategory::class);
+    }
+
+    /**
+     * Get all budgets for this team.
+     *
+     * @return HasMany<Budget, $this>
+     */
+    public function budgets(): HasMany
+    {
+        return $this->hasMany(Budget::class);
+    }
+
+    /**
+     * Get all budget lines for this team.
+     *
+     * @return HasMany<BudgetLine, $this>
+     */
+    public function budgetLines(): HasMany
+    {
+        return $this->hasMany(BudgetLine::class);
+    }
+
+    /**
+     * Get all funding phases for this team.
+     *
+     * @return HasMany<FundingPhase, $this>
+     */
+    public function fundingPhases(): HasMany
+    {
+        return $this->hasMany(FundingPhase::class);
+    }
+
+    /**
+     * Get all expenses for this team.
+     *
+     * @return HasMany<Expense, $this>
+     */
+    public function expenses(): HasMany
+    {
+        return $this->hasMany(Expense::class);
+    }
+
+    /**
+     * Get all external transfers for this team.
+     *
+     * @return HasMany<ExternalTransfer, $this>
+     */
+    public function externalTransfers(): HasMany
+    {
+        return $this->hasMany(ExternalTransfer::class);
+    }
+
+    /**
+     * Get all transfer reconciliations for this team.
+     *
+     * @return HasMany<TransferReconciliation, $this>
+     */
+    public function transferReconciliations(): HasMany
+    {
+        return $this->hasMany(TransferReconciliation::class);
+    }
+
+    /**
      * Get all audit events for this team.
      *
      * @return HasMany<AuditEvent, $this>

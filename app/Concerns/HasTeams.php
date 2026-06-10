@@ -181,6 +181,8 @@ trait HasTeams
             canViewAuditEvents: $this->hasTeamPermission($team, TeamPermission::ViewAuditEvents),
             canViewFarmOperations: $this->hasTeamPermission($team, TeamPermission::ViewFarmOperations),
             canManageFarmOperations: $this->hasTeamPermission($team, TeamPermission::ManageFarmOperations),
+            canViewFinance: $this->hasTeamPermission($team, TeamPermission::ViewFinance),
+            canManageFinance: $this->hasTeamPermission($team, TeamPermission::ManageFinance),
         );
     }
 

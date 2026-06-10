@@ -10,7 +10,7 @@ Last updated: 2026-06-07
 
 ## Current Assessment
 
-Phases 0 through 3 are complete against the approved MVP plan. Phase 3 achieves its stated goal: diary/activity entries, task calendar records, delayed-task reasons, private evidence uploads, and WhatsApp intake review/convert/reject flows are implemented and covered by tests.
+Phases 0 through 4 are complete against the approved MVP plan. Phase 4 achieves its stated goal: authorized users can create budgets, budget lines, funding phases, expenses with receipts, external transfers with proof, and reconciliation records while variance, carry-forward, audit, and cross-team denial paths are covered by tests.
 
 The pre-Phase-4 product structure follow-up is complete: Dashboard, Farm Operations, Field Diary, Task Calendar, and WhatsApp Intake now have separate route-backed page boundaries.
 
@@ -22,8 +22,8 @@ The pre-Phase-4 product structure follow-up is complete: Dashboard, Farm Operati
 | 1. Tenant, Roles, Settings, Audit | Establish Farmwell's control layer. | [x] Complete | Team-scoped permissions, team settings, audit events, and cross-team denial coverage are implemented. |
 | 2. Farm Operating Core | Let a tenant define what is being farmed. | [x] Complete | Farms, units, commodities, production cycles, mixed/intercropped commodities, plan changes, and scoped routes are implemented. |
 | 3. Diary, Tasks, Evidence, WhatsApp Intake | Replace WhatsApp-only/spreadsheet-only field operations. | [x] Complete | All functional deliverables and the pre-Phase-4 page-structure follow-up are complete. |
-| 4. Budgets, Expenses, Funding, Transfers | Track operating money without wallet/escrow behavior. | [ ] Not started | Next domain phase after resolving the page-structure follow-up. |
-| 5. Investor Agreements and Approvals | Add private investor transparency safely. | [ ] Not started | Pending Phase 4. |
+| 4. Budgets, Expenses, Funding, Transfers | Track operating money without wallet/escrow behavior. | [x] Complete | Budgets, funding phases, expenses, receipts, external transfers, proof, reconciliation, variance, carry-forward, and finance pages are implemented. |
+| 5. Investor Agreements and Approvals | Add private investor transparency safely. | [ ] Not started | Recommended next MVP domain phase. |
 | 6. Harvest, Sales, Capital Recovery | Close the farm season financial loop. | [ ] Not started | Pending Phase 5. |
 | 7. AI Summaries and Assisted Reporting | Add BRS AI capabilities safely after authoritative data exists. | [ ] Not started | Must use Laravel AI SDK and review-gated drafts. |
 | 8. Reports, Exports, Operations Readiness | Make the system shareable and pilot-ready. | [ ] Not started | Pending core finance, investor, harvest, and AI data paths. |
@@ -74,20 +74,29 @@ The pre-Phase-4 product structure follow-up is complete: Dashboard, Farm Operati
 - [x] Mobile/browser smoke path was tested against the Farm Operations page.
 - [x] Dashboard, Farm Operations, Field Diary, Task Calendar, and WhatsApp Intake are split into separate route-backed pages.
 
-## Planned Phase Details
-
 ### Phase 4. Budgets, Expenses, Funding, Transfers
 
-- [ ] Add budget models and migrations scoped to the current team.
-- [ ] Add funding phase models and workflows.
-- [ ] Add expense records with category, amount, date, farm/cycle links, and audit trail.
-- [ ] Add receipt/evidence uploads using private media storage.
-- [ ] Add carry-forward balance calculations.
-- [ ] Add variance service for budgeted, spent, balance, and variance values.
-- [ ] Add external transfer records without wallet, escrow, payment collection, or in-platform disbursement behavior.
-- [ ] Add reconciliation records and transfer proof uploads.
-- [ ] Add tenant-scoped budget/expense/funding UI.
-- [ ] Add feature/unit/policy tests for totals, balances, variance, transfer proof, reconciliation, auditing, and cross-team denials.
+- [x] Finance permissions are added: `finance:view` and `finance:manage`.
+- [x] Owner/Admin receive finance permissions by default; Member receives no finance access by default.
+- [x] `TeamPermissions` exposes `canViewFinance` and `canManageFinance`.
+- [x] Team finance default currency is stored in `team_settings` and defaults to `NGN`.
+- [x] New budget, budget line, funding phase, expense, and external transfer records copy the team's configured currency at creation time.
+- [x] Money is stored as integer minor units and parsed from decimal form input.
+- [x] Expense categories are team-scoped and seeded with the MVP default categories.
+- [x] Budgets and budget lines support farm/cycle scoping and category planned amounts.
+- [x] Funding phases support requested, approved, externally released, expected, released, and status fields.
+- [x] Expenses support category, farm, optional cycle, optional budget/line, optional funding phase, optional activity link, date, status, and receipt uploads.
+- [x] Expense receipts are stored on the private `farmwell_private` media disk and downloaded only through finance authorization.
+- [x] External transfers support direction, type, status, counterparty, reference, proof, farm/cycle/budget/funding/expense links, and external-only terminology.
+- [x] Transfer reconciliations update transfer status and preserve reconciliation amount/status/date.
+- [x] Budget variance service reports budgeted, spent, balance, and variance totals and category breakdowns.
+- [x] Carry-forward service calculates release less spend across funding phases.
+- [x] Route-backed Finance, Budgets, Expenses, Funding Phases, and External Transfers Inertia pages are implemented.
+- [x] Dashboard includes a high-level finance summary without becoming the finance workspace.
+- [x] Financial settings, budgets, budget lines, funding phases, expenses, receipts, external transfers, transfer proof, and reconciliations are audited.
+- [x] Cross-team finance references and private receipt/proof downloads are denied and tested.
+
+## Planned Phase Details
 
 ### Phase 5. Investor Agreements and Approvals
 
@@ -178,4 +187,4 @@ The pre-Phase-4 product structure follow-up is complete: Dashboard, Farm Operati
 
 ## Next Recommended Goal
 
-Start Phase 4: Budgets, Expenses, Funding, and Transfers.
+Start Phase 5: Investor Agreements and Approvals.

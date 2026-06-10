@@ -8,6 +8,8 @@ test('tenant control roles include settings and audit permissions', function () 
         ->and(TeamRole::Owner->permissions())->toContain(TeamPermission::ViewAuditEvents)
         ->and(TeamRole::Admin->permissions())->toContain(TeamPermission::ManageSettings)
         ->and(TeamRole::Admin->permissions())->toContain(TeamPermission::ManageFarmOperations)
+        ->and(TeamRole::Admin->permissions())->toContain(TeamPermission::ViewFinance)
+        ->and(TeamRole::Admin->permissions())->toContain(TeamPermission::ManageFinance)
         ->and(TeamRole::Admin->permissions())->not->toContain(TeamPermission::ViewAuditEvents)
         ->and(TeamRole::Member->permissions())->toBe([TeamPermission::ViewFarmOperations]);
 });

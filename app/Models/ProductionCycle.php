@@ -129,6 +129,46 @@ class ProductionCycle extends Model
     }
 
     /**
+     * Get budgets scoped to this cycle.
+     *
+     * @return HasMany<Budget, $this>
+     */
+    public function budgets(): HasMany
+    {
+        return $this->hasMany(Budget::class);
+    }
+
+    /**
+     * Get funding phases scoped to this cycle.
+     *
+     * @return HasMany<FundingPhase, $this>
+     */
+    public function fundingPhases(): HasMany
+    {
+        return $this->hasMany(FundingPhase::class);
+    }
+
+    /**
+     * Get expenses scoped to this cycle.
+     *
+     * @return HasMany<Expense, $this>
+     */
+    public function expenses(): HasMany
+    {
+        return $this->hasMany(Expense::class);
+    }
+
+    /**
+     * Get external transfers scoped to this cycle.
+     *
+     * @return HasMany<ExternalTransfer, $this>
+     */
+    public function externalTransfers(): HasMany
+    {
+        return $this->hasMany(ExternalTransfer::class);
+    }
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>

@@ -2,6 +2,7 @@
 
 namespace App\Actions\FarmOperations;
 
+use App\Actions\Finance\BuildFinancePageData;
 use App\Enums\CommodityRole;
 use App\Enums\FarmActivityStatus;
 use App\Enums\FarmTaskStatus;
@@ -26,6 +27,11 @@ use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 class BuildFarmOperationsPageData
 {
+    public function __construct(private BuildFinancePageData $financePageData)
+    {
+        //
+    }
+
     /**
      * Build the high-level farm operating dashboard payload.
      *
@@ -40,6 +46,7 @@ class BuildFarmOperationsPageData
             'upcomingTasks' => $this->upcomingTasks($team, 5)->map(fn (FarmTask $task) => $this->taskPayload($task)),
             'pendingIntakes' => $this->pendingIntakes($team, 4)->map(fn (WhatsappIntake $intake) => $this->intakePayload($intake, $team)),
             'latestPlanChanges' => $this->latestPlanChanges($team, 4)->map(fn (ProductionPlanChange $planChange) => $this->planChangePayload($planChange)),
+            'financeSummary' => $user->can('viewFinance', $team) ? $this->financePageData->dashboardSummary($team) : null,
         ];
     }
 

@@ -113,6 +113,22 @@ class TeamPolicy
     }
 
     /**
+     * Determine whether the user can view finance records.
+     */
+    public function viewFinance(User $user, Team $team): bool
+    {
+        return $user->hasTeamPermission($team, TeamPermission::ViewFinance);
+    }
+
+    /**
+     * Determine whether the user can manage finance records.
+     */
+    public function manageFinance(User $user, Team $team): bool
+    {
+        return $user->hasTeamPermission($team, TeamPermission::ManageFinance);
+    }
+
+    /**
      * Determine whether the user can delete the model.
      */
     public function delete(User $user, Team $team): bool
