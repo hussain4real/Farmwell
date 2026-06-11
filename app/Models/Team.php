@@ -238,6 +238,46 @@ class Team extends Model
     }
 
     /**
+     * Get all investor agreements for this team.
+     *
+     * @return HasMany<InvestorAgreement, $this>
+     */
+    public function investorAgreements(): HasMany
+    {
+        return $this->hasMany(InvestorAgreement::class);
+    }
+
+    /**
+     * Get all approval rules for this team.
+     *
+     * @return HasMany<ApprovalRule, $this>
+     */
+    public function approvalRules(): HasMany
+    {
+        return $this->hasMany(ApprovalRule::class);
+    }
+
+    /**
+     * Get all approval requests for this team.
+     *
+     * @return HasMany<ApprovalRequest, $this>
+     */
+    public function approvalRequests(): HasMany
+    {
+        return $this->hasMany(ApprovalRequest::class);
+    }
+
+    /**
+     * Get all investor comments for this team.
+     *
+     * @return HasMany<InvestorComment, $this>
+     */
+    public function investorComments(): HasMany
+    {
+        return $this->hasMany(InvestorComment::class);
+    }
+
+    /**
      * Get all audit events for this team.
      *
      * @return HasMany<AuditEvent, $this>

@@ -58,14 +58,17 @@ test('team roles expose permissions hierarchy and assignable roles', function ()
         ->and(TeamRole::Admin->permissions())->toContain(TeamPermission::ManageSettings)
         ->and(TeamRole::Admin->permissions())->toContain(TeamPermission::ManageFarmOperations)
         ->and(TeamRole::Member->permissions())->toBe([TeamPermission::ViewFarmOperations])
+        ->and(TeamRole::Investor->permissions())->toBe([TeamPermission::ViewInvestorPortal])
         ->and(TeamRole::Owner->level())->toBe(3)
         ->and(TeamRole::Admin->level())->toBe(2)
         ->and(TeamRole::Member->level())->toBe(1)
+        ->and(TeamRole::Investor->level())->toBe(0)
         ->and(TeamRole::Admin->isAtLeast(TeamRole::Member))->toBeTrue()
         ->and(TeamRole::Member->isAtLeast(TeamRole::Admin))->toBeFalse()
         ->and(TeamRole::assignable())->toBe([
             ['value' => 'admin', 'label' => 'Admin'],
             ['value' => 'member', 'label' => 'Member'],
+            ['value' => 'investor', 'label' => 'Investor'],
         ]);
 });
 

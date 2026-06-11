@@ -169,6 +169,16 @@ class ProductionCycle extends Model
     }
 
     /**
+     * Get investor agreements scoped to this cycle.
+     *
+     * @return HasMany<InvestorAgreement, $this>
+     */
+    public function investorAgreements(): HasMany
+    {
+        return $this->hasMany(InvestorAgreement::class);
+    }
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>

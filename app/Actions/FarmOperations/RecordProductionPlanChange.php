@@ -3,6 +3,10 @@
 namespace App\Actions\FarmOperations;
 
 use App\Actions\Audit\RecordAuditEvent;
+use App\Actions\Investors\CreateApprovalRequest;
+use App\Actions\Investors\DetermineInvestorApprovalRequirement;
+use App\Enums\ApprovalRequestType;
+use App\Models\InvestorAgreement;
 use App\Models\ProductionCycle;
 use App\Models\ProductionPlanChange;
 use App\Models\Team;
@@ -11,8 +15,11 @@ use Illuminate\Support\Facades\DB;
 
 class RecordProductionPlanChange
 {
-    public function __construct(private RecordAuditEvent $recordAuditEvent)
-    {
+    public function __construct(
+        private RecordAuditEvent $recordAuditEvent,
+        private DetermineInvestorApprovalRequirement $determineInvestorApprovalRequirement,
+        private CreateApprovalRequest $createApprovalRequest,
+    ) {
         //
     }
 
@@ -25,6 +32,7 @@ class RecordProductionPlanChange
     {
         return DB::transaction(function () use ($team, $productionCycle, $actor, $attributes) {
             $productionCycle = ProductionCycle::query()
+                ->with('farm')
                 ->whereKey($productionCycle->id)
                 ->lockForUpdate()
                 ->firstOrFail();
@@ -73,6 +81,31 @@ class RecordProductionPlanChange
                 ],
                 reason: $planChange->reason,
             );
+
+            $agreement = $planChange->investorAgreement;
+
+            if ($agreement instanceof InvestorAgreement) {
+                $requirement = $this->determineInvestorApprovalRequirement->handle(
+                    team: $team,
+                    agreement: $agreement,
+                    requestType: ApprovalRequestType::PlanChange,
+                    farmType: $productionCycle->farm?->farm_type->value,
+                );
+
+                $this->createApprovalRequest->handle(
+                    team: $team,
+                    agreement: $agreement,
+                    actor: $actor,
+                    subject: $planChange,
+                    requestType: ApprovalRequestType::PlanChange,
+                    triggerType: $requirement['triggerType'],
+                    requestedAmountMinor: 0,
+                    currency: $agreement->currency,
+                    rule: $requirement['rule'],
+                    thresholdAmountMinor: $requirement['thresholdAmountMinor'],
+                    comment: $requirement['reason'],
+                );
+            }
 
             return $planChange;
         });

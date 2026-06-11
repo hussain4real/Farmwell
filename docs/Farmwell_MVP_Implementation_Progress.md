@@ -1,6 +1,6 @@
 # Farmwell MVP Implementation Progress
 
-Last updated: 2026-06-07
+Last updated: 2026-06-10
 
 ## Status Legend
 
@@ -10,7 +10,7 @@ Last updated: 2026-06-07
 
 ## Current Assessment
 
-Phases 0 through 4 are complete against the approved MVP plan. Phase 4 achieves its stated goal: authorized users can create budgets, budget lines, funding phases, expenses with receipts, external transfers with proof, and reconciliation records while variance, carry-forward, audit, and cross-team denial paths are covered by tests.
+Phases 0 through 5 are complete against the approved MVP plan. Phase 5 achieves its stated goal: private investor agreements, approval rules, approval requests, investor decisions, approved expense-level transparency, investor comments, and agreement-scoped investor portal access are implemented with audit and denial coverage.
 
 The pre-Phase-4 product structure follow-up is complete: Dashboard, Farm Operations, Field Diary, Task Calendar, and WhatsApp Intake now have separate route-backed page boundaries.
 
@@ -23,8 +23,8 @@ The pre-Phase-4 product structure follow-up is complete: Dashboard, Farm Operati
 | 2. Farm Operating Core | Let a tenant define what is being farmed. | [x] Complete | Farms, units, commodities, production cycles, mixed/intercropped commodities, plan changes, and scoped routes are implemented. |
 | 3. Diary, Tasks, Evidence, WhatsApp Intake | Replace WhatsApp-only/spreadsheet-only field operations. | [x] Complete | All functional deliverables and the pre-Phase-4 page-structure follow-up are complete. |
 | 4. Budgets, Expenses, Funding, Transfers | Track operating money without wallet/escrow behavior. | [x] Complete | Budgets, funding phases, expenses, receipts, external transfers, proof, reconciliation, variance, carry-forward, and finance pages are implemented. |
-| 5. Investor Agreements and Approvals | Add private investor transparency safely. | [ ] Not started | Recommended next MVP domain phase. |
-| 6. Harvest, Sales, Capital Recovery | Close the farm season financial loop. | [ ] Not started | Pending Phase 5. |
+| 5. Investor Agreements and Approvals | Add private investor transparency safely. | [x] Complete | Investor role, agreements, approval rules, decisions, approved feeds, comments, and scoped investor portal are implemented. |
+| 6. Harvest, Sales, Capital Recovery | Close the farm season financial loop. | [ ] Not started | Recommended next MVP domain phase. |
 | 7. AI Summaries and Assisted Reporting | Add BRS AI capabilities safely after authoritative data exists. | [ ] Not started | Must use Laravel AI SDK and review-gated drafts. |
 | 8. Reports, Exports, Operations Readiness | Make the system shareable and pilot-ready. | [ ] Not started | Pending core finance, investor, harvest, and AI data paths. |
 | 9. Later Enhancements | Start only after MVP sign-off. | [ ] Not started | Deferred until explicitly selected. |
@@ -96,20 +96,25 @@ The pre-Phase-4 product structure follow-up is complete: Dashboard, Farm Operati
 - [x] Financial settings, budgets, budget lines, funding phases, expenses, receipts, external transfers, transfer proof, and reconciliations are audited.
 - [x] Cross-team finance references and private receipt/proof downloads are denied and tested.
 
-## Planned Phase Details
-
 ### Phase 5. Investor Agreements and Approvals
 
-- [ ] Add investor role/access behavior.
-- [ ] Add investor agreement models and migrations.
-- [ ] Add configurable capital-first agreement terms.
-- [ ] Add approval request workflow for investor-required expense categories.
-- [ ] Add investor-required category configuration.
-- [ ] Add approved expense-level investor feed.
-- [ ] Add private investor dashboard.
-- [ ] Ensure investors can only see their own approved agreement data.
-- [ ] Deny private, unapproved, unrelated, and cross-team records.
-- [ ] Add feature/unit/policy tests for investor visibility, approval boundaries, and denials.
+- [x] Investor role/access behavior is added with portal-only default permissions.
+- [x] Navigation is permission-aware: internal users see internal workspaces; investor-only users see the investor portal.
+- [x] Investor agreement models, migrations, factories, casts, and relationships are implemented.
+- [x] Agreements support team, investor, farm, optional cycle, committed/funded amounts, currency, capital-first recovery, configurable 40/60 default profit split, responsibilities/notes, dates, status, and private documents.
+- [x] Approval rules support default threshold configuration and investor-required expense categories.
+- [x] Funding phases, expenses, external transfers, and production plan changes can link to investor agreements and visibility status.
+- [x] Approval requests are created for funding releases, threshold/category expenses, material budget overruns, and material plan changes.
+- [x] Assigned investors can approve, reject, or request clarification; decisions update subject visibility and are audited.
+- [x] Internal approval queue and investor management pages are route-backed Inertia pages.
+- [x] Investor portal shows only the assigned investor's active/completed agreements and approved scoped records.
+- [x] Approved expense-level transparency includes category, amount, status, safe description, and approved receipt evidence.
+- [x] Investor comments/questions are supported on approved agreement updates and reviewable records.
+- [x] Private agreement documents, receipts, activity evidence, and transfer proof use scoped download authorization.
+- [x] Internal notes, private records, unapproved records, inactive agreements, unrelated investors, and cross-team records are denied or excluded.
+- [x] Feature and unit tests cover investor invitation/role sync, agreements, document upload, approval settings, approval request creation, decisions, comments, portal rendering, private evidence denial, relationships, casts, enums, and safe feed projection.
+
+## Planned Phase Details
 
 ### Phase 6. Harvest, Sales, Capital Recovery
 
@@ -132,6 +137,7 @@ The pre-Phase-4 product structure follow-up is complete: Dashboard, Farm Operati
 - [ ] Install `laravel/ai`.
 - [ ] Publish Laravel AI SDK config and migrations.
 - [ ] Keep provider/model selection in `config/ai.php` and environment variables.
+- [ ] Use Sub-agents as needed for specialized tasks or data access.
 - [ ] Add Farmwell AI agent for investor-safe progress summaries.
 - [ ] Add Farmwell AI agent for weekly summaries.
 - [ ] Add Farmwell AI agent for risk/decision summaries.
@@ -187,4 +193,4 @@ The pre-Phase-4 product structure follow-up is complete: Dashboard, Farm Operati
 
 ## Next Recommended Goal
 
-Start Phase 5: Investor Agreements and Approvals.
+Start Phase 6: Harvest, Sales, Capital Recovery.

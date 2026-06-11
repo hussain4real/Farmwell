@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Enums\ExpenseStatus;
+use App\Enums\InvestorVisibilityStatus;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
 use App\Models\Farm;
@@ -31,6 +32,7 @@ class ExpenseFactory extends Factory
             'budget_id' => null,
             'budget_line_id' => null,
             'funding_phase_id' => null,
+            'investor_agreement_id' => null,
             'expense_category_id' => fn (array $attributes): int => ExpenseCategory::factory()
                 ->create(['team_id' => $attributes['team_id']])
                 ->id,
@@ -43,6 +45,7 @@ class ExpenseFactory extends Factory
             'amount_minor' => fake()->numberBetween(10_000, 1_000_000),
             'currency' => 'NGN',
             'status' => ExpenseStatus::Approved,
+            'investor_visibility_status' => InvestorVisibilityStatus::Private,
             'notes' => fake()->optional()->sentence(),
         ];
     }

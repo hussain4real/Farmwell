@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\FundingPhaseStatus;
+use App\Enums\InvestorVisibilityStatus;
 use Database\Factories\FundingPhaseFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -16,10 +17,12 @@ use Illuminate\Support\Carbon;
  * @property int $farm_id
  * @property int|null $production_cycle_id
  * @property int|null $budget_id
+ * @property int|null $investor_agreement_id
  * @property int|null $created_by_id
  * @property string $name
  * @property string|null $milestone
  * @property FundingPhaseStatus $status
+ * @property InvestorVisibilityStatus $investor_visibility_status
  * @property string $currency
  * @property int $planned_amount_minor
  * @property int $requested_amount_minor
@@ -45,10 +48,12 @@ class FundingPhase extends Model
         'farm_id',
         'production_cycle_id',
         'budget_id',
+        'investor_agreement_id',
         'created_by_id',
         'name',
         'milestone',
         'status',
+        'investor_visibility_status',
         'currency',
         'planned_amount_minor',
         'requested_amount_minor',
@@ -92,6 +97,14 @@ class FundingPhase extends Model
     }
 
     /**
+     * @return BelongsTo<InvestorAgreement, $this>
+     */
+    public function investorAgreement(): BelongsTo
+    {
+        return $this->belongsTo(InvestorAgreement::class);
+    }
+
+    /**
      * @return BelongsTo<User, $this>
      */
     public function createdBy(): BelongsTo
@@ -122,6 +135,7 @@ class FundingPhase extends Model
     {
         return [
             'status' => FundingPhaseStatus::class,
+            'investor_visibility_status' => InvestorVisibilityStatus::class,
             'planned_amount_minor' => 'integer',
             'requested_amount_minor' => 'integer',
             'approved_amount_minor' => 'integer',

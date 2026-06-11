@@ -30,6 +30,8 @@ class SyncTeamRolePermissions
                 Permission::findOrCreate($permission->value, self::GuardName);
             }
 
+            app(PermissionRegistrar::class)->forgetCachedPermissions();
+
             foreach (TeamRole::cases() as $teamRole) {
                 $role = Role::findOrCreate($teamRole->value, self::GuardName);
 
@@ -39,6 +41,8 @@ class SyncTeamRolePermissions
                         ->all(),
                 );
             }
+
+            app(PermissionRegistrar::class)->forgetCachedPermissions();
         } finally {
             setPermissionsTeamId($previousTeamId);
         }

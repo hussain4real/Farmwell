@@ -121,6 +121,10 @@ export type FundingPhase = {
     productionCycleName: string | null;
     budgetId: number | null;
     budgetName: string | null;
+    investorAgreementId: number | null;
+    investorAgreementTitle: string | null;
+    investorVisibilityStatus: string;
+    investorVisibilityStatusLabel: string;
     status: string;
     statusLabel: string;
     currency: string;
@@ -159,6 +163,10 @@ export type Expense = {
     budgetLineId: number | null;
     fundingPhaseId: number | null;
     fundingPhaseName: string | null;
+    investorAgreementId: number | null;
+    investorAgreementTitle: string | null;
+    investorVisibilityStatus: string;
+    investorVisibilityStatusLabel: string;
     expenseCategoryId: number;
     expenseCategoryName: string;
     farmActivityId: number | null;
@@ -197,6 +205,10 @@ export type ExternalTransfer = {
     fundingPhaseId: number | null;
     fundingPhaseName: string | null;
     expenseId: number | null;
+    investorAgreementId: number | null;
+    investorAgreementTitle: string | null;
+    investorVisibilityStatus: string;
+    investorVisibilityStatusLabel: string;
     direction: string;
     directionLabel: string;
     transferType: string;
@@ -213,6 +225,15 @@ export type ExternalTransfer = {
     reconciliations: TransferReconciliation[];
 };
 
+export type FinanceInvestorAgreement = {
+    id: number;
+    title: string;
+    investorName: string;
+    farmId: number;
+    productionCycleId: number | null;
+    currency: string;
+};
+
 export type FinanceOptions = {
     budgetStatuses: FarmOption[];
     fundingPhaseStatuses: FarmOption[];
@@ -220,6 +241,7 @@ export type FinanceOptions = {
     externalTransferDirections: FarmOption[];
     externalTransferStatuses: FarmOption[];
     transferReconciliationStatuses: FarmOption[];
+    investorVisibilityStatuses: FarmOption[];
 };
 
 export type FinancePermissions = FarmOperationPermissions;

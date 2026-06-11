@@ -22,4 +22,10 @@ enum TeamPermission: string
 
     case ViewFinance = 'finance:view';
     case ManageFinance = 'finance:manage';
+
+    case ViewInvestorPortal = 'investor-portal:view';
+    case ViewInvestorAgreements = 'investor-agreements:view';
+    case ManageInvestorAgreements = 'investor-agreements:manage';
+    case ViewApprovalRequests = 'approval-requests:view';
+    case ManageApprovalRequests = 'approval-requests:manage';
 }

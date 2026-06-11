@@ -83,8 +83,20 @@ export type ProductionPlanChange = {
     changeTypeLabel: string;
     reason: string;
     impact: string;
+    investorAgreementId: number | null;
+    investorAgreementTitle: string | null;
+    investorVisibilityStatus: string;
+    investorVisibilityStatusLabel: string;
     recordedBy: string | null;
     createdAt: string | null;
+};
+
+export type FarmInvestorAgreement = {
+    id: number;
+    title: string;
+    investorName: string;
+    farmId: number;
+    productionCycleId: number | null;
 };
 
 export type Evidence = {
@@ -171,6 +183,7 @@ export type FarmOperationOptions = {
     productionCycleStatuses: FarmOption[];
     commodityRoles: FarmOption[];
     planChangeTypes: FarmOption[];
+    investorVisibilityStatuses: FarmOption[];
     activityStatuses: FarmOption[];
     taskStatuses: FarmOption[];
     whatsappIntakeStatuses: FarmOption[];

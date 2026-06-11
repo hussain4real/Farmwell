@@ -4,6 +4,7 @@ namespace App\Http\Requests\Finance;
 
 use App\Enums\ExternalTransferDirection;
 use App\Enums\ExternalTransferStatus;
+use App\Enums\InvestorVisibilityStatus;
 use App\Http\Requests\Finance\Concerns\ResolvesFinanceRequestData;
 use App\Models\Expense;
 use App\Support\Money;
@@ -34,6 +35,7 @@ class StoreExternalTransferRequest extends FormRequest
             'production_cycle_id' => ['nullable', 'integer', $this->cycleRule($farmId)],
             'budget_id' => ['nullable', 'integer', $this->budgetRule($farmId)],
             'funding_phase_id' => ['nullable', 'integer', $this->fundingPhaseRule($farmId)],
+            'investor_agreement_id' => ['nullable', 'integer', $this->investorAgreementRule($farmId)],
             'expense_id' => [
                 'nullable',
                 'integer',
@@ -44,6 +46,7 @@ class StoreExternalTransferRequest extends FormRequest
             'direction' => ['required', Rule::enum(ExternalTransferDirection::class)],
             'transfer_type' => ['required', 'string', 'max:255'],
             'status' => ['sometimes', 'filled', Rule::enum(ExternalTransferStatus::class)],
+            'investor_visibility_status' => ['sometimes', 'filled', Rule::enum(InvestorVisibilityStatus::class)],
             'counterparty_name' => ['nullable', 'string', 'max:255'],
             'reference' => ['nullable', 'string', 'max:255'],
             'amount' => ['required', 'numeric', 'min:0'],
@@ -72,9 +75,11 @@ class StoreExternalTransferRequest extends FormRequest
             'budget_id' => $validated['budget_id'] ?? null,
             'funding_phase_id' => $validated['funding_phase_id'] ?? null,
             'expense_id' => $validated['expense_id'] ?? null,
+            'investor_agreement_id' => $validated['investor_agreement_id'] ?? null,
             'direction' => $validated['direction'],
             'transfer_type' => $validated['transfer_type'],
             'status' => $validated['status'] ?? ExternalTransferStatus::Recorded->value,
+            'investor_visibility_status' => $validated['investor_visibility_status'] ?? InvestorVisibilityStatus::Private->value,
             'counterparty_name' => $validated['counterparty_name'] ?? null,
             'reference' => $validated['reference'] ?? null,
             'amount_minor' => Money::toMinorUnit((string) $validated['amount']),

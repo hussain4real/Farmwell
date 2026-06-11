@@ -129,6 +129,46 @@ class TeamPolicy
     }
 
     /**
+     * Determine whether the user can view their investor portal.
+     */
+    public function viewInvestorPortal(User $user, Team $team): bool
+    {
+        return $user->hasTeamPermission($team, TeamPermission::ViewInvestorPortal);
+    }
+
+    /**
+     * Determine whether the user can view investor agreements.
+     */
+    public function viewInvestorAgreements(User $user, Team $team): bool
+    {
+        return $user->hasTeamPermission($team, TeamPermission::ViewInvestorAgreements);
+    }
+
+    /**
+     * Determine whether the user can manage investor agreements.
+     */
+    public function manageInvestorAgreements(User $user, Team $team): bool
+    {
+        return $user->hasTeamPermission($team, TeamPermission::ManageInvestorAgreements);
+    }
+
+    /**
+     * Determine whether the user can view approval requests.
+     */
+    public function viewApprovalRequests(User $user, Team $team): bool
+    {
+        return $user->hasTeamPermission($team, TeamPermission::ViewApprovalRequests);
+    }
+
+    /**
+     * Determine whether the user can manage approval requests.
+     */
+    public function manageApprovalRequests(User $user, Team $team): bool
+    {
+        return $user->hasTeamPermission($team, TeamPermission::ManageApprovalRequests);
+    }
+
+    /**
      * Determine whether the user can delete the model.
      */
     public function delete(User $user, Team $team): bool

@@ -20,6 +20,7 @@ import type {
     Expense,
     ExternalTransfer,
     FinanceFarm,
+    FinanceInvestorAgreement,
     FinanceOptions,
     FinancePermissions,
     FundingPhase,
@@ -33,11 +34,13 @@ type Props = {
     budgets: Budget[];
     fundingPhases: FundingPhase[];
     expenses: Expense[];
+    investorAgreements: FinanceInvestorAgreement[];
     externalTransfers: ExternalTransfer[];
     options: Pick<
         FinanceOptions,
         | 'externalTransferDirections'
         | 'externalTransferStatuses'
+        | 'investorVisibilityStatuses'
         | 'transferReconciliationStatuses'
     >;
 };
@@ -77,8 +80,10 @@ const transferCycleId = ref('');
 const transferBudgetId = ref('');
 const transferFundingPhaseId = ref('');
 const transferExpenseId = ref('');
+const transferInvestorAgreementId = ref('');
 const transferDirection = ref('incoming');
 const transferStatus = ref('recorded');
+const transferInvestorVisibilityStatus = ref('private');
 const formKey = ref(0);
 
 const selectedFarm = computed(() =>
@@ -103,11 +108,26 @@ const farmExpenses = computed(() =>
     ),
 );
 
+const farmInvestorAgreements = computed(() =>
+    props.investorAgreements.filter(
+        (agreement) =>
+            String(agreement.farmId) === transferFarmId.value &&
+            (!transferCycleId.value ||
+                agreement.productionCycleId === null ||
+                String(agreement.productionCycleId) === transferCycleId.value),
+    ),
+);
+
 watch(transferFarmId, () => {
     transferCycleId.value = '';
     transferBudgetId.value = '';
     transferFundingPhaseId.value = '';
     transferExpenseId.value = '';
+    transferInvestorAgreementId.value = '';
+});
+
+watch(transferCycleId, () => {
+    transferInvestorAgreementId.value = '';
 });
 </script>
 
@@ -276,6 +296,47 @@ watch(transferFarmId, () => {
                     <InputError :message="errors.expense_id" />
                 </div>
                 <div class="grid gap-2">
+                    <Label for="transfer-investor-agreement">
+                        Investor agreement
+                    </Label>
+                    <select
+                        id="transfer-investor-agreement"
+                        v-model="transferInvestorAgreementId"
+                        name="investor_agreement_id"
+                        class="h-9 rounded-md border bg-background px-3 text-sm"
+                    >
+                        <option value="">Not linked</option>
+                        <option
+                            v-for="agreement in farmInvestorAgreements"
+                            :key="agreement.id"
+                            :value="String(agreement.id)"
+                        >
+                            {{ agreement.title }} / {{ agreement.investorName }}
+                        </option>
+                    </select>
+                    <InputError :message="errors.investor_agreement_id" />
+                </div>
+                <div class="grid gap-2">
+                    <Label for="transfer-investor-visibility">
+                        Investor visibility
+                    </Label>
+                    <select
+                        id="transfer-investor-visibility"
+                        v-model="transferInvestorVisibilityStatus"
+                        name="investor_visibility_status"
+                        class="h-9 rounded-md border bg-background px-3 text-sm"
+                    >
+                        <option
+                            v-for="option in options.investorVisibilityStatuses"
+                            :key="option.value"
+                            :value="option.value"
+                        >
+                            {{ option.label }}
+                        </option>
+                    </select>
+                    <InputError :message="errors.investor_visibility_status" />
+                </div>
+                <div class="grid gap-2">
                     <Label for="transfer-type">Type</Label>
                     <Input
                         id="transfer-type"
@@ -371,6 +432,14 @@ watch(transferFarmId, () => {
                         </div>
                         <Badge variant="secondary">
                             {{ transfer.statusLabel }}
+                        </Badge>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <Badge v-if="transfer.investorAgreementTitle">
+                            {{ transfer.investorAgreementTitle }}
+                        </Badge>
+                        <Badge variant="outline">
+                            {{ transfer.investorVisibilityStatusLabel }}
                         </Badge>
                     </div>
                     <div class="grid gap-2 md:grid-cols-4">

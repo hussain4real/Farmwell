@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Finance;
 
 use App\Enums\ExpenseStatus;
+use App\Enums\InvestorVisibilityStatus;
 use App\Http\Requests\Finance\Concerns\ResolvesFinanceRequestData;
 use App\Support\Money;
 use Illuminate\Contracts\Validation\ValidationRule;
@@ -34,6 +35,7 @@ class StoreExpenseRequest extends FormRequest
             'budget_id' => ['nullable', 'integer', $this->budgetRule($farmId)],
             'budget_line_id' => ['nullable', 'integer', $this->budgetLineRule($budgetId)],
             'funding_phase_id' => ['nullable', 'integer', $this->fundingPhaseRule($farmId)],
+            'investor_agreement_id' => ['nullable', 'integer', $this->investorAgreementRule($farmId)],
             'expense_category_id' => ['required', 'integer', $this->categoryRule()],
             'farm_activity_id' => ['nullable', 'integer', $this->activityRule($farmId)],
             'incurred_on' => ['required', 'date'],
@@ -42,6 +44,7 @@ class StoreExpenseRequest extends FormRequest
             'description' => ['required', 'string', 'max:4000'],
             'amount' => ['required', 'numeric', 'min:0'],
             'status' => ['sometimes', 'filled', Rule::enum(ExpenseStatus::class)],
+            'investor_visibility_status' => ['sometimes', 'filled', Rule::enum(InvestorVisibilityStatus::class)],
             'notes' => ['nullable', 'string', 'max:4000'],
             'receipt_caption' => ['nullable', 'string', 'max:255'],
             'receipts' => ['nullable', 'array', 'max:5'],
@@ -66,6 +69,7 @@ class StoreExpenseRequest extends FormRequest
             'budget_id' => $validated['budget_id'] ?? null,
             'budget_line_id' => $validated['budget_line_id'] ?? null,
             'funding_phase_id' => $validated['funding_phase_id'] ?? null,
+            'investor_agreement_id' => $validated['investor_agreement_id'] ?? null,
             'expense_category_id' => $validated['expense_category_id'],
             'farm_activity_id' => $validated['farm_activity_id'] ?? null,
             'incurred_on' => $validated['incurred_on'],
@@ -74,6 +78,7 @@ class StoreExpenseRequest extends FormRequest
             'description' => $validated['description'],
             'amount_minor' => Money::toMinorUnit((string) $validated['amount']),
             'status' => $validated['status'] ?? ExpenseStatus::Approved->value,
+            'investor_visibility_status' => $validated['investor_visibility_status'] ?? InvestorVisibilityStatus::Private->value,
             'notes' => $validated['notes'] ?? null,
         ];
     }

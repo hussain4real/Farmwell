@@ -39,6 +39,7 @@ class EnsureDefaultExpenseCategories
                     'name' => Str::title($name),
                     'sort_order' => $index + 1,
                     'is_active' => true,
+                    'requires_investor_approval' => false,
                 ],
             );
         }

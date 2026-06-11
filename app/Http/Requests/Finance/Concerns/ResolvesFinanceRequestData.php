@@ -8,6 +8,7 @@ use App\Models\ExpenseCategory;
 use App\Models\Farm;
 use App\Models\FarmActivity;
 use App\Models\FundingPhase;
+use App\Models\InvestorAgreement;
 use App\Models\ProductionCycle;
 use App\Models\Team;
 use Illuminate\Validation\Rule;
@@ -80,6 +81,18 @@ trait ResolvesFinanceRequestData
     protected function fundingPhaseRule(?int $farmId = null): Exists
     {
         $rule = Rule::exists((new FundingPhase)->getTable(), 'id')
+            ->where('team_id', $this->team()->id);
+
+        if ($farmId !== null && $farmId > 0) {
+            $rule->where('farm_id', $farmId);
+        }
+
+        return $rule;
+    }
+
+    protected function investorAgreementRule(?int $farmId = null): Exists
+    {
+        $rule = Rule::exists((new InvestorAgreement)->getTable(), 'id')
             ->where('team_id', $this->team()->id);
 
         if ($farmId !== null && $farmId > 0) {

@@ -36,6 +36,7 @@ class HandleInertiaRequests extends Middleware
     public function share(Request $request): array
     {
         $user = $request->user();
+        $currentTeam = $user?->currentTeam;
 
         return [
             ...parent::share($request),
@@ -44,7 +45,8 @@ class HandleInertiaRequests extends Middleware
                 'user' => $user,
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
-            'currentTeam' => fn () => $user?->currentTeam ? $user->toUserTeam($user->currentTeam) : null,
+            'currentTeam' => fn () => $currentTeam ? $user?->toUserTeam($currentTeam) : null,
+            'currentTeamPermissions' => fn () => $user && $currentTeam ? $user->toTeamPermissions($currentTeam) : null,
             'teams' => fn () => $user?->toUserTeams(includeCurrent: true) ?? [],
         ];
     }

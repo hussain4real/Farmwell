@@ -53,10 +53,12 @@ class RecordExternalTransfer
                     'budget_id' => $transfer->budget_id,
                     'funding_phase_id' => $transfer->funding_phase_id,
                     'expense_id' => $transfer->expense_id,
+                    'investor_agreement_id' => $transfer->investor_agreement_id,
                     'direction' => $transfer->direction->value,
                     'amount_minor' => $transfer->amount_minor,
                     'currency' => $transfer->currency,
                     'status' => $transfer->status->value,
+                    'investor_visibility_status' => $transfer->investor_visibility_status->value,
                 ],
             );
 

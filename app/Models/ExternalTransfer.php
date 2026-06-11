@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\ExternalTransferDirection;
 use App\Enums\ExternalTransferStatus;
+use App\Enums\InvestorVisibilityStatus;
 use Database\Factories\ExternalTransferFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -21,10 +22,12 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property int|null $budget_id
  * @property int|null $funding_phase_id
  * @property int|null $expense_id
+ * @property int|null $investor_agreement_id
  * @property int|null $recorded_by_id
  * @property ExternalTransferDirection $direction
  * @property string $transfer_type
  * @property ExternalTransferStatus $status
+ * @property InvestorVisibilityStatus $investor_visibility_status
  * @property string|null $counterparty_name
  * @property string|null $reference
  * @property int $amount_minor
@@ -53,10 +56,12 @@ class ExternalTransfer extends Model implements HasMedia
         'budget_id',
         'funding_phase_id',
         'expense_id',
+        'investor_agreement_id',
         'recorded_by_id',
         'direction',
         'transfer_type',
         'status',
+        'investor_visibility_status',
         'counterparty_name',
         'reference',
         'amount_minor',
@@ -114,6 +119,14 @@ class ExternalTransfer extends Model implements HasMedia
     }
 
     /**
+     * @return BelongsTo<InvestorAgreement, $this>
+     */
+    public function investorAgreement(): BelongsTo
+    {
+        return $this->belongsTo(InvestorAgreement::class);
+    }
+
+    /**
      * @return BelongsTo<User, $this>
      */
     public function recordedBy(): BelongsTo
@@ -144,6 +157,7 @@ class ExternalTransfer extends Model implements HasMedia
         return [
             'direction' => ExternalTransferDirection::class,
             'status' => ExternalTransferStatus::class,
+            'investor_visibility_status' => InvestorVisibilityStatus::class,
             'amount_minor' => 'integer',
             'transferred_on' => 'date',
         ];

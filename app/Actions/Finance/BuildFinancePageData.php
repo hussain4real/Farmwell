@@ -7,6 +7,8 @@ use App\Enums\ExpenseStatus;
 use App\Enums\ExternalTransferDirection;
 use App\Enums\ExternalTransferStatus;
 use App\Enums\FundingPhaseStatus;
+use App\Enums\InvestorAgreementStatus;
+use App\Enums\InvestorVisibilityStatus;
 use App\Enums\TransferReconciliationStatus;
 use App\Models\Budget;
 use App\Models\BudgetLine;
@@ -16,6 +18,7 @@ use App\Models\ExternalTransfer;
 use App\Models\Farm;
 use App\Models\FarmActivity;
 use App\Models\FundingPhase;
+use App\Models\InvestorAgreement;
 use App\Models\Team;
 use App\Models\User;
 use App\Support\Money;
@@ -78,6 +81,7 @@ class BuildFinancePageData
             'currency' => $this->resolveTeamFinanceCurrency->handle($team),
             'farms' => $this->farms($team)->map(fn (Farm $farm) => $this->farmPayload($farm)),
             'budgets' => $this->budgetsQuery($team)->map(fn (Budget $budget) => $this->budgetSummaryPayload($budget)),
+            'investorAgreements' => $this->investorAgreements($team)->map(fn (InvestorAgreement $agreement) => $this->investorAgreementPayload($agreement)),
             'fundingPhases' => $this->fundingPhasesQuery($team)->map(fn (FundingPhase $phase) => $this->fundingPhasePayload($phase)),
             'carryForward' => $this->calculateCarryForwardBalance->handle($team),
             'options' => $this->options(),
@@ -99,6 +103,7 @@ class BuildFinancePageData
             'budgets' => $this->budgetsQuery($team)->map(fn (Budget $budget) => $this->budgetSummaryPayload($budget)),
             'budgetLines' => $this->budgetLines($team)->map(fn (BudgetLine $line) => $this->budgetLinePayload($line)),
             'fundingPhases' => $this->fundingPhasesQuery($team)->map(fn (FundingPhase $phase) => $this->fundingPhaseSummaryPayload($phase)),
+            'investorAgreements' => $this->investorAgreements($team)->map(fn (InvestorAgreement $agreement) => $this->investorAgreementPayload($agreement)),
             'activities' => $this->activities($team)->map(fn (FarmActivity $activity) => $this->activityPayload($activity)),
             'expenses' => $this->latestExpenses($team, 25)->map(fn (Expense $expense) => $this->expensePayload($expense, $team)),
             'variance' => $this->calculateBudgetVariance->handle($team),
@@ -118,6 +123,7 @@ class BuildFinancePageData
             'budgets' => $this->budgetsQuery($team)->map(fn (Budget $budget) => $this->budgetSummaryPayload($budget)),
             'fundingPhases' => $this->fundingPhasesQuery($team)->map(fn (FundingPhase $phase) => $this->fundingPhaseSummaryPayload($phase)),
             'expenses' => $this->latestExpenses($team, 25)->map(fn (Expense $expense) => $this->expenseSummaryPayload($expense)),
+            'investorAgreements' => $this->investorAgreements($team)->map(fn (InvestorAgreement $agreement) => $this->investorAgreementPayload($agreement)),
             'externalTransfers' => $this->latestExternalTransfers($team, 25)->map(fn (ExternalTransfer $transfer) => $this->externalTransferPayload($transfer, $team)),
             'options' => $this->options(),
         ];
@@ -213,7 +219,7 @@ class BuildFinancePageData
     private function fundingPhasesQuery(Team $team): Collection
     {
         return $team->fundingPhases()
-            ->with(['farm', 'productionCycle', 'budget'])
+            ->with(['farm', 'productionCycle', 'budget', 'investorAgreement.investor'])
             ->orderBy('expected_on')
             ->latest()
             ->get();
@@ -225,7 +231,7 @@ class BuildFinancePageData
     private function latestExpenses(Team $team, int $limit): Collection
     {
         return $team->expenses()
-            ->with(['farm', 'productionCycle', 'expenseCategory', 'budget', 'fundingPhase', 'farmActivity', 'media'])
+            ->with(['farm', 'productionCycle', 'expenseCategory', 'budget', 'fundingPhase', 'farmActivity', 'investorAgreement.investor', 'media'])
             ->latest('incurred_on')
             ->latest()
             ->limit($limit)
@@ -238,10 +244,22 @@ class BuildFinancePageData
     private function latestExternalTransfers(Team $team, int $limit): Collection
     {
         return $team->externalTransfers()
-            ->with(['farm', 'productionCycle', 'budget', 'fundingPhase', 'expense', 'reconciliations', 'media'])
+            ->with(['farm', 'productionCycle', 'budget', 'fundingPhase', 'expense', 'investorAgreement.investor', 'reconciliations', 'media'])
             ->latest('transferred_on')
             ->latest()
             ->limit($limit)
+            ->get();
+    }
+
+    /**
+     * @return Collection<int, InvestorAgreement>
+     */
+    private function investorAgreements(Team $team): Collection
+    {
+        return $team->investorAgreements()
+            ->with('investor')
+            ->whereIn('status', [InvestorAgreementStatus::Draft->value, InvestorAgreementStatus::Active->value])
+            ->latest()
             ->get();
     }
 
@@ -370,6 +388,10 @@ class BuildFinancePageData
             'productionCycleName' => $phase->productionCycle?->name,
             'budgetId' => $phase->budget_id,
             'budgetName' => $phase->budget?->name,
+            'investorAgreementId' => $phase->investor_agreement_id,
+            'investorAgreementTitle' => $phase->investorAgreement?->title,
+            'investorVisibilityStatus' => $phase->investor_visibility_status->value,
+            'investorVisibilityStatusLabel' => $phase->investor_visibility_status->label(),
             'status' => $phase->status->value,
             'statusLabel' => $phase->status->label(),
             'currency' => $phase->currency,
@@ -408,6 +430,10 @@ class BuildFinancePageData
             'budgetLineId' => $expense->budget_line_id,
             'fundingPhaseId' => $expense->funding_phase_id,
             'fundingPhaseName' => $expense->fundingPhase?->name,
+            'investorAgreementId' => $expense->investor_agreement_id,
+            'investorAgreementTitle' => $expense->investorAgreement?->title,
+            'investorVisibilityStatus' => $expense->investor_visibility_status->value,
+            'investorVisibilityStatusLabel' => $expense->investor_visibility_status->label(),
             'expenseCategoryId' => $expense->expense_category_id,
             'expenseCategoryName' => $expense->expenseCategory->name,
             'farmActivityId' => $expense->farm_activity_id,
@@ -436,6 +462,10 @@ class BuildFinancePageData
             'fundingPhaseId' => $transfer->funding_phase_id,
             'fundingPhaseName' => $transfer->fundingPhase?->name,
             'expenseId' => $transfer->expense_id,
+            'investorAgreementId' => $transfer->investor_agreement_id,
+            'investorAgreementTitle' => $transfer->investorAgreement?->title,
+            'investorVisibilityStatus' => $transfer->investor_visibility_status->value,
+            'investorVisibilityStatusLabel' => $transfer->investor_visibility_status->label(),
             'direction' => $transfer->direction->value,
             'directionLabel' => $transfer->direction->label(),
             'transferType' => $transfer->transfer_type,
@@ -496,6 +526,21 @@ class BuildFinancePageData
     /**
      * @return array<string, mixed>
      */
+    private function investorAgreementPayload(InvestorAgreement $agreement): array
+    {
+        return [
+            'id' => $agreement->id,
+            'title' => $agreement->title,
+            'investorName' => $agreement->investor->name,
+            'farmId' => $agreement->farm_id,
+            'productionCycleId' => $agreement->production_cycle_id,
+            'currency' => $agreement->currency,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
     private function options(): array
     {
         return [
@@ -505,6 +550,7 @@ class BuildFinancePageData
             'externalTransferDirections' => ExternalTransferDirection::options(),
             'externalTransferStatuses' => ExternalTransferStatus::options(),
             'transferReconciliationStatuses' => TransferReconciliationStatus::options(),
+            'investorVisibilityStatuses' => InvestorVisibilityStatus::options(),
         ];
     }
 }

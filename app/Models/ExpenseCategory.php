@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $slug
  * @property int $sort_order
  * @property bool $is_active
+ * @property bool $requires_investor_approval
  * @property-read Team $team
  */
 class ExpenseCategory extends Model
@@ -31,6 +32,7 @@ class ExpenseCategory extends Model
         'slug',
         'sort_order',
         'is_active',
+        'requires_investor_approval',
     ];
 
     /**
@@ -65,6 +67,7 @@ class ExpenseCategory extends Model
         return [
             'sort_order' => 'integer',
             'is_active' => 'boolean',
+            'requires_investor_approval' => 'boolean',
         ];
     }
 }

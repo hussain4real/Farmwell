@@ -27,6 +27,7 @@ class ExpenseCategoryFactory extends Factory
             'slug' => Str::slug($name),
             'sort_order' => fake()->numberBetween(1, 50),
             'is_active' => true,
+            'requires_investor_approval' => false,
         ];
     }
 }

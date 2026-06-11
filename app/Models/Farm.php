@@ -130,6 +130,16 @@ class Farm extends Model
     }
 
     /**
+     * Get investor agreements scoped to this farm.
+     *
+     * @return HasMany<InvestorAgreement, $this>
+     */
+    public function investorAgreements(): HasMany
+    {
+        return $this->hasMany(InvestorAgreement::class);
+    }
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>

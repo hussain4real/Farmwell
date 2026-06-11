@@ -18,6 +18,7 @@ import type {
     Budget,
     CarryForward,
     FinanceFarm,
+    FinanceInvestorAgreement,
     FinanceOptions,
     FinancePermissions,
     FundingPhase,
@@ -29,9 +30,13 @@ type Props = {
     currency: string;
     farms: FinanceFarm[];
     budgets: Budget[];
+    investorAgreements: FinanceInvestorAgreement[];
     fundingPhases: FundingPhase[];
     carryForward: CarryForward;
-    options: Pick<FinanceOptions, 'fundingPhaseStatuses'>;
+    options: Pick<
+        FinanceOptions,
+        'fundingPhaseStatuses' | 'investorVisibilityStatuses'
+    >;
 };
 
 const props = defineProps<Props>();
@@ -67,7 +72,9 @@ const currentTeamSlug = computed(() => currentTeam.value?.slug ?? '');
 const phaseFarmId = ref(props.farms[0]?.id ? String(props.farms[0].id) : '');
 const phaseCycleId = ref('');
 const phaseBudgetId = ref('');
+const phaseInvestorAgreementId = ref('');
 const phaseStatus = ref('draft');
+const phaseInvestorVisibilityStatus = ref('private');
 const formKey = ref(0);
 
 const selectedFarm = computed(() =>
@@ -80,9 +87,24 @@ const farmBudgets = computed(() =>
     ),
 );
 
+const farmInvestorAgreements = computed(() =>
+    props.investorAgreements.filter(
+        (agreement) =>
+            String(agreement.farmId) === phaseFarmId.value &&
+            (!phaseCycleId.value ||
+                agreement.productionCycleId === null ||
+                String(agreement.productionCycleId) === phaseCycleId.value),
+    ),
+);
+
 watch(phaseFarmId, () => {
     phaseCycleId.value = '';
     phaseBudgetId.value = '';
+    phaseInvestorAgreementId.value = '';
+});
+
+watch(phaseCycleId, () => {
+    phaseInvestorAgreementId.value = '';
 });
 </script>
 
@@ -216,6 +238,47 @@ watch(phaseFarmId, () => {
                     <InputError :message="errors.status" />
                 </div>
                 <div class="grid gap-2">
+                    <Label for="phase-investor-agreement">
+                        Investor agreement
+                    </Label>
+                    <select
+                        id="phase-investor-agreement"
+                        v-model="phaseInvestorAgreementId"
+                        name="investor_agreement_id"
+                        class="h-9 rounded-md border bg-background px-3 text-sm"
+                    >
+                        <option value="">Not linked</option>
+                        <option
+                            v-for="agreement in farmInvestorAgreements"
+                            :key="agreement.id"
+                            :value="String(agreement.id)"
+                        >
+                            {{ agreement.title }} / {{ agreement.investorName }}
+                        </option>
+                    </select>
+                    <InputError :message="errors.investor_agreement_id" />
+                </div>
+                <div class="grid gap-2">
+                    <Label for="phase-investor-visibility">
+                        Investor visibility
+                    </Label>
+                    <select
+                        id="phase-investor-visibility"
+                        v-model="phaseInvestorVisibilityStatus"
+                        name="investor_visibility_status"
+                        class="h-9 rounded-md border bg-background px-3 text-sm"
+                    >
+                        <option
+                            v-for="option in options.investorVisibilityStatuses"
+                            :key="option.value"
+                            :value="option.value"
+                        >
+                            {{ option.label }}
+                        </option>
+                    </select>
+                    <InputError :message="errors.investor_visibility_status" />
+                </div>
+                <div class="grid gap-2">
                     <Label for="phase-name">Name</Label>
                     <Input id="phase-name" name="name" required />
                     <InputError :message="errors.name" />
@@ -307,6 +370,14 @@ watch(phaseFarmId, () => {
                         </div>
                         <Badge variant="secondary">
                             {{ phase.statusLabel }}
+                        </Badge>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <Badge v-if="phase.investorAgreementTitle">
+                            {{ phase.investorAgreementTitle }}
+                        </Badge>
+                        <Badge variant="outline">
+                            {{ phase.investorVisibilityStatusLabel }}
                         </Badge>
                     </div>
                     <div class="grid gap-2 md:grid-cols-4">

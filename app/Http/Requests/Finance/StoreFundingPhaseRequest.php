@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Finance;
 
 use App\Enums\FundingPhaseStatus;
+use App\Enums\InvestorVisibilityStatus;
 use App\Http\Requests\Finance\Concerns\ResolvesFinanceRequestData;
 use App\Support\Money;
 use Illuminate\Contracts\Validation\ValidationRule;
@@ -29,9 +30,11 @@ class StoreFundingPhaseRequest extends FormRequest
             'farm_id' => ['required', 'integer', $this->farmRule()],
             'production_cycle_id' => ['nullable', 'integer', $this->cycleRule($farmId)],
             'budget_id' => ['nullable', 'integer', $this->budgetRule($farmId)],
+            'investor_agreement_id' => ['nullable', 'integer', $this->investorAgreementRule($farmId)],
             'name' => ['required', 'string', 'max:255'],
             'milestone' => ['nullable', 'string', 'max:255'],
             'status' => ['sometimes', 'filled', Rule::enum(FundingPhaseStatus::class)],
+            'investor_visibility_status' => ['sometimes', 'filled', Rule::enum(InvestorVisibilityStatus::class)],
             'planned_amount' => ['nullable', 'numeric', 'min:0'],
             'requested_amount' => ['nullable', 'numeric', 'min:0'],
             'approved_amount' => ['nullable', 'numeric', 'min:0'],
@@ -53,9 +56,11 @@ class StoreFundingPhaseRequest extends FormRequest
             'farm_id' => $validated['farm_id'],
             'production_cycle_id' => $validated['production_cycle_id'] ?? null,
             'budget_id' => $validated['budget_id'] ?? null,
+            'investor_agreement_id' => $validated['investor_agreement_id'] ?? null,
             'name' => $validated['name'],
             'milestone' => $validated['milestone'] ?? null,
             'status' => $validated['status'] ?? FundingPhaseStatus::Draft->value,
+            'investor_visibility_status' => $validated['investor_visibility_status'] ?? InvestorVisibilityStatus::Private->value,
             'planned_amount_minor' => Money::toMinorUnit((string) ($validated['planned_amount'] ?? '0')),
             'requested_amount_minor' => Money::toMinorUnit((string) ($validated['requested_amount'] ?? '0')),
             'approved_amount_minor' => Money::toMinorUnit((string) ($validated['approved_amount'] ?? '0')),

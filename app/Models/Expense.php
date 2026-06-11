@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\ExpenseStatus;
+use App\Enums\InvestorVisibilityStatus;
 use Database\Factories\ExpenseFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -19,6 +20,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property int|null $budget_id
  * @property int|null $budget_line_id
  * @property int|null $funding_phase_id
+ * @property int|null $investor_agreement_id
  * @property int $expense_category_id
  * @property int|null $farm_activity_id
  * @property int|null $recorded_by_id
@@ -29,6 +31,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property int $amount_minor
  * @property string $currency
  * @property ExpenseStatus $status
+ * @property InvestorVisibilityStatus $investor_visibility_status
  * @property string|null $notes
  * @property-read Team $team
  * @property-read Farm $farm
@@ -53,6 +56,7 @@ class Expense extends Model implements HasMedia
         'budget_id',
         'budget_line_id',
         'funding_phase_id',
+        'investor_agreement_id',
         'expense_category_id',
         'farm_activity_id',
         'recorded_by_id',
@@ -63,6 +67,7 @@ class Expense extends Model implements HasMedia
         'amount_minor',
         'currency',
         'status',
+        'investor_visibility_status',
         'notes',
     ];
 
@@ -115,6 +120,14 @@ class Expense extends Model implements HasMedia
     }
 
     /**
+     * @return BelongsTo<InvestorAgreement, $this>
+     */
+    public function investorAgreement(): BelongsTo
+    {
+        return $this->belongsTo(InvestorAgreement::class);
+    }
+
+    /**
      * @return BelongsTo<ExpenseCategory, $this>
      */
     public function expenseCategory(): BelongsTo
@@ -153,6 +166,7 @@ class Expense extends Model implements HasMedia
             'incurred_on' => 'date',
             'amount_minor' => 'integer',
             'status' => ExpenseStatus::class,
+            'investor_visibility_status' => InvestorVisibilityStatus::class,
         ];
     }
 }

@@ -1,4 +1,4 @@
-export type TeamRole = 'owner' | 'admin' | 'member';
+export type TeamRole = 'owner' | 'admin' | 'member' | 'investor';
 
 export type Team = {
     id: number;
@@ -41,6 +41,11 @@ export type TeamPermissions = {
     canManageFarmOperations: boolean;
     canViewFinance: boolean;
     canManageFinance: boolean;
+    canViewInvestorPortal: boolean;
+    canViewInvestorAgreements: boolean;
+    canManageInvestorAgreements: boolean;
+    canViewApprovalRequests: boolean;
+    canManageApprovalRequests: boolean;
 };
 
 export type RoleOption = {

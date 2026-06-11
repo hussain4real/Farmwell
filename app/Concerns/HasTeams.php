@@ -183,6 +183,11 @@ trait HasTeams
             canManageFarmOperations: $this->hasTeamPermission($team, TeamPermission::ManageFarmOperations),
             canViewFinance: $this->hasTeamPermission($team, TeamPermission::ViewFinance),
             canManageFinance: $this->hasTeamPermission($team, TeamPermission::ManageFinance),
+            canViewInvestorPortal: $this->hasTeamPermission($team, TeamPermission::ViewInvestorPortal),
+            canViewInvestorAgreements: $this->hasTeamPermission($team, TeamPermission::ViewInvestorAgreements),
+            canManageInvestorAgreements: $this->hasTeamPermission($team, TeamPermission::ManageInvestorAgreements),
+            canViewApprovalRequests: $this->hasTeamPermission($team, TeamPermission::ViewApprovalRequests),
+            canManageApprovalRequests: $this->hasTeamPermission($team, TeamPermission::ManageApprovalRequests),
         );
     }
 

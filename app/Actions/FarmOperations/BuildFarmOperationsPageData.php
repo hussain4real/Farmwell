@@ -7,6 +7,8 @@ use App\Enums\CommodityRole;
 use App\Enums\FarmActivityStatus;
 use App\Enums\FarmTaskStatus;
 use App\Enums\FarmType;
+use App\Enums\InvestorAgreementStatus;
+use App\Enums\InvestorVisibilityStatus;
 use App\Enums\ProductionCycleStatus;
 use App\Enums\ProductionPlanChangeType;
 use App\Enums\ProductionUnitType;
@@ -15,6 +17,7 @@ use App\Models\Commodity;
 use App\Models\Farm;
 use App\Models\FarmActivity;
 use App\Models\FarmTask;
+use App\Models\InvestorAgreement;
 use App\Models\ProductionCycle;
 use App\Models\ProductionPlanChange;
 use App\Models\ProductionUnit;
@@ -73,6 +76,7 @@ class BuildFarmOperationsPageData
             ],
             'farms' => $farms->map(fn (Farm $farm) => $this->farmPayload($farm)),
             'commodities' => $commodities->map(fn (Commodity $commodity) => $this->commodityPayload($commodity)),
+            'investorAgreements' => $this->investorAgreements($team)->map(fn (InvestorAgreement $agreement) => $this->investorAgreementPayload($agreement)),
             'latestPlanChanges' => $this->latestPlanChanges($team)->map(fn (ProductionPlanChange $planChange) => $this->planChangePayload($planChange)),
             'options' => [
                 'farmTypes' => FarmType::options(),
@@ -80,6 +84,7 @@ class BuildFarmOperationsPageData
                 'productionCycleStatuses' => ProductionCycleStatus::options(),
                 'commodityRoles' => CommodityRole::options(),
                 'planChangeTypes' => ProductionPlanChangeType::options(),
+                'investorVisibilityStatuses' => InvestorVisibilityStatus::options(),
             ],
         ];
     }
@@ -202,7 +207,7 @@ class BuildFarmOperationsPageData
     {
         return ProductionPlanChange::query()
             ->where('team_id', $team->id)
-            ->with(['productionCycle.farm', 'actor'])
+            ->with(['productionCycle.farm', 'actor', 'investorAgreement'])
             ->latest()
             ->limit($limit)
             ->get();
@@ -276,8 +281,38 @@ class BuildFarmOperationsPageData
             'changeTypeLabel' => $planChange->change_type->label(),
             'reason' => $planChange->reason,
             'impact' => $planChange->impact,
+            'investorAgreementId' => $planChange->investor_agreement_id,
+            'investorAgreementTitle' => $planChange->investorAgreement?->title,
+            'investorVisibilityStatus' => $planChange->investor_visibility_status->value,
+            'investorVisibilityStatusLabel' => $planChange->investor_visibility_status->label(),
             'recordedBy' => $planChange->actor?->name,
             'createdAt' => $planChange->created_at?->toISOString(),
+        ];
+    }
+
+    /**
+     * @return Collection<int, InvestorAgreement>
+     */
+    private function investorAgreements(Team $team): Collection
+    {
+        return $team->investorAgreements()
+            ->with('investor')
+            ->whereIn('status', [InvestorAgreementStatus::Draft->value, InvestorAgreementStatus::Active->value])
+            ->latest()
+            ->get();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function investorAgreementPayload(InvestorAgreement $agreement): array
+    {
+        return [
+            'id' => $agreement->id,
+            'title' => $agreement->title,
+            'investorName' => $agreement->investor->name,
+            'farmId' => $agreement->farm_id,
+            'productionCycleId' => $agreement->production_cycle_id,
         ];
     }
 

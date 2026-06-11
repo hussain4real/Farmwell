@@ -21,6 +21,7 @@ import type {
     ExpenseCategory,
     FinanceActivity,
     FinanceFarm,
+    FinanceInvestorAgreement,
     FinanceOptions,
     FinancePermissions,
     FinanceVariance,
@@ -36,10 +37,14 @@ type Props = {
     budgets: Budget[];
     budgetLines: BudgetLine[];
     fundingPhases: FundingPhase[];
+    investorAgreements: FinanceInvestorAgreement[];
     activities: FinanceActivity[];
     expenses: Expense[];
     variance: FinanceVariance;
-    options: Pick<FinanceOptions, 'expenseStatuses'>;
+    options: Pick<
+        FinanceOptions,
+        'expenseStatuses' | 'investorVisibilityStatuses'
+    >;
 };
 
 const props = defineProps<Props>();
@@ -77,11 +82,13 @@ const expenseCycleId = ref('');
 const expenseBudgetId = ref('');
 const expenseBudgetLineId = ref('');
 const expenseFundingPhaseId = ref('');
+const expenseInvestorAgreementId = ref('');
 const expenseCategoryId = ref(
     props.categories[0]?.id ? String(props.categories[0].id) : '',
 );
 const expenseActivityId = ref('');
 const expenseStatus = ref('approved');
+const expenseInvestorVisibilityStatus = ref('private');
 const formKey = ref(0);
 
 const selectedFarm = computed(() =>
@@ -108,6 +115,16 @@ const farmFundingPhases = computed(() =>
     ),
 );
 
+const farmInvestorAgreements = computed(() =>
+    props.investorAgreements.filter(
+        (agreement) =>
+            String(agreement.farmId) === expenseFarmId.value &&
+            (!expenseCycleId.value ||
+                agreement.productionCycleId === null ||
+                String(agreement.productionCycleId) === expenseCycleId.value),
+    ),
+);
+
 const farmActivities = computed(() =>
     props.activities.filter(
         (activity) => String(activity.farmId) === expenseFarmId.value,
@@ -119,11 +136,16 @@ watch(expenseFarmId, () => {
     expenseBudgetId.value = '';
     expenseBudgetLineId.value = '';
     expenseFundingPhaseId.value = '';
+    expenseInvestorAgreementId.value = '';
     expenseActivityId.value = '';
 });
 
 watch(expenseBudgetId, () => {
     expenseBudgetLineId.value = '';
+});
+
+watch(expenseCycleId, () => {
+    expenseInvestorAgreementId.value = '';
 });
 </script>
 
@@ -291,6 +313,47 @@ watch(expenseBudgetId, () => {
                     <InputError :message="errors.funding_phase_id" />
                 </div>
                 <div class="grid gap-2">
+                    <Label for="expense-investor-agreement">
+                        Investor agreement
+                    </Label>
+                    <select
+                        id="expense-investor-agreement"
+                        v-model="expenseInvestorAgreementId"
+                        name="investor_agreement_id"
+                        class="h-9 rounded-md border bg-background px-3 text-sm"
+                    >
+                        <option value="">Not linked</option>
+                        <option
+                            v-for="agreement in farmInvestorAgreements"
+                            :key="agreement.id"
+                            :value="String(agreement.id)"
+                        >
+                            {{ agreement.title }} / {{ agreement.investorName }}
+                        </option>
+                    </select>
+                    <InputError :message="errors.investor_agreement_id" />
+                </div>
+                <div class="grid gap-2">
+                    <Label for="expense-investor-visibility">
+                        Investor visibility
+                    </Label>
+                    <select
+                        id="expense-investor-visibility"
+                        v-model="expenseInvestorVisibilityStatus"
+                        name="investor_visibility_status"
+                        class="h-9 rounded-md border bg-background px-3 text-sm"
+                    >
+                        <option
+                            v-for="option in options.investorVisibilityStatuses"
+                            :key="option.value"
+                            :value="option.value"
+                        >
+                            {{ option.label }}
+                        </option>
+                    </select>
+                    <InputError :message="errors.investor_visibility_status" />
+                </div>
+                <div class="grid gap-2">
                     <Label for="expense-activity">Activity</Label>
                     <select
                         id="expense-activity"
@@ -412,6 +475,17 @@ watch(expenseBudgetId, () => {
                             </div>
                             <Badge variant="secondary">
                                 {{ expense.amount }} {{ expense.currency }}
+                            </Badge>
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                            <Badge v-if="expense.investorAgreementTitle">
+                                {{ expense.investorAgreementTitle }}
+                            </Badge>
+                            <Badge variant="outline">
+                                {{ expense.investorVisibilityStatusLabel }}
+                            </Badge>
+                            <Badge variant="secondary">
+                                {{ expense.statusLabel }}
                             </Badge>
                         </div>
                         <p v-if="expense.description">

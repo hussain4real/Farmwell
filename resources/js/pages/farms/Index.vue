@@ -31,6 +31,7 @@ import { store as storeProductionUnit } from '@/routes/farms/production-units';
 import type {
     Commodity,
     Farm,
+    FarmInvestorAgreement,
     FarmOperationOptions,
     FarmOperationPermissions,
     FarmStats,
@@ -43,6 +44,7 @@ type Props = {
     stats: FarmStats;
     farms: Farm[];
     commodities: Commodity[];
+    investorAgreements: FarmInvestorAgreement[];
     latestPlanChanges: ProductionPlanChange[];
     options: Pick<
         FarmOperationOptions,
@@ -51,6 +53,7 @@ type Props = {
         | 'productionCycleStatuses'
         | 'commodityRoles'
         | 'planChangeTypes'
+        | 'investorVisibilityStatuses'
     >;
 };
 
@@ -91,6 +94,8 @@ const primaryCommodityId = ref(
 const secondaryCommodityId = ref('');
 const planChangeType = ref(props.options.planChangeTypes[0]?.value ?? 'other');
 const planChangeTarget = ref('');
+const planChangeInvestorAgreementId = ref('');
+const planChangeInvestorVisibilityStatus = ref('private');
 const formKeys = ref({
     commodity: 0,
     farm: 0,
@@ -117,6 +122,21 @@ const cycleTargets = computed(() =>
 const selectedPlanChangeTarget = computed(() =>
     cycleTargets.value.find((target) => target.key === planChangeTarget.value),
 );
+
+const planChangeInvestorAgreements = computed(() => {
+    const target = selectedPlanChangeTarget.value;
+
+    if (!target) {
+        return [];
+    }
+
+    return props.investorAgreements.filter(
+        (agreement) =>
+            agreement.farmId === target.farmId &&
+            (agreement.productionCycleId === null ||
+                agreement.productionCycleId === target.cycleId),
+    );
+});
 
 const bumpFormKey = (key: keyof typeof formKeys.value) => {
     formKeys.value[key]++;
@@ -156,6 +176,9 @@ const syncCommoditySelections = () => {
 
 watch(() => props.farms.map((farm) => farm.id), syncFarmSelections, {
     immediate: true,
+});
+watch(planChangeTarget, () => {
+    planChangeInvestorAgreementId.value = '';
 });
 watch(
     () => props.commodities.map((commodity) => commodity.id),
@@ -844,6 +867,50 @@ watch(
                         />
                         <InputError :message="errors.investor_safe_summary" />
                     </div>
+                    <div class="grid gap-2">
+                        <Label for="plan-investor-agreement">
+                            Investor agreement
+                        </Label>
+                        <select
+                            id="plan-investor-agreement"
+                            v-model="planChangeInvestorAgreementId"
+                            name="investor_agreement_id"
+                            class="h-9 rounded-md border bg-background px-3 text-sm"
+                        >
+                            <option value="">Not linked</option>
+                            <option
+                                v-for="agreement in planChangeInvestorAgreements"
+                                :key="agreement.id"
+                                :value="String(agreement.id)"
+                            >
+                                {{ agreement.title }} /
+                                {{ agreement.investorName }}
+                            </option>
+                        </select>
+                        <InputError :message="errors.investor_agreement_id" />
+                    </div>
+                    <div class="grid gap-2">
+                        <Label for="plan-investor-visibility">
+                            Investor visibility
+                        </Label>
+                        <select
+                            id="plan-investor-visibility"
+                            v-model="planChangeInvestorVisibilityStatus"
+                            name="investor_visibility_status"
+                            class="h-9 rounded-md border bg-background px-3 text-sm"
+                        >
+                            <option
+                                v-for="option in options.investorVisibilityStatuses"
+                                :key="option.value"
+                                :value="option.value"
+                            >
+                                {{ option.label }}
+                            </option>
+                        </select>
+                        <InputError
+                            :message="errors.investor_visibility_status"
+                        />
+                    </div>
                     <Button
                         type="submit"
                         :disabled="processing || !selectedPlanChangeTarget"
@@ -881,6 +948,14 @@ watch(
                             </p>
                             <Badge variant="secondary">
                                 {{ change.changeTypeLabel }}
+                            </Badge>
+                        </div>
+                        <div class="mt-2 flex flex-wrap gap-2">
+                            <Badge v-if="change.investorAgreementTitle">
+                                {{ change.investorAgreementTitle }}
+                            </Badge>
+                            <Badge variant="outline">
+                                {{ change.investorVisibilityStatusLabel }}
                             </Badge>
                         </div>
                         <p class="mt-2 text-muted-foreground">

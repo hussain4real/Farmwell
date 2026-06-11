@@ -18,6 +18,11 @@ readonly class TeamPermissions
         public bool $canManageFarmOperations,
         public bool $canViewFinance,
         public bool $canManageFinance,
+        public bool $canViewInvestorPortal,
+        public bool $canViewInvestorAgreements,
+        public bool $canManageInvestorAgreements,
+        public bool $canViewApprovalRequests,
+        public bool $canManageApprovalRequests,
     ) {
         //
     }

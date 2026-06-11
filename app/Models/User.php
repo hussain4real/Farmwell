@@ -8,6 +8,7 @@ use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Fortify\Contracts\PasskeyUser;
@@ -23,6 +24,26 @@ class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
     use HasFactory, HasRoles, HasTeams, Notifiable, PasskeyAuthenticatable, TwoFactorAuthenticatable {
         HasRoles::teams as permissionTeams;
         HasTeams::teams insteadof HasRoles;
+    }
+
+    /**
+     * Get investor agreements assigned to this user.
+     *
+     * @return HasMany<InvestorAgreement, $this>
+     */
+    public function investorAgreements(): HasMany
+    {
+        return $this->hasMany(InvestorAgreement::class, 'investor_id');
+    }
+
+    /**
+     * Get approval requests decided by this user.
+     *
+     * @return HasMany<ApprovalRequest, $this>
+     */
+    public function decidedApprovalRequests(): HasMany
+    {
+        return $this->hasMany(ApprovalRequest::class, 'decided_by_id');
     }
 
     /**
