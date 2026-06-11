@@ -66,12 +66,16 @@
         "ci:check": [
             "Composer\\Config::disableProcessTimeout",
             "@lint:check",
+            "@wayfinder",
             "npm run lint:check",
             "npm run format:check",
             "npm run types:check",
             "npm run build",
             "@analyse",
             "@coverage"
+        ],
+        "wayfinder": [
+            "@php artisan wayfinder:generate --with-form --no-interaction"
         ],
         "analyse": [
             "phpstan analyse --memory-limit=2G --debug"
