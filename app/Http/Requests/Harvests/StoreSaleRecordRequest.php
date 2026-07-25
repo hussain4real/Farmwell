@@ -70,6 +70,20 @@ class StoreSaleRecordRequest extends FormRequest
                     return;
                 }
 
+                if (! $validator->errors()->hasAny(['quantity', 'unit_price', 'gross_amount'])) {
+                    $expectedGrossAmountMinor = intdiv(
+                        ($this->quantityInHundredths((string) $this->input('quantity')) * Money::toMinorUnit((string) $this->input('unit_price'))) + 50,
+                        100,
+                    );
+
+                    if (Money::toMinorUnit((string) $this->input('gross_amount')) !== $expectedGrossAmountMinor) {
+                        $validator->errors()->add(
+                            'gross_amount',
+                            __('The gross amount must equal the sale quantity multiplied by the unit price.'),
+                        );
+                    }
+                }
+
                 $harvest = HarvestRecord::query()
                     ->where('team_id', $this->team()->id)
                     ->findOrFail($this->integer('harvest_record_id'));

@@ -52,9 +52,11 @@ class DecideApprovalRequest
 
             if ($subject instanceof DistributionRecord) {
                 $subject->forceFill([
-                    'status' => $status === ApprovalRequestStatus::Approved
-                        ? DistributionStatus::Acknowledged
-                        : DistributionStatus::PendingAcknowledgement,
+                    'status' => $subject->status === DistributionStatus::LossRecorded
+                        ? DistributionStatus::LossRecorded
+                        : ($status === ApprovalRequestStatus::Approved
+                            ? DistributionStatus::Acknowledged
+                            : DistributionStatus::PendingAcknowledgement),
                     'acknowledged_at' => $status === ApprovalRequestStatus::Approved ? now() : null,
                 ])->save();
             }

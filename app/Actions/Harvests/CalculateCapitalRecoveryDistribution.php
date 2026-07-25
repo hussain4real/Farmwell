@@ -4,6 +4,8 @@ namespace App\Actions\Harvests;
 
 use App\Models\InvestorAgreement;
 use App\Models\SaleRecord;
+use App\Support\Money;
+use InvalidArgumentException;
 
 class CalculateCapitalRecoveryDistribution
 {
@@ -25,6 +27,10 @@ class CalculateCapitalRecoveryDistribution
      */
     public function handle(InvestorAgreement $agreement, SaleRecord $saleRecord): array
     {
+        if (Money::normalizeCurrency($agreement->currency) !== Money::normalizeCurrency($saleRecord->currency)) {
+            throw new InvalidArgumentException('The sale currency must match the investor agreement currency.');
+        }
+
         $previousRecoveredMinor = (int) $agreement->distributionRecords()
             ->where('sale_record_id', '!=', $saleRecord->id)
             ->sum('capital_recovered_minor');

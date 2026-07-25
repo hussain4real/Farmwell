@@ -10,6 +10,7 @@ use App\Models\InvestorAgreement;
 use App\Models\SaleRecord;
 use App\Models\Team;
 use App\Models\User;
+use App\Support\Money;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -38,7 +39,10 @@ class RecordSale
                 ->findOrFail((int) $attributes['harvest_record_id']);
 
             $this->validateAvailableHarvestQuantity($harvest, $attributes);
+            $this->validateSaleAmounts($attributes);
             $agreement = $this->resolveInvestorAgreement($team, $harvest, $attributes);
+            $currency = $this->resolveTeamFinanceCurrency->handle($team);
+            $this->validateInvestorAgreementCurrency($agreement, $currency);
 
             $sale = SaleRecord::create([
                 ...$attributes,
@@ -49,7 +53,7 @@ class RecordSale
                 'investor_agreement_id' => $agreement?->id,
                 'quantity_unit' => $harvest->quantity_unit,
                 'recorded_by_id' => $actor->id,
-                'currency' => $this->resolveTeamFinanceCurrency->handle($team),
+                'currency' => $currency,
             ]);
 
             $this->updateHarvestSaleStatus($harvest);
@@ -156,6 +160,35 @@ class RecordSale
         }
 
         return $agreement;
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     */
+    private function validateSaleAmounts(array $attributes): void
+    {
+        $expectedGrossAmountMinor = intdiv(
+            ($this->quantityInHundredths((string) $attributes['quantity']) * (int) $attributes['unit_price_minor']) + 50,
+            100,
+        );
+
+        if ($expectedGrossAmountMinor !== (int) $attributes['gross_amount_minor']) {
+            throw ValidationException::withMessages([
+                'gross_amount' => __('The gross amount must equal the sale quantity multiplied by the unit price.'),
+            ]);
+        }
+    }
+
+    private function validateInvestorAgreementCurrency(?InvestorAgreement $agreement, string $saleCurrency): void
+    {
+        if (
+            $agreement instanceof InvestorAgreement
+            && Money::normalizeCurrency($agreement->currency) !== Money::normalizeCurrency($saleCurrency)
+        ) {
+            throw ValidationException::withMessages([
+                'investor_agreement_id' => __('The investor agreement currency must match the sale currency.'),
+            ]);
+        }
     }
 
     private function normalizeQuantityUnit(string $unit): string

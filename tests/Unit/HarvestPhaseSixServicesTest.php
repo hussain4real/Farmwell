@@ -6,6 +6,8 @@ use App\Actions\Harvests\RecalculateDistribution;
 use App\Actions\Harvests\RecordHarvest;
 use App\Actions\Harvests\RecordSale;
 use App\Actions\Investors\BuildInvestorPageData;
+use App\Actions\Investors\DecideApprovalRequest;
+use App\Enums\ApprovalRequestStatus;
 use App\Enums\DistributionStatus;
 use App\Enums\HarvestRecordStatus;
 use App\Enums\HarvestStage;
@@ -69,6 +71,11 @@ test('capital-first recovery handles partial recovery without profit share', fun
         ->and($calculation['net_profit_minor'])->toBe(0)
         ->and($calculation['investor_share_minor'])->toBe(0)
         ->and($calculation['farm_share_minor'])->toBe(0);
+
+    $sale->forceFill(['currency' => 'USD'])->save();
+
+    expect(fn () => app(CalculateCapitalRecoveryDistribution::class)->handle($agreement, $sale))
+        ->toThrow(InvalidArgumentException::class);
 });
 
 test('capital-first recovery handles multiple sales and configurable splits', function () {
@@ -241,6 +248,25 @@ test('record sale enforces harvest availability and agreement scope inside the t
     expect(fn () => app(RecordSale::class)->handle($team, $actor, [
         ...$attributes,
         'quantity' => '1.00',
+        'gross_amount_minor' => 999,
+    ]))->toThrow(ValidationException::class);
+
+    $differentCurrencyAgreement = InvestorAgreement::factory()->create([
+        'team_id' => $team->id,
+        'farm_id' => $farm->id,
+        'currency' => 'USD',
+    ]);
+
+    expect(fn () => app(RecordSale::class)->handle($team, $actor, [
+        ...$attributes,
+        'investor_agreement_id' => $differentCurrencyAgreement->id,
+        'quantity' => '1.00',
+        'gross_amount_minor' => 1_000,
+    ]))->toThrow(ValidationException::class);
+
+    expect(fn () => app(RecordSale::class)->handle($team, $actor, [
+        ...$attributes,
+        'quantity' => '1.00',
         'quantity_unit' => 'tonnes',
     ]))->toThrow(ValidationException::class);
 
@@ -254,6 +280,7 @@ test('record sale enforces harvest availability and agreement scope inside the t
         ...$attributes,
         'investor_agreement_id' => $unrelatedAgreement->id,
         'quantity' => '1.00',
+        'gross_amount_minor' => 1_000,
     ]))->toThrow(ValidationException::class);
 
     expect(SaleRecord::query()->where('harvest_record_id', $harvest->id)->count())->toBe(1);
@@ -371,6 +398,18 @@ test('distribution recalculation distinguishes partial recovery from an explicit
 
     expect($lossDistribution?->status)->toBe(DistributionStatus::LossRecorded)
         ->and($lossDistribution?->unrecovered_capital_minor)->toBe(30_000);
+
+    assert($lossDistribution instanceof DistributionRecord);
+
+    app(DecideApprovalRequest::class)->handle(
+        $team,
+        $lossDistribution->approvalRequest,
+        $actor,
+        ApprovalRequestStatus::Approved,
+    );
+
+    expect($lossDistribution->fresh()->status)->toBe(DistributionStatus::LossRecorded)
+        ->and($lossDistribution->fresh()->acknowledged_at)->not->toBeNull();
 });
 
 test('harvest sale and distribution models expose casts and relationships', function () {

@@ -211,6 +211,14 @@ test('sale validation rejects unrelated agreements, mismatched units, and overso
         ->actingAs($owner)
         ->post(farmwellHarvestRoute('harvests.sales.store', $team), [
             ...$payload,
+            'gross_amount' => '19.99',
+        ])
+        ->assertSessionHasErrors('gross_amount');
+
+    $this
+        ->actingAs($owner)
+        ->post(farmwellHarvestRoute('harvests.sales.store', $team), [
+            ...$payload,
             'quantity_unit' => 'tonnes',
         ])
         ->assertSessionHasErrors('quantity_unit');
@@ -256,6 +264,43 @@ test('sale validation rejects unrelated agreements, mismatched units, and overso
         ->assertRedirect(farmwellHarvestRoute('harvests.index', $team));
 
     expect(SaleRecord::query()->where('harvest_record_id', $unfundedHarvest->id)->count())->toBe(1);
+});
+
+test('sale validation rejects investor agreements with a different currency', function () {
+    [$owner, , $team, $farm, , $cycle, $commodity] = farmwellHarvestContext();
+    $agreement = InvestorAgreement::factory()->create([
+        'team_id' => $team->id,
+        'farm_id' => $farm->id,
+        'production_cycle_id' => $cycle->id,
+        'currency' => 'USD',
+    ]);
+    $harvest = HarvestRecord::factory()->create([
+        'team_id' => $team->id,
+        'farm_id' => $farm->id,
+        'production_cycle_id' => $cycle->id,
+        'commodity_id' => $commodity->id,
+        'investor_agreement_id' => $agreement->id,
+        'quantity' => '10.00',
+        'quantity_unit' => 'kg',
+    ]);
+
+    $this
+        ->actingAs($owner)
+        ->post(farmwellHarvestRoute('harvests.sales.store', $team), [
+            'harvest_record_id' => $harvest->id,
+            'investor_agreement_id' => $agreement->id,
+            'sold_on' => '2026-06-12',
+            'buyer_name' => 'Farm Gate Buyer',
+            'quantity' => '2.00',
+            'quantity_unit' => 'kg',
+            'unit_price' => '10.00',
+            'gross_amount' => '20.00',
+            'deduction_amount' => '0.00',
+            'payment_status' => 'paid',
+        ])
+        ->assertSessionHasErrors('investor_agreement_id');
+
+    expect(SaleRecord::query()->where('harvest_record_id', $harvest->id)->count())->toBe(0);
 });
 
 test('harvest validation enforces agreement cycle scope while allowing global and unfunded harvests', function () {
