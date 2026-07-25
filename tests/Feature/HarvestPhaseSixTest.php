@@ -364,6 +364,38 @@ test('harvest validation enforces agreement cycle scope while allowing global an
     expect(HarvestRecord::query()->where('team_id', $team->id)->count())->toBe(2);
 });
 
+test('harvest validation rejects quantities and labour costs beyond stored precision', function () {
+    [$owner, , $team, $farm, , $cycle, $commodity] = farmwellHarvestContext();
+    $payload = [
+        'farm_id' => $farm->id,
+        'production_cycle_id' => $cycle->id,
+        'commodity_id' => $commodity->id,
+        'harvested_on' => '2026-06-11',
+        'stage' => 'single',
+        'sequence_number' => 1,
+        'quantity' => '10.00',
+        'quantity_unit' => 'kg',
+    ];
+
+    $this
+        ->actingAs($owner)
+        ->post(farmwellHarvestRoute('harvests.store', $team), [
+            ...$payload,
+            'quantity' => '0.001',
+        ])
+        ->assertSessionHasErrors('quantity');
+
+    $this
+        ->actingAs($owner)
+        ->post(farmwellHarvestRoute('harvests.store', $team), [
+            ...$payload,
+            'labour_cost' => '1e3',
+        ])
+        ->assertSessionHasErrors('labour_cost');
+
+    expect(HarvestRecord::query()->where('team_id', $team->id)->exists())->toBeFalse();
+});
+
 test('recording the full harvest quantity marks the harvest sold', function () {
     [$owner, , $team, $farm, , $cycle, $commodity, $agreement] = farmwellHarvestContext();
     $harvest = HarvestRecord::factory()->create([

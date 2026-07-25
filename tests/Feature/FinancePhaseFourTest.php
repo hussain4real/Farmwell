@@ -6,6 +6,7 @@ use App\Enums\TeamRole;
 use App\Enums\TransferReconciliationStatus;
 use App\Models\AuditEvent;
 use App\Models\Budget;
+use App\Models\BudgetLine;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
 use App\Models\ExternalTransfer;
@@ -343,4 +344,103 @@ test('finance records reject cross-team references and private evidence download
         ->actingAs($otherOwner)
         ->get(farmwellFinanceRoute('finance.evidence.show', $otherTeam, ['media' => $receipt]))
         ->assertNotFound();
+});
+
+test('expense validation rejects inconsistent accounting dimensions and unsupported amounts', function () {
+    [$owner, $team, $farm, $cycle, $category] = farmwellFinanceContext();
+    $otherCategory = ExpenseCategory::factory()->create(['team_id' => $team->id]);
+    $otherCycle = ProductionCycle::factory()->create([
+        'team_id' => $team->id,
+        'farm_id' => $farm->id,
+    ]);
+    $budget = Budget::factory()->create([
+        'team_id' => $team->id,
+        'farm_id' => $farm->id,
+        'production_cycle_id' => $cycle->id,
+    ]);
+    $otherBudget = Budget::factory()->create([
+        'team_id' => $team->id,
+        'farm_id' => $farm->id,
+        'production_cycle_id' => $cycle->id,
+    ]);
+    $line = BudgetLine::factory()->create([
+        'team_id' => $team->id,
+        'farm_id' => $farm->id,
+        'production_cycle_id' => $cycle->id,
+        'budget_id' => $budget->id,
+        'expense_category_id' => $category->id,
+    ]);
+    $phase = FundingPhase::factory()->create([
+        'team_id' => $team->id,
+        'farm_id' => $farm->id,
+        'production_cycle_id' => $cycle->id,
+        'budget_id' => $otherBudget->id,
+    ]);
+    $payload = [
+        'farm_id' => $farm->id,
+        'production_cycle_id' => $cycle->id,
+        'budget_id' => $budget->id,
+        'budget_line_id' => $line->id,
+        'expense_category_id' => $category->id,
+        'incurred_on' => '2026-06-05',
+        'description' => 'Accounting scope validation.',
+        'amount' => '10.00',
+    ];
+
+    $this
+        ->actingAs($owner)
+        ->post(farmwellFinanceRoute('finance.expenses.store', $team), [
+            ...$payload,
+            'expense_category_id' => $otherCategory->id,
+        ])
+        ->assertSessionHasErrors('budget_line_id');
+
+    $this
+        ->actingAs($owner)
+        ->post(farmwellFinanceRoute('finance.expenses.store', $team), [
+            ...$payload,
+            'budget_id' => $otherBudget->id,
+        ])
+        ->assertSessionHasErrors('budget_line_id');
+
+    $this
+        ->actingAs($owner)
+        ->post(farmwellFinanceRoute('finance.expenses.store', $team), [
+            ...$payload,
+            'production_cycle_id' => $otherCycle->id,
+        ])
+        ->assertSessionHasErrors(['budget_id', 'budget_line_id']);
+
+    $this
+        ->actingAs($owner)
+        ->post(farmwellFinanceRoute('finance.expenses.store', $team), [
+            ...$payload,
+            'funding_phase_id' => $phase->id,
+        ])
+        ->assertSessionHasErrors('funding_phase_id');
+
+    foreach (['1.001', '1e3'] as $invalidAmount) {
+        $this
+            ->actingAs($owner)
+            ->post(farmwellFinanceRoute('finance.expenses.store', $team), [
+                ...$payload,
+                'amount' => $invalidAmount,
+            ])
+            ->assertSessionHasErrors('amount');
+    }
+
+    expect(Expense::query()->where('team_id', $team->id)->exists())->toBeFalse();
+
+    $this
+        ->actingAs($owner)
+        ->post(farmwellFinanceRoute('finance.expenses.store', $team), [
+            'farm_id' => $farm->id,
+            'expense_category_id' => $category->id,
+            'incurred_on' => '2026-06-05',
+            'description' => 'Farm-wide expense.',
+            'amount' => '10.00',
+        ])
+        ->assertRedirect(farmwellFinanceRoute('finance.expenses.index', $team));
+
+    expect(Expense::query()->where('team_id', $team->id)->count())->toBe(1);
 });

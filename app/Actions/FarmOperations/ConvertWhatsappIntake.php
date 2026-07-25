@@ -9,6 +9,7 @@ use App\Models\Team;
 use App\Models\User;
 use App\Models\WhatsappIntake;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class ConvertWhatsappIntake
 {
@@ -33,6 +34,17 @@ class ConvertWhatsappIntake
         array $normalizedAttributes,
     ): FarmActivity {
         return DB::transaction(function () use ($team, $intake, $reviewer, $activityAttributes, $normalizedAttributes) {
+            $intake = WhatsappIntake::query()
+                ->where('team_id', $team->id)
+                ->lockForUpdate()
+                ->findOrFail($intake->id);
+
+            if ($intake->review_status !== WhatsappIntakeStatus::Pending) {
+                throw ValidationException::withMessages([
+                    'whatsapp_intake' => __('This WhatsApp intake has already been reviewed.'),
+                ]);
+            }
+
             $activity = $this->recordFarmActivity->handle(
                 team: $team,
                 actor: $reviewer,

@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\FarmOperations\ConvertWhatsappIntake;
 use App\Enums\FarmActivityStatus;
 use App\Enums\FarmTaskStatus;
 use App\Enums\FarmType;
@@ -19,6 +20,7 @@ use App\Models\User;
 use App\Models\WhatsappIntake;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
@@ -411,6 +413,33 @@ test('whatsapp intake can be converted into official activities or rejected', fu
             'whatsapp_intake.converted',
             'whatsapp_intake.rejected',
         );
+});
+
+test('whatsapp intake conversion reloads the locked intake before creating an activity', function () {
+    [$owner, $team, $farm] = farmwellPhaseThreeContext();
+    $intake = WhatsappIntake::factory()->create([
+        'team_id' => $team->id,
+        'farm_id' => $farm->id,
+        'imported_by_id' => $owner->id,
+        'review_status' => WhatsappIntakeStatus::Pending,
+    ]);
+
+    WhatsappIntake::query()
+        ->whereKey($intake->id)
+        ->update(['review_status' => WhatsappIntakeStatus::Converted]);
+
+    expect(fn () => app(ConvertWhatsappIntake::class)->handle(
+        team: $team,
+        intake: $intake,
+        reviewer: $owner,
+        activityAttributes: [],
+        normalizedAttributes: [],
+    ))->toThrow(ValidationException::class);
+
+    expect(FarmActivity::query()
+        ->where('source_type', 'whatsapp_intake')
+        ->where('source_reference_id', $intake->id)
+        ->exists())->toBeFalse();
 });
 
 test('phase three validation keeps field records scoped to the current team and farm', function () {

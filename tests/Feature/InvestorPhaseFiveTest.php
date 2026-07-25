@@ -1,6 +1,7 @@
 <?php
 
 use App\Actions\Finance\EnsureDefaultExpenseCategories;
+use App\Actions\Investors\DecideApprovalRequest;
 use App\Enums\ApprovalRequestStatus;
 use App\Enums\ApprovalRequestType;
 use App\Enums\InvestorAgreementStatus;
@@ -28,6 +29,7 @@ use App\Models\WhatsappIntake;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
@@ -417,6 +419,82 @@ test('finance and plan-change writes create investor approval requests and decis
         ->actingAs($investor)
         ->get(farmwellInvestorRoute('investor-evidence.show', $team, ['media' => $receipt]))
         ->assertDownload($receipt?->file_name);
+});
+
+test('approval decisions preserve terminal states while allowing clarification to be resolved', function () {
+    [$owner, $investor, $team, $farm, $cycle, $category] = farmwellInvestorContext();
+    $agreement = InvestorAgreement::factory()->create([
+        'team_id' => $team->id,
+        'investor_id' => $investor->id,
+        'farm_id' => $farm->id,
+        'production_cycle_id' => $cycle->id,
+    ]);
+    $expense = Expense::factory()->create([
+        'team_id' => $team->id,
+        'farm_id' => $farm->id,
+        'production_cycle_id' => $cycle->id,
+        'expense_category_id' => $category->id,
+        'investor_agreement_id' => $agreement->id,
+        'investor_visibility_status' => InvestorVisibilityStatus::PendingApproval,
+    ]);
+    $staleRequest = ApprovalRequest::factory()->create([
+        'team_id' => $team->id,
+        'investor_agreement_id' => $agreement->id,
+        'subject_type' => $expense->getMorphClass(),
+        'subject_id' => $expense->id,
+        'status' => ApprovalRequestStatus::Pending,
+    ]);
+
+    ApprovalRequest::query()
+        ->whereKey($staleRequest->id)
+        ->update([
+            'status' => ApprovalRequestStatus::Approved,
+            'decided_by_id' => $investor->id,
+            'approved_amount_minor' => 25_000,
+            'decision_comment' => 'Original approval.',
+            'decided_at' => now(),
+        ]);
+
+    expect(fn () => app(DecideApprovalRequest::class)->handle(
+        team: $team,
+        approvalRequest: $staleRequest,
+        actor: $owner,
+        status: ApprovalRequestStatus::Rejected,
+        comment: 'Stale rejection.',
+    ))->toThrow(ValidationException::class);
+
+    $decidedRequest = $staleRequest->fresh();
+
+    expect($decidedRequest->status)->toBe(ApprovalRequestStatus::Approved)
+        ->and($decidedRequest->decided_by_id)->toBe($investor->id)
+        ->and($decidedRequest->approved_amount_minor)->toBe(25_000)
+        ->and($decidedRequest->decision_comment)->toBe('Original approval.');
+
+    $clarificationRequest = ApprovalRequest::factory()->create([
+        'team_id' => $team->id,
+        'investor_agreement_id' => $agreement->id,
+        'subject_type' => $expense->getMorphClass(),
+        'subject_id' => $expense->id,
+        'status' => ApprovalRequestStatus::Pending,
+    ]);
+
+    $clarificationRequest = app(DecideApprovalRequest::class)->handle(
+        team: $team,
+        approvalRequest: $clarificationRequest,
+        actor: $investor,
+        status: ApprovalRequestStatus::ClarificationRequested,
+        comment: 'Please clarify.',
+    );
+
+    $clarificationRequest = app(DecideApprovalRequest::class)->handle(
+        team: $team,
+        approvalRequest: $clarificationRequest,
+        actor: $investor,
+        status: ApprovalRequestStatus::Approved,
+    );
+
+    expect($clarificationRequest->status)->toBe(ApprovalRequestStatus::Approved)
+        ->and($expense->fresh()->investor_visibility_status)->toBe(InvestorVisibilityStatus::Approved);
 });
 
 test('investor portal denies unrelated inactive and private records while allowing scoped comments', function () {
