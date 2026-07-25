@@ -1,6 +1,18 @@
 <script setup lang="ts">
 import { Link, usePage } from '@inertiajs/vue3';
-import { BookOpen, Folder, LayoutGrid, Menu, Search } from 'lucide-vue-next';
+import {
+    BookOpen,
+    ClipboardList,
+    Folder,
+    Handshake,
+    Landmark,
+    LayoutGrid,
+    ListTodo,
+    Menu,
+    MessageSquare,
+    Search,
+    Tractor,
+} from 'lucide-vue-next';
 import { computed } from 'vue';
 import AppLogo from '@/components/AppLogo.vue';
 import AppLogoIcon from '@/components/AppLogoIcon.vue';
@@ -37,6 +49,14 @@ import { useCurrentUrl } from '@/composables/useCurrentUrl';
 import { getInitials } from '@/composables/useInitials';
 import { toUrl } from '@/lib/utils';
 import { dashboard } from '@/routes';
+import { index as farmTasksIndex } from '@/routes/farm-tasks';
+import { index as farmsIndex } from '@/routes/farms';
+import { index as fieldDiaryIndex } from '@/routes/field-diary';
+import { index as financeIndex } from '@/routes/finance';
+import { index as investorPortalIndex } from '@/routes/investor-portal';
+import { index as investorsIndex } from '@/routes/investors';
+import { index as investorApprovalsIndex } from '@/routes/investors/approvals';
+import { index as whatsappIntakesIndex } from '@/routes/whatsapp-intakes';
 import type { BreadcrumbItem, NavItem } from '@/types';
 
 type Props = {
@@ -54,17 +74,131 @@ const { isCurrentUrl, whenCurrentUrl } = useCurrentUrl();
 const dashboardUrl = computed(() =>
     page.props.currentTeam ? dashboard(page.props.currentTeam.slug).url : '/',
 );
+const farmsUrl = computed(() =>
+    page.props.currentTeam ? farmsIndex(page.props.currentTeam.slug).url : '/',
+);
+const fieldDiaryUrl = computed(() =>
+    page.props.currentTeam
+        ? fieldDiaryIndex(page.props.currentTeam.slug).url
+        : '/',
+);
+const farmTasksUrl = computed(() =>
+    page.props.currentTeam
+        ? farmTasksIndex(page.props.currentTeam.slug).url
+        : '/',
+);
+const whatsappIntakesUrl = computed(() =>
+    page.props.currentTeam
+        ? whatsappIntakesIndex(page.props.currentTeam.slug).url
+        : '/',
+);
+const financeUrl = computed(() =>
+    page.props.currentTeam
+        ? financeIndex(page.props.currentTeam.slug).url
+        : '/',
+);
+const investorsUrl = computed(() =>
+    page.props.currentTeam
+        ? investorsIndex(page.props.currentTeam.slug).url
+        : '/',
+);
+const investorApprovalsUrl = computed(() =>
+    page.props.currentTeam
+        ? investorApprovalsIndex(page.props.currentTeam.slug).url
+        : '/',
+);
+const investorPortalUrl = computed(() =>
+    page.props.currentTeam
+        ? investorPortalIndex(page.props.currentTeam.slug).url
+        : '/',
+);
+const currentPermissions = computed(() => page.props.currentTeamPermissions);
+const investorOnly = computed(
+    () =>
+        currentPermissions.value?.canViewInvestorPortal === true &&
+        currentPermissions.value.canViewFarmOperations !== true &&
+        currentPermissions.value.canViewFinance !== true &&
+        currentPermissions.value.canViewInvestorAgreements !== true,
+);
+const homeUrl = computed(() =>
+    investorOnly.value ? investorPortalUrl.value : dashboardUrl.value,
+);
 
 const activeItemStyles =
     'text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100';
 
-const mainNavItems = computed<NavItem[]>(() => [
-    {
-        title: 'Dashboard',
-        href: dashboardUrl.value,
-        icon: LayoutGrid,
-    },
-]);
+const mainNavItems = computed<NavItem[]>(() => {
+    const permissions = currentPermissions.value;
+
+    if (investorOnly.value) {
+        return [
+            {
+                title: 'Investor Portal',
+                href: investorPortalUrl.value,
+                icon: Handshake,
+            },
+        ];
+    }
+
+    const items: NavItem[] = [
+        {
+            title: 'Dashboard',
+            href: dashboardUrl.value,
+            icon: LayoutGrid,
+        },
+    ];
+
+    if (permissions?.canViewFarmOperations) {
+        items.push(
+            {
+                title: 'Farms',
+                href: farmsUrl.value,
+                icon: Tractor,
+            },
+            {
+                title: 'Field Diary',
+                href: fieldDiaryUrl.value,
+                icon: ClipboardList,
+            },
+            {
+                title: 'Tasks',
+                href: farmTasksUrl.value,
+                icon: ListTodo,
+            },
+            {
+                title: 'WhatsApp Intake',
+                href: whatsappIntakesUrl.value,
+                icon: MessageSquare,
+            },
+        );
+    }
+
+    if (permissions?.canViewFinance) {
+        items.push({
+            title: 'Finance',
+            href: financeUrl.value,
+            icon: Landmark,
+        });
+    }
+
+    if (permissions?.canViewInvestorAgreements) {
+        items.push({
+            title: 'Investors',
+            href: investorsUrl.value,
+            icon: Handshake,
+        });
+    }
+
+    if (permissions?.canViewApprovalRequests) {
+        items.push({
+            title: 'Approvals',
+            href: investorApprovalsUrl.value,
+            icon: Handshake,
+        });
+    }
+
+    return items;
+});
 
 const rightNavItems: NavItem[] = [
     {
@@ -151,7 +285,7 @@ const rightNavItems: NavItem[] = [
                     </Sheet>
                 </div>
 
-                <Link :href="dashboardUrl" class="flex items-center gap-x-2">
+                <Link :href="homeUrl" class="flex items-center gap-x-2">
                     <AppLogo />
                 </Link>
 

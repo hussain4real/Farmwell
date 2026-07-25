@@ -1,6 +1,11 @@
 <?php
 
 use App\Models\User;
+use Inertia\Testing\AssertableInertia as Assert;
+
+beforeEach(function () {
+    $this->withoutVite();
+});
 
 test('guests are redirected to the login page', function () {
     $user = User::factory()->create();
@@ -18,5 +23,22 @@ test('authenticated users can visit the dashboard', function () {
         ->actingAs($user)
         ->get(route('dashboard'));
 
-    $response->assertOk();
+    $response
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('Dashboard')
+            ->where('stats.farms', 0)
+            ->where('stats.activities', 0)
+            ->missing('farms')
+        );
+});
+
+test('unverified users are redirected to the email verification prompt', function () {
+    $user = User::factory()->unverified()->create();
+
+    $response = $this
+        ->actingAs($user)
+        ->get(route('dashboard'));
+
+    $response->assertRedirect(route('verification.notice'));
 });

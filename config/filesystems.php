@@ -38,6 +38,14 @@ return [
             'report' => false,
         ],
 
+        'farmwell_private' => [
+            'driver' => 'local',
+            'root' => storage_path('app/private/farmwell'),
+            'visibility' => 'private',
+            'throw' => false,
+            'report' => false,
+        ],
+
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),

@@ -13,4 +13,19 @@ enum TeamPermission: string
 
     case CreateInvitation = 'invitation:create';
     case CancelInvitation = 'invitation:cancel';
+
+    case ManageSettings = 'settings:manage';
+    case ViewAuditEvents = 'audit-events:view';
+
+    case ViewFarmOperations = 'farm-operations:view';
+    case ManageFarmOperations = 'farm-operations:manage';
+
+    case ViewFinance = 'finance:view';
+    case ManageFinance = 'finance:manage';
+
+    case ViewInvestorPortal = 'investor-portal:view';
+    case ViewInvestorAgreements = 'investor-agreements:view';
+    case ManageInvestorAgreements = 'investor-agreements:manage';
+    case ViewApprovalRequests = 'approval-requests:view';
+    case ManageApprovalRequests = 'approval-requests:manage';
 }

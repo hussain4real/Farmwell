@@ -23,6 +23,7 @@ class EnsureTeamMembership
         abort_if(! $user || ! $team || ! $user->belongsToTeam($team), 403);
 
         $this->ensureTeamMemberHasRequiredRole($user, $team, $minimumRole);
+        $user->activatePermissionsTeam($team);
 
         if ($request->route('current_team') && ! $user->isCurrentTeam($team)) {
             $user->switchTeam($team);

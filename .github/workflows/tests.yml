@@ -4,14 +4,14 @@ on:
   push:
     branches:
       - dev
+      - stage
       - main
-      - master
       - workos
   pull_request:
     branches:
       - dev
+      - stage
       - main
-      - master
       - workos
 
 jobs:
@@ -30,7 +30,7 @@ jobs:
         with:
           php-version: ${{ matrix.php-version }}
           tools: composer:v2
-          coverage: xdebug
+          coverage: pcov
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -52,8 +52,5 @@ jobs:
       - name: Build Assets
         run: npm run build
 
-      - name: Static Analysis
-        run: composer analyse
-
-      - name: Tests
-        run: ./vendor/bin/pest --coverage --min=100
+      - name: Quality Gate
+        run: composer ci:check

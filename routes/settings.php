@@ -5,6 +5,7 @@ use App\Http\Controllers\Settings\SecurityController;
 use App\Http\Controllers\Teams\TeamController;
 use App\Http\Controllers\Teams\TeamInvitationController;
 use App\Http\Controllers\Teams\TeamMemberController;
+use App\Http\Controllers\Teams\TeamSettingController;
 use App\Http\Middleware\EnsureTeamMembership;
 use Illuminate\Auth\Middleware\RequirePassword;
 use Illuminate\Support\Facades\Route;
@@ -37,6 +38,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::patch('settings/teams/{team}', [TeamController::class, 'update'])->name('teams.update');
         Route::delete('settings/teams/{team}', [TeamController::class, 'destroy'])->name('teams.destroy');
         Route::post('settings/teams/{team}/switch', [TeamController::class, 'switch'])->name('teams.switch');
+        Route::patch('settings/teams/{team}/settings/{settingGroup}/{settingKey}', [TeamSettingController::class, 'update'])
+            ->whereAlphaNumeric('settingGroup')
+            ->whereAlphaNumeric('settingKey')
+            ->name('teams.settings.update');
 
         Route::patch('settings/teams/{team}/members/{user}', [TeamMemberController::class, 'update'])->name('teams.members.update');
         Route::delete('settings/teams/{team}/members/{user}', [TeamMemberController::class, 'destroy'])->name('teams.members.destroy');

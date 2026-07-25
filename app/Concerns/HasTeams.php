@@ -87,6 +87,7 @@ trait HasTeams
 
         $this->update(['current_team_id' => $team->id]);
         $this->setRelation('currentTeam', $team);
+        $this->activatePermissionsTeam($team);
 
         URL::defaults(['current_team' => $team->slug]);
 
@@ -122,10 +123,13 @@ trait HasTeams
      */
     public function teamRole(Team $team): ?TeamRole
     {
-        return $this->teamMemberships()
+        /** @var TeamRole|null $role */
+        $role = $this->teamMemberships()
             ->where('team_id', $team->id)
             ->first()
             ?->role;
+
+        return $role;
     }
 
     /**
@@ -165,16 +169,25 @@ trait HasTeams
      */
     public function toTeamPermissions(Team $team): TeamPermissions
     {
-        $role = $this->teamRole($team);
-
         return new TeamPermissions(
-            canUpdateTeam: $role?->hasPermission(TeamPermission::UpdateTeam) ?? false,
-            canDeleteTeam: $role?->hasPermission(TeamPermission::DeleteTeam) ?? false,
-            canAddMember: $role?->hasPermission(TeamPermission::AddMember) ?? false,
-            canUpdateMember: $role?->hasPermission(TeamPermission::UpdateMember) ?? false,
-            canRemoveMember: $role?->hasPermission(TeamPermission::RemoveMember) ?? false,
-            canCreateInvitation: $role?->hasPermission(TeamPermission::CreateInvitation) ?? false,
-            canCancelInvitation: $role?->hasPermission(TeamPermission::CancelInvitation) ?? false,
+            canUpdateTeam: $this->hasTeamPermission($team, TeamPermission::UpdateTeam),
+            canDeleteTeam: $this->hasTeamPermission($team, TeamPermission::DeleteTeam),
+            canAddMember: $this->hasTeamPermission($team, TeamPermission::AddMember),
+            canUpdateMember: $this->hasTeamPermission($team, TeamPermission::UpdateMember),
+            canRemoveMember: $this->hasTeamPermission($team, TeamPermission::RemoveMember),
+            canCreateInvitation: $this->hasTeamPermission($team, TeamPermission::CreateInvitation),
+            canCancelInvitation: $this->hasTeamPermission($team, TeamPermission::CancelInvitation),
+            canManageSettings: $this->hasTeamPermission($team, TeamPermission::ManageSettings),
+            canViewAuditEvents: $this->hasTeamPermission($team, TeamPermission::ViewAuditEvents),
+            canViewFarmOperations: $this->hasTeamPermission($team, TeamPermission::ViewFarmOperations),
+            canManageFarmOperations: $this->hasTeamPermission($team, TeamPermission::ManageFarmOperations),
+            canViewFinance: $this->hasTeamPermission($team, TeamPermission::ViewFinance),
+            canManageFinance: $this->hasTeamPermission($team, TeamPermission::ManageFinance),
+            canViewInvestorPortal: $this->hasTeamPermission($team, TeamPermission::ViewInvestorPortal),
+            canViewInvestorAgreements: $this->hasTeamPermission($team, TeamPermission::ViewInvestorAgreements),
+            canManageInvestorAgreements: $this->hasTeamPermission($team, TeamPermission::ManageInvestorAgreements),
+            canViewApprovalRequests: $this->hasTeamPermission($team, TeamPermission::ViewApprovalRequests),
+            canManageApprovalRequests: $this->hasTeamPermission($team, TeamPermission::ManageApprovalRequests),
         );
     }
 
@@ -191,6 +204,35 @@ trait HasTeams
      */
     public function hasTeamPermission(Team $team, TeamPermission $permission): bool
     {
-        return $this->teamRole($team)?->hasPermission($permission) ?? false;
+        $role = $this->teamRole($team);
+
+        if ($role === null) {
+            return false;
+        }
+
+        if ($role->hasPermission($permission)) {
+            return true;
+        }
+
+        $previousTeamId = getPermissionsTeamId();
+
+        setPermissionsTeamId($team->id);
+        $this->unsetRelation('roles')->unsetRelation('permissions');
+
+        try {
+            return $this->can($permission->value, 'web');
+        } finally {
+            setPermissionsTeamId($previousTeamId);
+            $this->unsetRelation('roles')->unsetRelation('permissions');
+        }
+    }
+
+    /**
+     * Activate package-backed permissions for the given team.
+     */
+    public function activatePermissionsTeam(Team $team): void
+    {
+        setPermissionsTeamId($team->id);
+        $this->unsetRelation('roles')->unsetRelation('permissions');
     }
 }
