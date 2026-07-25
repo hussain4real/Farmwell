@@ -139,6 +139,30 @@ class InvestorAgreement extends Model implements HasMedia
     }
 
     /**
+     * @return HasMany<HarvestRecord, $this>
+     */
+    public function harvestRecords(): HasMany
+    {
+        return $this->hasMany(HarvestRecord::class);
+    }
+
+    /**
+     * @return HasMany<SaleRecord, $this>
+     */
+    public function saleRecords(): HasMany
+    {
+        return $this->hasMany(SaleRecord::class);
+    }
+
+    /**
+     * @return HasMany<DistributionRecord, $this>
+     */
+    public function distributionRecords(): HasMany
+    {
+        return $this->hasMany(DistributionRecord::class);
+    }
+
+    /**
      * @return HasMany<ApprovalRequest, $this>
      */
     public function approvalRequests(): HasMany

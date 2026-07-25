@@ -45,6 +45,12 @@ class DetermineInvestorApprovalRequirement
             return $this->result(true, ApprovalTriggerType::PlanChange, null, $rule, 'Material plan changes require investor approval.');
         }
 
+        if ($requestType === ApprovalRequestType::DistributionAcknowledgement) {
+            $rule = $this->matchingRule($team, $agreement, $requestType, ApprovalTriggerType::DistributionAcknowledgement, $category, $fundingPhase, $farmType);
+
+            return $this->result(true, ApprovalTriggerType::DistributionAcknowledgement, null, $rule, 'Final distribution records require investor acknowledgement.');
+        }
+
         if ($requestType === ApprovalRequestType::BudgetOverrun) {
             $rule = $this->matchingRule($team, $agreement, $requestType, ApprovalTriggerType::BudgetOverrun, $category, $fundingPhase, $farmType);
 

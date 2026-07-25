@@ -1,13 +1,13 @@
 # Farmwell User Guides
 
-Applies through: Phase 5 - Investor Agreements and Approvals  
+Applies through: Phase 6 - Harvest, Sales, Capital Recovery
 Last reviewed: 2026-06-11  
 Audience: All Farmwell users, support users, and implementation maintainers  
-Related app areas: Dashboard, Farms, Field Diary, Tasks, WhatsApp Intake, Finance, Investors, Approvals, Investor Portal, Team Settings
+Related app areas: Dashboard, Farms, Field Diary, Tasks, WhatsApp Intake, Finance, Harvests, Investors, Approvals, Investor Portal, Team Settings
 
-Farmwell is currently documented through Phase 5: tenant setup, farm operations, diary/tasks/intake, finance tracking, investor agreements, investor approvals, and agreement-scoped investor transparency.
+Farmwell is currently documented through Phase 6: tenant setup, farm operations, diary/tasks/intake, finance tracking, investor agreements, investor approvals, agreement-scoped investor transparency, harvest/output tracking, sales records, capital-first recovery, and investor distribution acknowledgement.
 
-These guides describe current product behavior only. Harvest, sales, capital recovery, AI summaries, formal reports, exports, backups, marketplace workflows, and public investment workflows are not current user workflows in this guide set.
+These guides describe current product behavior only. AI summaries, formal reports, exports, backups, marketplace workflows, and public investment workflows are not current user workflows in this guide set.
 
 ## Guide Map
 
@@ -37,6 +37,7 @@ Small teams may give one person more than one responsibility. Use the permission
 | Finance Expenses | Expenses, categories, receipts, and investor visibility | Finance Guide |
 | Finance Funding Phases | Funding phase tracking and investor approval triggers | Finance Guide |
 | Finance External Transfers | Off-platform transfer records, proof, and reconciliation | Finance Guide |
+| Harvests | Harvest/output records, sales, capital recovery, and investor distributions | Farm Operations Guide / Finance Guide |
 | Investors | Investor agreements, agreement documents, and approval settings | Owner and Admin Guide |
 | Approvals | Internal approval queue and decision tracking | Owner and Admin Guide |
 | Investor Portal | Investor-only view of assigned approved agreement records | Investor Guide |
@@ -52,6 +53,9 @@ Small teams may give one person more than one responsibility. Use the permission
 - Finance records track budgets, expenses, funding phases, receipts, external transfers, proof, reconciliation, variance, and carry-forward balances.
 - Farmwell tracks external money movement only. It does not collect funds, hold balances, provide escrow or wallet services, or disburse funds inside the platform.
 - Investor agreements define what an investor may see. Investor visibility is always agreement-scoped and review-gated.
+- Harvest records capture production output by farm, unit, cycle, commodity, stage, quantity, status, and evidence.
+- Sales records are linked to harvest records and drive capital-first recovery and distribution calculations.
+- Distribution records summarize recovered capital, unrecovered capital, profit, investor share, and farm share for investor-linked sales.
 - Investor-safe summaries are for external transparency. Internal notes are for farm operations and should not be copied into investor-facing fields.
 - Audit events preserve sensitive changes such as role, settings, finance, agreement, approval, and visibility updates.
 
@@ -59,9 +63,6 @@ Small teams may give one person more than one responsibility. Use the permission
 
 The following are planned in later phases and should not be described to users as available now:
 
-- Harvest and production output records.
-- Sales records, buyer tracking, and sales proceeds tracking.
-- Capital recovery, profit/loss, and distribution calculations.
 - AI-generated weekly, risk, decision, or investor summary drafts.
 - Formal PDF reports, Excel exports, backup operations, and investor statements.
 - WhatsApp Business API automation.
@@ -78,6 +79,5 @@ Use this checklist after every implementation phase:
 - Cross-check workspace names against route-backed app pages.
 - Confirm finance language remains external-tracking only.
 - Confirm investor language excludes internal notes, unapproved records, unrelated teams, unrelated investors, sensitive bank details, and private records.
-- Add Phase 6 content to owner/admin, finance, and investor guides after harvest, sales, capital recovery, and distributions ship.
 - Add Phase 7 content after Laravel AI SDK draft/review workflows ship.
 - Add Phase 8 content after report, export, and backup workflows ship.

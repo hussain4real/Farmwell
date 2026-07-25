@@ -130,6 +130,36 @@ class Farm extends Model
     }
 
     /**
+     * Get harvest records scoped to this farm.
+     *
+     * @return HasMany<HarvestRecord, $this>
+     */
+    public function harvestRecords(): HasMany
+    {
+        return $this->hasMany(HarvestRecord::class);
+    }
+
+    /**
+     * Get sale records scoped to this farm.
+     *
+     * @return HasMany<SaleRecord, $this>
+     */
+    public function saleRecords(): HasMany
+    {
+        return $this->hasMany(SaleRecord::class);
+    }
+
+    /**
+     * Get distribution records scoped to this farm.
+     *
+     * @return HasMany<DistributionRecord, $this>
+     */
+    public function distributionRecords(): HasMany
+    {
+        return $this->hasMany(DistributionRecord::class);
+    }
+
+    /**
      * Get investor agreements scoped to this farm.
      *
      * @return HasMany<InvestorAgreement, $this>

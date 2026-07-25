@@ -1,11 +1,11 @@
 # Investor Guide
 
-Applies through: Phase 5 - Investor Agreements and Approvals  
+Applies through: Phase 6 - Harvest, Sales, Capital Recovery
 Last reviewed: 2026-06-11  
 Audience: Investors with Farmwell portal access  
 Related app areas: Investor Portal
 
-Use this guide when you need to review your assigned farm agreement, approved fund usage, approved evidence, funding progress, approval requests, and comments.
+Use this guide when you need to review your assigned farm agreement, approved fund usage, approved evidence, funding progress, harvest and sales transparency, distribution acknowledgements, approval requests, and comments.
 
 ## What You Can See
 
@@ -18,6 +18,9 @@ You may see:
 - Approved expense-level fund usage.
 - Approved receipt, activity, or transfer evidence.
 - Approved activity and plan-change summaries.
+- Approved harvest/output records.
+- Visible sale records linked to your approved distributions.
+- Approved distribution records showing capital recovery and profit-share calculations.
 - Approval requests assigned to you.
 - Your own comments and questions on supported records.
 
@@ -76,6 +79,52 @@ You may see:
 
 Farmwell records external transfer tracking only. It does not collect funds, hold balances, provide escrow or wallet services, or disburse funds.
 
+## Harvest and Sales Transparency
+
+Approved harvest records help you understand production output for your agreement.
+
+You may see:
+
+- Farm, production cycle, and commodity.
+- Harvest date.
+- Stage and sequence for recurring or staged harvests.
+- Quantity, sold quantity, remaining quantity, and quantity unit.
+- Quality notes approved for investor visibility.
+- Approved harvest evidence.
+
+Visible sale records help connect approved output to proceeds.
+
+You may see:
+
+- Sale date.
+- Buyer name.
+- Quantity and unit.
+- Gross amount, deductions, and net amount.
+- Payment status.
+- Approved sale evidence when available.
+
+If a harvest or sale is missing, it may still be private, pending approval, unrelated to your agreement, or not yet recorded.
+
+## Capital Recovery and Distributions
+
+Distribution records show how investor-linked sale proceeds are calculated.
+
+You may see:
+
+- Sale net amount.
+- Previous capital already recovered.
+- Capital recovered from the sale.
+- Unrecovered capital remaining.
+- Profit after capital recovery.
+- Investor share.
+- Farm share.
+- Investor and farm profit-share percentages.
+- Distribution status.
+
+Capital is recovered before profit is split. A sale may recover only part of the funded capital and show no profit share. Multiple sales for the same agreement can build toward full capital recovery before profit is split.
+
+Distribution records in Farmwell are operating transparency records. They are not wallet balances, escrow balances, payment guarantees, or in-platform disbursements.
+
 ## Approval Decisions
 
 Some records may require your decision.
@@ -87,7 +136,9 @@ You can:
 - Request clarification.
 - Add comments explaining the decision.
 
-Approval decisions may apply to funding releases, threshold-triggered expenses, investor-required categories, material budget overruns, or major plan changes.
+Approval decisions may apply to funding releases, threshold-triggered expenses, investor-required categories, material budget overruns, major plan changes, or distribution acknowledgements.
+
+Distribution acknowledgement means you have reviewed the sale recovery and distribution calculation for your agreement. Approving the acknowledgement makes the distribution visible as approved in your portal. Rejecting or requesting clarification means the distribution should not be treated as approved.
 
 If you request clarification, the record should not be treated as approved until the question is resolved and a later decision is recorded.
 
@@ -106,4 +157,4 @@ Do not use comments for legal, tax, or investment advice requests. Farmwell is a
 
 ## Current Limits
 
-The investor portal does not currently provide harvest/output, sales proceeds, capital recovery, profit distribution, AI summaries, formal reports, or export workflows. Those are later MVP phases.
+The investor portal does not currently provide AI summaries, formal reports, export workflows, wallet balances, escrow balances, or in-platform payout processing. Those are outside the current Phase 6 workflows.

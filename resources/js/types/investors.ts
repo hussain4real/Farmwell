@@ -56,9 +56,19 @@ export type InvestorAgreementSummary = {
     releasedMinor: number;
     spentMinor: number;
     balanceMinor: number;
+    saleNetMinor: number;
+    capitalRecoveredMinor: number;
+    unrecoveredCapitalMinor: number;
+    investorShareMinor: number;
+    farmShareMinor: number;
     released: string;
     spent: string;
     balance: string;
+    saleNet: string;
+    capitalRecovered: string;
+    unrecoveredCapital: string;
+    investorShare: string;
+    farmShare: string;
 };
 
 export type InvestorApprovalSettings = {
@@ -123,6 +133,52 @@ export type InvestorExternalTransfer = {
     proof: Evidence[];
 };
 
+export type InvestorHarvestRecord = {
+    id: number;
+    harvestedOn: string;
+    commodityName: string;
+    stage: string;
+    stageLabel: string;
+    quantity: string;
+    quantityUnit: string;
+    qualityNotes: string | null;
+    status: string;
+    statusLabel: string;
+    evidence: Evidence[];
+};
+
+export type InvestorSaleRecord = {
+    id: number;
+    soldOn: string;
+    buyerName: string;
+    commodityName: string;
+    quantity: string;
+    quantityUnit: string;
+    grossAmount: string;
+    deductionAmount: string;
+    netAmount: string;
+    currency: string;
+    paymentStatus: string;
+    paymentStatusLabel: string;
+    evidence: Evidence[];
+};
+
+export type InvestorDistributionRecord = {
+    id: number;
+    saleRecordId: number;
+    buyerName: string;
+    saleNetAmount: string;
+    capitalRecovered: string;
+    unrecoveredCapital: string;
+    netProfit: string;
+    investorShare: string;
+    farmShare: string;
+    currency: string;
+    status: string;
+    statusLabel: string;
+    calculatedAt: string;
+};
+
 export type InvestorActivity = {
     id: number;
     activityDate: string;
@@ -164,6 +220,9 @@ export type InvestorPortalAgreement = InvestorAgreement & {
     fundingPhases: InvestorFundingPhase[];
     expenses: InvestorExpense[];
     externalTransfers: InvestorExternalTransfer[];
+    harvestRecords: InvestorHarvestRecord[];
+    saleRecords: InvestorSaleRecord[];
+    distributionRecords: InvestorDistributionRecord[];
     activities: InvestorActivity[];
     tasks: InvestorTask[];
     planChanges: InvestorPlanChange[];

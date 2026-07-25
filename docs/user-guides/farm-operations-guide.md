@@ -1,11 +1,11 @@
 # Farm Operations Guide
 
-Applies through: Phase 5 - Investor Agreements and Approvals  
+Applies through: Phase 6 - Harvest, Sales, Capital Recovery
 Last reviewed: 2026-06-11  
 Audience: Farm managers, farmers, and operations/log keepers  
-Related app areas: Dashboard, Farms, Field Diary, Tasks, WhatsApp Intake
+Related app areas: Dashboard, Farms, Field Diary, Tasks, WhatsApp Intake, Harvests
 
-Use this guide when you record farm work, keep operational history clean, upload evidence, track task progress, and convert field updates into official records.
+Use this guide when you record farm work, keep operational history clean, upload evidence, track task progress, convert field updates into official records, and record harvest/output entries.
 
 ## Responsibilities
 
@@ -14,6 +14,7 @@ Use this guide when you record farm work, keep operational history clean, upload
 - Keep task statuses current.
 - Give delay, blocked, skipped, or cancelled reasons when required.
 - Review WhatsApp-style updates before they become official records.
+- Record harvest/output entries against the correct farm structure.
 - Separate internal notes from investor-safe summaries.
 
 ## Dashboard
@@ -21,6 +22,7 @@ Use this guide when you record farm work, keep operational history clean, upload
 Use Dashboard to check high-level operating status.
 
 - Review summary counts for farms, cycles, activities, tasks, and intake.
+- Use harvest summary counts and totals to notice missing output, sales, or recovery follow-up.
 - Use the dedicated workspaces to create or update records.
 - Follow up on pending intake, open tasks, and missing evidence from the relevant page.
 
@@ -89,6 +91,53 @@ When reviewing pending intake:
 
 Converted intake creates an official activity record and copies attached evidence to that activity.
 
+## Harvests Workspace
+
+Use Harvests to record production output after work has happened.
+
+Harvest entries should include:
+
+- Farm.
+- Production unit when the output came from a specific field, plot, pen, pond, house, or block.
+- Production cycle when the output belongs to a season or operating period.
+- Commodity.
+- Investor agreement only when the output belongs to that agreement.
+- Harvest date.
+- Stage, such as single, recurring, cutting, gathering, threshing, bagging, storage, or final.
+- Sequence number for recurring or staged harvests.
+- Quantity and quantity unit.
+- Labour cost when harvest handling cost needs to be tracked.
+- Quality notes, internal notes, and status.
+- Investor visibility state when the harvest is agreement-linked.
+
+Use recurring or staged entries when output is gathered over time. Do not wait for the final harvest if partial output needs to be tracked for operations or investor transparency.
+
+## Harvest Evidence
+
+Attach evidence to the harvest record it supports.
+
+Good harvest evidence includes:
+
+- Field or unit photos.
+- Weighing slips.
+- Sorting or storage photos.
+- Harvest handling documents.
+- Other proof that supports quantity, quality, or timing.
+
+Harvest evidence is private by default and downloaded through authorized Farmwell links. Approved investor-linked harvest evidence can appear in the investor portal only when agreement scope and visibility rules allow it.
+
+## Harvest Status
+
+Keep harvest status aligned with the actual output flow.
+
+- Recorded: output has been logged but is not yet stored or sold.
+- Stored: output is available for storage or later sale.
+- Partially sold: some, but not all, recorded output has been sold.
+- Sold: cumulative sales quantity has reached the recorded harvest quantity.
+- Loss: output is unavailable because of spoilage, damage, or another loss condition.
+
+Sales recorded by finance can automatically move a harvest from recorded or stored into partially sold or sold based on cumulative sold quantity.
+
 ## Investor-Safe Summaries
 
 Use investor-safe summaries for clear external updates.
@@ -104,5 +153,4 @@ Internal notes and messy source text should stay internal.
 
 ## Current Limits
 
-This guide does not cover harvest/output, sales, capital recovery, AI summaries, or formal reports because those workflows are not current through Phase 5.
-
+This guide does not cover AI summaries or formal reports because those workflows are not current through Phase 6. Sales, capital recovery, and distributions are covered in the Finance Guide.
