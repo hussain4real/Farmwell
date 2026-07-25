@@ -4,8 +4,10 @@ namespace App\Actions\Investors;
 
 use App\Actions\Audit\RecordAuditEvent;
 use App\Enums\ApprovalRequestStatus;
+use App\Enums\DistributionStatus;
 use App\Enums\InvestorVisibilityStatus;
 use App\Models\ApprovalRequest;
+use App\Models\DistributionRecord;
 use App\Models\Team;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
@@ -45,6 +47,17 @@ class DecideApprovalRequest
                         ApprovalRequestStatus::ClarificationRequested => InvestorVisibilityStatus::ClarificationRequested,
                         default => InvestorVisibilityStatus::PendingApproval,
                     },
+                ])->save();
+            }
+
+            if ($subject instanceof DistributionRecord) {
+                $subject->forceFill([
+                    'status' => $subject->status === DistributionStatus::LossRecorded
+                        ? DistributionStatus::LossRecorded
+                        : ($status === ApprovalRequestStatus::Approved
+                            ? DistributionStatus::Acknowledged
+                            : DistributionStatus::PendingAcknowledgement),
+                    'acknowledged_at' => $status === ApprovalRequestStatus::Approved ? now() : null,
                 ])->save();
             }
 

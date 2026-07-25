@@ -23,6 +23,9 @@ use App\Http\Controllers\Finance\FinanceEvidenceController;
 use App\Http\Controllers\Finance\FinanceSettingController;
 use App\Http\Controllers\Finance\FundingPhaseController;
 use App\Http\Controllers\Finance\TransferReconciliationController;
+use App\Http\Controllers\Harvests\HarvestDashboardController;
+use App\Http\Controllers\Harvests\HarvestRecordController;
+use App\Http\Controllers\Harvests\SaleRecordController;
 use App\Http\Controllers\Investors\InvestorAgreementController;
 use App\Http\Controllers\Investors\InvestorAgreementDocumentController;
 use App\Http\Controllers\Investors\InvestorApprovalController;
@@ -52,6 +55,7 @@ Route::prefix('{current_team}')
         Route::get('finance/expenses', [ExpenseController::class, 'index'])->name('finance.expenses.index');
         Route::get('finance/funding-phases', [FundingPhaseController::class, 'index'])->name('finance.funding-phases.index');
         Route::get('finance/external-transfers', [ExternalTransferController::class, 'index'])->name('finance.external-transfers.index');
+        Route::get('harvests', HarvestDashboardController::class)->name('harvests.index');
         Route::get('investors', InvestorController::class)->name('investors.index');
         Route::get('investors/approvals', InvestorApprovalController::class)->name('investors.approvals.index');
         Route::get('investor-portal', InvestorPortalController::class)->name('investor-portal.index');
@@ -75,6 +79,8 @@ Route::prefix('{current_team}')
         Route::post('finance/external-transfers', [ExternalTransferController::class, 'store'])->name('finance.external-transfers.store');
         Route::post('finance/external-transfers/{external_transfer}/reconciliations', [TransferReconciliationController::class, 'store'])
             ->name('finance.external-transfers.reconciliations.store');
+        Route::post('harvests', [HarvestRecordController::class, 'store'])->name('harvests.store');
+        Route::post('harvests/sales', [SaleRecordController::class, 'store'])->name('harvests.sales.store');
         Route::post('investors/agreements', [InvestorAgreementController::class, 'store'])->name('investors.agreements.store');
         Route::post('investors/agreements/{investor_agreement}/documents', [InvestorAgreementDocumentController::class, 'store'])->name('investors.agreements.documents.store');
         Route::patch('investors/approval-settings', [InvestorApprovalSettingController::class, 'update'])->name('investors.approval-settings.update');

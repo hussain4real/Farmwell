@@ -17,6 +17,7 @@ import { index as farmTasksIndex } from '@/routes/farm-tasks';
 import { index as farmsIndex } from '@/routes/farms';
 import { index as fieldDiaryIndex } from '@/routes/field-diary';
 import { index as financeIndex } from '@/routes/finance';
+import { index as harvestsIndex } from '@/routes/harvests';
 import { index as whatsappIntakesIndex } from '@/routes/whatsapp-intakes';
 import type {
     FarmActivity,
@@ -24,6 +25,7 @@ import type {
     FarmStats,
     FinanceDashboardSummary,
     FarmTask,
+    HarvestSummary,
     ProductionPlanChange,
     Team,
     WhatsappIntake,
@@ -37,6 +39,7 @@ type Props = {
     pendingIntakes: WhatsappIntake[];
     latestPlanChanges: ProductionPlanChange[];
     financeSummary: FinanceDashboardSummary | null;
+    harvestSummary: HarvestSummary | null;
 };
 
 defineProps<Props>();
@@ -93,6 +96,12 @@ const workspaceLinks = computed(() => {
             href: financeIndex(currentTeamSlug.value).url,
             description: 'Budgets, expenses, funding, transfers, and variance',
             icon: Landmark,
+        },
+        {
+            title: 'Harvests',
+            href: harvestsIndex(currentTeamSlug.value).url,
+            description: 'Output, sales, capital recovery, and distributions',
+            icon: Sprout,
         },
     ];
 });
@@ -196,7 +205,57 @@ const workspaceLinks = computed(() => {
             </div>
         </section>
 
-        <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+        <section
+            v-if="harvestSummary"
+            class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
+        >
+            <div class="rounded-lg border p-4">
+                <div class="flex items-center justify-between gap-3">
+                    <span class="text-sm text-muted-foreground">
+                        Harvests
+                    </span>
+                    <Sprout class="size-4 text-muted-foreground" />
+                </div>
+                <p class="mt-3 text-2xl font-semibold">
+                    {{ harvestSummary.harvestRecords }}
+                </p>
+            </div>
+            <div class="rounded-lg border p-4">
+                <div class="flex items-center justify-between gap-3">
+                    <span class="text-sm text-muted-foreground">
+                        Net sales
+                    </span>
+                    <Landmark class="size-4 text-muted-foreground" />
+                </div>
+                <p class="mt-3 text-2xl font-semibold">
+                    {{ harvestSummary.saleNet }}
+                </p>
+            </div>
+            <div class="rounded-lg border p-4">
+                <div class="flex items-center justify-between gap-3">
+                    <span class="text-sm text-muted-foreground">
+                        Capital recovered
+                    </span>
+                    <Landmark class="size-4 text-muted-foreground" />
+                </div>
+                <p class="mt-3 text-2xl font-semibold">
+                    {{ harvestSummary.capitalRecovered }}
+                </p>
+            </div>
+            <div class="rounded-lg border p-4">
+                <div class="flex items-center justify-between gap-3">
+                    <span class="text-sm text-muted-foreground">
+                        Investor share
+                    </span>
+                    <Landmark class="size-4 text-muted-foreground" />
+                </div>
+                <p class="mt-3 text-2xl font-semibold">
+                    {{ harvestSummary.investorShare }}
+                </p>
+            </div>
+        </section>
+
+        <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
             <Link
                 v-for="workspace in workspaceLinks"
                 :key="workspace.title"

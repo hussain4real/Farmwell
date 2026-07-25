@@ -4,14 +4,14 @@ on:
   push:
     branches:
       - dev
+      - stage
       - main
-      - master
       - workos
   pull_request:
     branches:
       - dev
+      - stage
       - main
-      - master
       - workos
 
 jobs:

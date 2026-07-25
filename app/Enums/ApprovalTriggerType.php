@@ -9,6 +9,7 @@ enum ApprovalTriggerType: string
     case FundingRelease = 'funding_release';
     case BudgetOverrun = 'budget_overrun';
     case PlanChange = 'plan_change';
+    case DistributionAcknowledgement = 'distribution_acknowledgement';
     case Manual = 'manual';
 
     public function label(): string
@@ -19,6 +20,7 @@ enum ApprovalTriggerType: string
             self::FundingRelease => 'Funding release',
             self::BudgetOverrun => 'Budget overrun',
             self::PlanChange => 'Plan change',
+            self::DistributionAcknowledgement => 'Distribution acknowledgement',
             self::Manual => 'Manual',
         };
     }

@@ -85,7 +85,7 @@ const currentTeamSlug = computed(() => currentTeam.value?.slug ?? '');
                     </a>
                 </div>
 
-                <div class="grid gap-3 md:grid-cols-3">
+                <div class="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
                     <div class="rounded-lg border p-4">
                         <p class="text-sm text-muted-foreground">Released</p>
                         <p class="mt-2 text-xl font-semibold">
@@ -104,6 +104,31 @@ const currentTeamSlug = computed(() => currentTeam.value?.slug ?? '');
                         <p class="text-sm text-muted-foreground">Balance</p>
                         <p class="mt-2 text-xl font-semibold">
                             {{ agreement.summary.balance }}
+                            {{ agreement.currency }}
+                        </p>
+                    </div>
+                    <div class="rounded-lg border p-4">
+                        <p class="text-sm text-muted-foreground">Net sales</p>
+                        <p class="mt-2 text-xl font-semibold">
+                            {{ agreement.summary.saleNet }}
+                            {{ agreement.currency }}
+                        </p>
+                    </div>
+                    <div class="rounded-lg border p-4">
+                        <p class="text-sm text-muted-foreground">
+                            Capital recovered
+                        </p>
+                        <p class="mt-2 text-xl font-semibold">
+                            {{ agreement.summary.capitalRecovered }}
+                            {{ agreement.currency }}
+                        </p>
+                    </div>
+                    <div class="rounded-lg border p-4">
+                        <p class="text-sm text-muted-foreground">
+                            Investor share
+                        </p>
+                        <p class="mt-2 text-xl font-semibold">
+                            {{ agreement.summary.investorShare }}
                             {{ agreement.currency }}
                         </p>
                     </div>
@@ -187,6 +212,144 @@ const currentTeamSlug = computed(() => currentTeam.value?.slug ?? '');
                         </div>
                         <p v-else class="text-sm text-muted-foreground">
                             No approved expenses yet.
+                        </p>
+                    </section>
+                </div>
+
+                <div class="grid gap-6 xl:grid-cols-3">
+                    <section class="space-y-3">
+                        <Heading
+                            variant="small"
+                            title="Harvest output"
+                            description="Approved output entries and evidence"
+                        />
+                        <div
+                            v-if="agreement.harvestRecords.length"
+                            class="space-y-3"
+                        >
+                            <div
+                                v-for="harvest in agreement.harvestRecords"
+                                :key="harvest.id"
+                                class="rounded-lg border p-3 text-sm"
+                            >
+                                <div
+                                    class="flex items-start justify-between gap-3"
+                                >
+                                    <p class="font-medium">
+                                        {{ harvest.commodityName }}
+                                    </p>
+                                    <Badge variant="secondary">
+                                        {{ harvest.statusLabel }}
+                                    </Badge>
+                                </div>
+                                <p class="mt-1 text-muted-foreground">
+                                    {{ harvest.stageLabel }} /
+                                    {{ harvest.harvestedOn }}
+                                </p>
+                                <p class="mt-2">
+                                    {{ harvest.quantity }}
+                                    {{ harvest.quantityUnit }}
+                                </p>
+                                <div
+                                    v-if="harvest.evidence.length"
+                                    class="mt-2 flex flex-wrap gap-2"
+                                >
+                                    <a
+                                        v-for="evidence in harvest.evidence"
+                                        :key="evidence.id"
+                                        :href="evidence.downloadUrl"
+                                        class="underline underline-offset-4"
+                                    >
+                                        {{ evidence.fileName }}
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        <p v-else class="text-sm text-muted-foreground">
+                            No approved harvest output yet.
+                        </p>
+                    </section>
+
+                    <section class="space-y-3">
+                        <Heading
+                            variant="small"
+                            title="Sales"
+                            description="Approved buyer records and net proceeds"
+                        />
+                        <div
+                            v-if="agreement.saleRecords.length"
+                            class="space-y-3"
+                        >
+                            <div
+                                v-for="sale in agreement.saleRecords"
+                                :key="sale.id"
+                                class="rounded-lg border p-3 text-sm"
+                            >
+                                <div
+                                    class="flex items-start justify-between gap-3"
+                                >
+                                    <p class="font-medium">
+                                        {{ sale.buyerName }}
+                                    </p>
+                                    <Badge variant="secondary">
+                                        {{ sale.netAmount }}
+                                        {{ sale.currency }}
+                                    </Badge>
+                                </div>
+                                <p class="mt-1 text-muted-foreground">
+                                    {{ sale.commodityName }} /
+                                    {{ sale.soldOn }}
+                                </p>
+                                <p class="mt-2">
+                                    Gross {{ sale.grossAmount }}, deductions
+                                    {{ sale.deductionAmount }}
+                                </p>
+                            </div>
+                        </div>
+                        <p v-else class="text-sm text-muted-foreground">
+                            No approved sales yet.
+                        </p>
+                    </section>
+
+                    <section class="space-y-3">
+                        <Heading
+                            variant="small"
+                            title="Distributions"
+                            description="Capital recovery before profit share"
+                        />
+                        <div
+                            v-if="agreement.distributionRecords.length"
+                            class="space-y-3"
+                        >
+                            <div
+                                v-for="distribution in agreement.distributionRecords"
+                                :key="distribution.id"
+                                class="rounded-lg border p-3 text-sm"
+                            >
+                                <div
+                                    class="flex items-start justify-between gap-3"
+                                >
+                                    <p class="font-medium">
+                                        {{ distribution.buyerName }}
+                                    </p>
+                                    <Badge variant="secondary">
+                                        {{ distribution.statusLabel }}
+                                    </Badge>
+                                </div>
+                                <p class="mt-2">
+                                    Capital
+                                    {{ distribution.capitalRecovered }}, profit
+                                    {{ distribution.netProfit }}
+                                </p>
+                                <p class="mt-1 text-muted-foreground">
+                                    Investor {{ distribution.investorShare }} /
+                                    farm {{ distribution.farmShare }}
+                                    {{ distribution.currency }}
+                                </p>
+                            </div>
+                        </div>
+                        <p v-else class="text-sm text-muted-foreground">
+                            No approved distributions yet.
                         </p>
                     </section>
                 </div>

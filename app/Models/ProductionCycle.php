@@ -169,6 +169,36 @@ class ProductionCycle extends Model
     }
 
     /**
+     * Get harvest records scoped to this cycle.
+     *
+     * @return HasMany<HarvestRecord, $this>
+     */
+    public function harvestRecords(): HasMany
+    {
+        return $this->hasMany(HarvestRecord::class);
+    }
+
+    /**
+     * Get sale records scoped to this cycle.
+     *
+     * @return HasMany<SaleRecord, $this>
+     */
+    public function saleRecords(): HasMany
+    {
+        return $this->hasMany(SaleRecord::class);
+    }
+
+    /**
+     * Get distribution records scoped to this cycle.
+     *
+     * @return HasMany<DistributionRecord, $this>
+     */
+    public function distributionRecords(): HasMany
+    {
+        return $this->hasMany(DistributionRecord::class);
+    }
+
+    /**
      * Get investor agreements scoped to this cycle.
      *
      * @return HasMany<InvestorAgreement, $this>

@@ -3,6 +3,7 @@
 namespace App\Actions\FarmOperations;
 
 use App\Actions\Finance\BuildFinancePageData;
+use App\Actions\Harvests\BuildHarvestPageData;
 use App\Enums\CommodityRole;
 use App\Enums\FarmActivityStatus;
 use App\Enums\FarmTaskStatus;
@@ -30,8 +31,10 @@ use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 class BuildFarmOperationsPageData
 {
-    public function __construct(private BuildFinancePageData $financePageData)
-    {
+    public function __construct(
+        private BuildFinancePageData $financePageData,
+        private BuildHarvestPageData $harvestPageData,
+    ) {
         //
     }
 
@@ -50,6 +53,7 @@ class BuildFarmOperationsPageData
             'pendingIntakes' => $this->pendingIntakes($team, 4)->map(fn (WhatsappIntake $intake) => $this->intakePayload($intake, $team)),
             'latestPlanChanges' => $this->latestPlanChanges($team, 4)->map(fn (ProductionPlanChange $planChange) => $this->planChangePayload($planChange)),
             'financeSummary' => $user->can('viewFinance', $team) ? $this->financePageData->dashboardSummary($team) : null,
+            'harvestSummary' => $user->can('viewFinance', $team) ? $this->harvestPageData->dashboardSummary($team) : null,
         ];
     }
 

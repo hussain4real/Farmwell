@@ -1,6 +1,6 @@
 # Farmwell MVP Implementation Progress
 
-Last updated: 2026-06-10
+Last updated: 2026-06-11
 
 ## Status Legend
 
@@ -10,7 +10,7 @@ Last updated: 2026-06-10
 
 ## Current Assessment
 
-Phases 0 through 5 are complete against the approved MVP plan. Phase 5 achieves its stated goal: private investor agreements, approval rules, approval requests, investor decisions, approved expense-level transparency, investor comments, and agreement-scoped investor portal access are implemented with audit and denial coverage.
+Phases 0 through 6 are complete against the approved MVP plan. Phase 6 achieves its stated goal: harvest/output records, sales, capital-first recovery, investor distributions, partial recovery, loss handling, multiple-sale recovery, and investor acknowledgement visibility are implemented with audit, authorization, browser smoke, static analysis, and 100% coverage gates.
 
 The pre-Phase-4 product structure follow-up is complete: Dashboard, Farm Operations, Field Diary, Task Calendar, and WhatsApp Intake now have separate route-backed page boundaries.
 
@@ -24,7 +24,7 @@ The pre-Phase-4 product structure follow-up is complete: Dashboard, Farm Operati
 | 3. Diary, Tasks, Evidence, WhatsApp Intake | Replace WhatsApp-only/spreadsheet-only field operations. | [x] Complete | All functional deliverables and the pre-Phase-4 page-structure follow-up are complete. |
 | 4. Budgets, Expenses, Funding, Transfers | Track operating money without wallet/escrow behavior. | [x] Complete | Budgets, funding phases, expenses, receipts, external transfers, proof, reconciliation, variance, carry-forward, and finance pages are implemented. |
 | 5. Investor Agreements and Approvals | Add private investor transparency safely. | [x] Complete | Investor role, agreements, approval rules, decisions, approved feeds, comments, and scoped investor portal are implemented. |
-| 6. Harvest, Sales, Capital Recovery | Close the farm season financial loop. | [ ] Not started | Recommended next MVP domain phase. |
+| 6. Harvest, Sales, Capital Recovery | Close the farm season financial loop. | [x] Complete | Harvests, sales, capital recovery, investor distribution calculations, acknowledgement approval, and investor portal visibility are implemented. |
 | 7. AI Summaries and Assisted Reporting | Add BRS AI capabilities safely after authoritative data exists. | [ ] Not started | Must use Laravel AI SDK and review-gated drafts. |
 | 8. Reports, Exports, Operations Readiness | Make the system shareable and pilot-ready. | [ ] Not started | Pending core finance, investor, harvest, and AI data paths. |
 | 9. Later Enhancements | Start only after MVP sign-off. | [ ] Not started | Deferred until explicitly selected. |
@@ -114,23 +114,26 @@ The pre-Phase-4 product structure follow-up is complete: Dashboard, Farm Operati
 - [x] Internal notes, private records, unapproved records, inactive agreements, unrelated investors, and cross-team records are denied or excluded.
 - [x] Feature and unit tests cover investor invitation/role sync, agreements, document upload, approval settings, approval request creation, decisions, comments, portal rendering, private evidence denial, relationships, casts, enums, and safe feed projection.
 
-## Planned Phase Details
-
 ### Phase 6. Harvest, Sales, Capital Recovery
 
-- [ ] Add harvest/output records.
-- [ ] Support recurring harvest entries.
-- [ ] Support staged harvest entries.
-- [ ] Add sales records linked to harvest/output records.
-- [ ] Add capital recovery service.
-- [ ] Add configurable profit-share terms.
-- [ ] Add distribution records.
-- [ ] Handle partial capital recovery.
-- [ ] Handle losses.
-- [ ] Handle multiple sales.
-- [ ] Handle profit splits after capital-first recovery.
-- [ ] Add focused unit tests for capital-first recovery calculations.
-- [ ] Add feature tests for harvest, sales, recovery, and distribution workflows.
+- [x] Harvest/output records are implemented with farm, unit, cycle, commodity, investor agreement, date, stage, sequence, quantity, unit, labour cost, status, notes, and investor visibility fields.
+- [x] Recurring and staged harvest entries are supported through typed harvest stage values.
+- [x] Harvest evidence uploads are stored on the private `farmwell_private` media disk and downloaded only through authorized farm evidence routes.
+- [x] Sales records are linked to harvest/output records and inherit farm, cycle, commodity, agreement, team, and currency context.
+- [x] Sales support quantity, unit price, gross amount, deductions, net amount, buyer, reference, payment status, notes, and private evidence.
+- [x] Recording sales updates harvest status to partially sold or sold based on cumulative sold quantity.
+- [x] Capital-first recovery service handles configured funded capital before calculating profit shares.
+- [x] Configurable investor/farm profit-share percentages are applied after capital recovery.
+- [x] Distribution records are created per sale/agreement with gross/net sale, previous recovery, capital recovered, unrecovered capital, profit, investor share, farm share, status, currency, and investor visibility fields.
+- [x] Partial capital recovery, losses before full recovery, multiple sales, and profit splits after recovery are covered.
+- [x] Distribution acknowledgement approval requests are created and assigned to investors.
+- [x] Investor approval of distribution acknowledgements updates distribution visibility, status, and acknowledgement timestamp.
+- [x] Investor portal now includes approved harvest records, visible sale records, distribution records, and capital recovery totals.
+- [x] Dashboard and navigation expose the harvest workspace to authorized internal roles.
+- [x] Feature and unit tests cover harvest permissions, sale workflows, recovery calculations, distribution acknowledgement, investor portal visibility, private evidence access, model relationships, casts, enums, loss handling, no-agreement sales, and full-sale status transitions.
+- [x] Browser smoke verified the Herd Harvests page renders the expected sections with no console errors.
+
+## Planned Phase Details
 
 ### Phase 7. AI Summaries and Assisted Reporting
 
@@ -193,4 +196,4 @@ The pre-Phase-4 product structure follow-up is complete: Dashboard, Farm Operati
 
 ## Next Recommended Goal
 
-Start Phase 6: Harvest, Sales, Capital Recovery.
+Start Phase 7: AI Summaries and Assisted Reporting.

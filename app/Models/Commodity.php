@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * @property int $id
@@ -45,6 +46,26 @@ class Commodity extends Model
         return $this->belongsToMany(ProductionCycle::class)
             ->withPivot(['role', 'expected_output_quantity', 'expected_output_unit', 'notes'])
             ->withTimestamps();
+    }
+
+    /**
+     * Get harvest records for this commodity.
+     *
+     * @return HasMany<HarvestRecord, $this>
+     */
+    public function harvestRecords(): HasMany
+    {
+        return $this->hasMany(HarvestRecord::class);
+    }
+
+    /**
+     * Get sale records for this commodity.
+     *
+     * @return HasMany<SaleRecord, $this>
+     */
+    public function saleRecords(): HasMany
+    {
+        return $this->hasMany(SaleRecord::class);
     }
 
     /**

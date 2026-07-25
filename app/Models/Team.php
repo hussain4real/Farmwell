@@ -228,6 +228,36 @@ class Team extends Model
     }
 
     /**
+     * Get all harvest records for this team.
+     *
+     * @return HasMany<HarvestRecord, $this>
+     */
+    public function harvestRecords(): HasMany
+    {
+        return $this->hasMany(HarvestRecord::class);
+    }
+
+    /**
+     * Get all sale records for this team.
+     *
+     * @return HasMany<SaleRecord, $this>
+     */
+    public function saleRecords(): HasMany
+    {
+        return $this->hasMany(SaleRecord::class);
+    }
+
+    /**
+     * Get all distribution records for this team.
+     *
+     * @return HasMany<DistributionRecord, $this>
+     */
+    public function distributionRecords(): HasMany
+    {
+        return $this->hasMany(DistributionRecord::class);
+    }
+
+    /**
      * Get all transfer reconciliations for this team.
      *
      * @return HasMany<TransferReconciliation, $this>

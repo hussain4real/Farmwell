@@ -5,10 +5,13 @@ namespace App\Http\Controllers\Investors;
 use App\Enums\InvestorAgreementStatus;
 use App\Enums\InvestorVisibilityStatus;
 use App\Http\Controllers\Controller;
+use App\Models\DistributionRecord;
 use App\Models\Expense;
 use App\Models\ExternalTransfer;
 use App\Models\FarmActivity;
+use App\Models\HarvestRecord;
 use App\Models\InvestorAgreement;
+use App\Models\SaleRecord;
 use App\Models\Team;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
@@ -45,7 +48,20 @@ class InvestorEvidenceController extends Controller
                 && in_array($subject->status, [InvestorAgreementStatus::Active, InvestorAgreementStatus::Completed], true);
         }
 
-        if ($subject instanceof Expense || $subject instanceof ExternalTransfer) {
+        if ($subject instanceof Expense || $subject instanceof ExternalTransfer || $subject instanceof HarvestRecord) {
+            return $subject->investor_visibility_status === InvestorVisibilityStatus::Approved
+                && $this->hasVisibleAgreement($team, $user, $subject);
+        }
+
+        if ($subject instanceof SaleRecord) {
+            return $this->hasVisibleAgreement($team, $user, $subject)
+                && (
+                    $subject->investor_visibility_status === InvestorVisibilityStatus::Approved
+                    || $subject->distributionRecord?->investor_visibility_status === InvestorVisibilityStatus::Approved
+                );
+        }
+
+        if ($subject instanceof DistributionRecord) {
             return $subject->investor_visibility_status === InvestorVisibilityStatus::Approved
                 && $this->hasVisibleAgreement($team, $user, $subject);
         }

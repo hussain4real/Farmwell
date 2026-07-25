@@ -97,6 +97,16 @@ class ProductionUnit extends Model
     }
 
     /**
+     * Get harvest records for this unit.
+     *
+     * @return HasMany<HarvestRecord, $this>
+     */
+    public function harvestRecords(): HasMany
+    {
+        return $this->hasMany(HarvestRecord::class);
+    }
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>

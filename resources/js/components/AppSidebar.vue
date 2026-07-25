@@ -10,6 +10,7 @@ import {
     ListTodo,
     MessageSquare,
     ShieldCheck,
+    Sprout,
     Tractor,
 } from 'lucide-vue-next';
 import { computed } from 'vue';
@@ -32,6 +33,7 @@ import { index as farmTasksIndex } from '@/routes/farm-tasks';
 import { index as farmsIndex } from '@/routes/farms';
 import { index as fieldDiaryIndex } from '@/routes/field-diary';
 import { index as financeIndex } from '@/routes/finance';
+import { index as harvestsIndex } from '@/routes/harvests';
 import { index as investorPortalIndex } from '@/routes/investor-portal';
 import { index as investorsIndex } from '@/routes/investors';
 import { index as investorApprovalsIndex } from '@/routes/investors/approvals';
@@ -64,6 +66,11 @@ const whatsappIntakesUrl = computed(() =>
 const financeUrl = computed(() =>
     page.props.currentTeam
         ? financeIndex(page.props.currentTeam.slug).url
+        : '/',
+);
+const harvestsUrl = computed(() =>
+    page.props.currentTeam
+        ? harvestsIndex(page.props.currentTeam.slug).url
         : '/',
 );
 const investorsUrl = computed(() =>
@@ -144,6 +151,14 @@ const mainNavItems = computed<NavItem[]>(() => {
             title: 'Finance',
             href: financeUrl.value,
             icon: Landmark,
+        });
+    }
+
+    if (permissions?.canViewFarmOperations || permissions?.canViewFinance) {
+        items.push({
+            title: 'Harvests',
+            href: harvestsUrl.value,
+            icon: Sprout,
         });
     }
 

@@ -10,6 +10,7 @@ use App\Enums\InvestorAgreementStatus;
 use App\Enums\InvestorVisibilityStatus;
 use App\Enums\TeamRole;
 use App\Models\ApprovalRequest;
+use App\Models\DistributionRecord;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
 use App\Models\ExternalTransfer;
@@ -17,9 +18,11 @@ use App\Models\Farm;
 use App\Models\FarmActivity;
 use App\Models\FarmTask;
 use App\Models\FundingPhase;
+use App\Models\HarvestRecord;
 use App\Models\InvestorAgreement;
 use App\Models\InvestorComment;
 use App\Models\ProductionPlanChange;
+use App\Models\SaleRecord;
 use App\Models\Team;
 use App\Models\User;
 use App\Support\Money;
@@ -86,6 +89,9 @@ class BuildInvestorPageData
                 'fundingPhases' => $this->approvedFundingPhases($agreement)->map(fn (FundingPhase $phase) => $this->fundingPhasePayload($phase)),
                 'expenses' => $this->approvedExpenses($agreement)->map(fn (Expense $expense) => $this->expensePayload($expense, $agreement)),
                 'externalTransfers' => $this->approvedExternalTransfers($agreement)->map(fn (ExternalTransfer $transfer) => $this->externalTransferPayload($transfer, $agreement)),
+                'harvestRecords' => $this->approvedHarvestRecords($agreement)->map(fn (HarvestRecord $harvest) => $this->harvestPayload($harvest, $agreement)),
+                'saleRecords' => $this->approvedSaleRecords($agreement)->map(fn (SaleRecord $sale) => $this->salePayload($sale, $agreement)),
+                'distributionRecords' => $this->approvedDistributionRecords($agreement)->map(fn (DistributionRecord $distribution) => $this->distributionPayload($distribution)),
                 'activities' => $this->approvedActivities($agreement)->map(fn (FarmActivity $activity) => $this->activityPayload($activity, $agreement)),
                 'tasks' => $this->approvedTasks($agreement)->map(fn (FarmTask $task) => $this->taskPayload($task)),
                 'planChanges' => $this->approvedPlanChanges($agreement)->map(fn (ProductionPlanChange $change) => $this->planChangePayload($change)),
@@ -103,6 +109,9 @@ class BuildInvestorPageData
                     ['value' => 'expense', 'label' => 'Expense'],
                     ['value' => 'funding_phase', 'label' => 'Funding phase'],
                     ['value' => 'activity', 'label' => 'Activity'],
+                    ['value' => 'harvest', 'label' => 'Harvest'],
+                    ['value' => 'sale', 'label' => 'Sale'],
+                    ['value' => 'distribution', 'label' => 'Distribution'],
                 ],
             ],
         ];
@@ -196,16 +205,33 @@ class BuildInvestorPageData
      */
     private function agreementSummary(InvestorAgreement $agreement): array
     {
+        $approvedSaleRecords = $this->approvedSaleRecords($agreement);
+        $approvedDistributionRecords = $this->approvedDistributionRecords($agreement);
         $releasedMinor = (int) $this->approvedFundingPhases($agreement)->sum('externally_released_amount_minor');
         $spentMinor = (int) $this->approvedExpenses($agreement)->sum('amount_minor');
+        $saleNetMinor = (int) $approvedSaleRecords->sum('net_amount_minor');
+        $capitalRecoveredMinor = (int) $approvedDistributionRecords->sum('capital_recovered_minor');
+        $unrecoveredCapitalMinor = max(0, $agreement->amount_funded_minor - $capitalRecoveredMinor);
+        $investorShareMinor = (int) $approvedDistributionRecords->sum('investor_share_minor');
+        $farmShareMinor = (int) $approvedDistributionRecords->sum('farm_share_minor');
 
         return [
             'releasedMinor' => $releasedMinor,
             'spentMinor' => $spentMinor,
             'balanceMinor' => max(0, $releasedMinor - $spentMinor),
+            'saleNetMinor' => $saleNetMinor,
+            'capitalRecoveredMinor' => $capitalRecoveredMinor,
+            'unrecoveredCapitalMinor' => $unrecoveredCapitalMinor,
+            'investorShareMinor' => $investorShareMinor,
+            'farmShareMinor' => $farmShareMinor,
             'released' => Money::toDecimal($releasedMinor),
             'spent' => Money::toDecimal($spentMinor),
             'balance' => Money::toDecimal(max(0, $releasedMinor - $spentMinor)),
+            'saleNet' => Money::toDecimal($saleNetMinor),
+            'capitalRecovered' => Money::toDecimal($capitalRecoveredMinor),
+            'unrecoveredCapital' => Money::toDecimal($unrecoveredCapitalMinor),
+            'investorShare' => Money::toDecimal($investorShareMinor),
+            'farmShare' => Money::toDecimal($farmShareMinor),
         ];
     }
 
@@ -241,6 +267,45 @@ class BuildInvestorPageData
             ->with('media')
             ->where('investor_visibility_status', InvestorVisibilityStatus::Approved->value)
             ->latest('transferred_on')
+            ->get();
+    }
+
+    /**
+     * @return Collection<int, HarvestRecord>
+     */
+    private function approvedHarvestRecords(InvestorAgreement $agreement): Collection
+    {
+        return $agreement->harvestRecords()
+            ->with(['commodity', 'media'])
+            ->where('investor_visibility_status', InvestorVisibilityStatus::Approved->value)
+            ->latest('harvested_on')
+            ->get();
+    }
+
+    /**
+     * @return Collection<int, SaleRecord>
+     */
+    private function approvedSaleRecords(InvestorAgreement $agreement): Collection
+    {
+        return $agreement->saleRecords()
+            ->with(['commodity', 'media', 'distributionRecord'])
+            ->where(function ($query): void {
+                $query->where('investor_visibility_status', InvestorVisibilityStatus::Approved->value)
+                    ->orWhereHas('distributionRecord', fn ($query) => $query->where('investor_visibility_status', InvestorVisibilityStatus::Approved->value));
+            })
+            ->latest('sold_on')
+            ->get();
+    }
+
+    /**
+     * @return Collection<int, DistributionRecord>
+     */
+    private function approvedDistributionRecords(InvestorAgreement $agreement): Collection
+    {
+        return $agreement->distributionRecords()
+            ->with('saleRecord')
+            ->where('investor_visibility_status', InvestorVisibilityStatus::Approved->value)
+            ->latest('calculated_at')
             ->get();
     }
 
@@ -375,6 +440,74 @@ class BuildInvestorPageData
     /**
      * @return array<string, mixed>
      */
+    private function harvestPayload(HarvestRecord $harvest, InvestorAgreement $agreement): array
+    {
+        return [
+            'id' => $harvest->id,
+            'harvestedOn' => $harvest->harvested_on->toDateString(),
+            'commodityName' => $harvest->commodity->name,
+            'stage' => $harvest->stage->value,
+            'stageLabel' => $harvest->stage->label(),
+            'quantity' => $harvest->quantity,
+            'quantityUnit' => $harvest->quantity_unit,
+            'qualityNotes' => $harvest->quality_notes,
+            'status' => $harvest->status->value,
+            'statusLabel' => $harvest->status->label(),
+            'evidence' => $harvest->getMedia(HarvestRecord::EvidenceCollection)
+                ->map(fn (Media $media) => $this->mediaPayload($media, $agreement->team))
+                ->values(),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function salePayload(SaleRecord $sale, InvestorAgreement $agreement): array
+    {
+        return [
+            'id' => $sale->id,
+            'soldOn' => $sale->sold_on->toDateString(),
+            'buyerName' => $sale->buyer_name,
+            'commodityName' => $sale->commodity->name,
+            'quantity' => $sale->quantity,
+            'quantityUnit' => $sale->quantity_unit,
+            'grossAmount' => Money::toDecimal($sale->gross_amount_minor),
+            'deductionAmount' => Money::toDecimal($sale->deduction_amount_minor),
+            'netAmount' => Money::toDecimal($sale->net_amount_minor),
+            'currency' => $sale->currency,
+            'paymentStatus' => $sale->payment_status->value,
+            'paymentStatusLabel' => $sale->payment_status->label(),
+            'evidence' => $sale->getMedia(SaleRecord::EvidenceCollection)
+                ->map(fn (Media $media) => $this->mediaPayload($media, $agreement->team))
+                ->values(),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function distributionPayload(DistributionRecord $distribution): array
+    {
+        return [
+            'id' => $distribution->id,
+            'saleRecordId' => $distribution->sale_record_id,
+            'buyerName' => $distribution->saleRecord->buyer_name,
+            'saleNetAmount' => Money::toDecimal($distribution->sale_net_amount_minor),
+            'capitalRecovered' => Money::toDecimal($distribution->capital_recovered_minor),
+            'unrecoveredCapital' => Money::toDecimal($distribution->unrecovered_capital_minor),
+            'netProfit' => Money::toDecimal($distribution->net_profit_minor),
+            'investorShare' => Money::toDecimal($distribution->investor_share_minor),
+            'farmShare' => Money::toDecimal($distribution->farm_share_minor),
+            'currency' => $distribution->currency,
+            'status' => $distribution->status->value,
+            'statusLabel' => $distribution->status->label(),
+            'calculatedAt' => $distribution->calculated_at->toISOString(),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
     private function activityPayload(FarmActivity $activity, InvestorAgreement $agreement): array
     {
         return [
@@ -498,6 +631,9 @@ class BuildInvestorPageData
             $subject instanceof Expense => $subject->expenseCategory?->name ?? 'Expense',
             $subject instanceof FundingPhase => $subject->name,
             $subject instanceof ProductionPlanChange => $subject->change_type->label(),
+            $subject instanceof DistributionRecord => 'Distribution for '.$subject->saleRecord?->buyer_name,
+            $subject instanceof SaleRecord => 'Sale to '.$subject->buyer_name,
+            $subject instanceof HarvestRecord => $subject->commodity?->name.' harvest',
             default => 'Record',
         };
     }

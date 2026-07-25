@@ -47,6 +47,26 @@ class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
     }
 
     /**
+     * Get harvest records recorded by this user.
+     *
+     * @return HasMany<HarvestRecord, $this>
+     */
+    public function recordedHarvests(): HasMany
+    {
+        return $this->hasMany(HarvestRecord::class, 'recorded_by_id');
+    }
+
+    /**
+     * Get sale records recorded by this user.
+     *
+     * @return HasMany<SaleRecord, $this>
+     */
+    public function recordedSales(): HasMany
+    {
+        return $this->hasMany(SaleRecord::class, 'recorded_by_id');
+    }
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>
