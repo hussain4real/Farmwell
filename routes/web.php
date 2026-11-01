@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AiSummaryController;
 use App\Http\Controllers\FarmOperations\CommodityController;
 use App\Http\Controllers\FarmOperations\EvidenceController;
 use App\Http\Controllers\FarmOperations\FarmActivityController;
@@ -56,6 +57,11 @@ Route::prefix('{current_team}')
         Route::get('finance/funding-phases', [FundingPhaseController::class, 'index'])->name('finance.funding-phases.index');
         Route::get('finance/external-transfers', [ExternalTransferController::class, 'index'])->name('finance.external-transfers.index');
         Route::get('harvests', HarvestDashboardController::class)->name('harvests.index');
+        Route::get('ai-summaries', [AiSummaryController::class, 'index'])->name('ai-summaries.index');
+        Route::post('ai-summaries', [AiSummaryController::class, 'store'])->name('ai-summaries.store');
+        Route::patch('ai-summaries/{ai_summary}', [AiSummaryController::class, 'review'])->name('ai-summaries.review');
+        Route::patch('ai-summaries/{ai_summary}/publish', [AiSummaryController::class, 'publish'])->name('ai-summaries.publish');
+        Route::patch('ai-summaries/{ai_summary}/withdraw', [AiSummaryController::class, 'withdraw'])->name('ai-summaries.withdraw');
         Route::get('investors', InvestorController::class)->name('investors.index');
         Route::get('investors/approvals', InvestorApprovalController::class)->name('investors.approvals.index');
         Route::get('investor-portal', InvestorPortalController::class)->name('investor-portal.index');

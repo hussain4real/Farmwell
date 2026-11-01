@@ -13,7 +13,8 @@ return [
     |
     */
 
-    'default' => 'openai',
+    'default' => env('AI_PROVIDER', 'openai'),
+    'summary_model' => env('AI_SUMMARY_MODEL'),
     'default_for_images' => 'gemini',
     'default_for_audio' => 'openai',
     'default_for_transcription' => 'openai',
@@ -129,7 +130,7 @@ return [
             'driver' => 'openai',
             'key' => env('OPENAI_API_KEY'),
             'url' => env('OPENAI_URL', 'https://api.openai.com/v1'),
-            'store' => env('OPENAI_STORE', true),
+            'store' => env('OPENAI_STORE', false),
         ],
 
         'openai-compatible' => [

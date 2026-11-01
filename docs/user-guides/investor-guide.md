@@ -1,7 +1,7 @@
 # Investor Guide
 
-Applies through: Phase 6 - Harvest, Sales, Capital Recovery
-Last reviewed: 2026-06-11  
+Applies through: Phase 7 - AI Summaries and Assisted Reporting
+Last reviewed: 2026-11-01
 Audience: Investors with Farmwell portal access  
 Related app areas: Investor Portal
 
@@ -157,4 +157,4 @@ Do not use comments for legal, tax, or investment advice requests. Farmwell is a
 
 ## Current Limits
 
-The investor portal does not currently provide AI summaries, formal reports, export workflows, wallet balances, escrow balances, or in-platform payout processing. Those are outside the current Phase 6 workflows.
+The investor portal can show reviewed and explicitly published progress summaries for your agreement. A summary disappears if its agreement audience or source activities change, or if it is withdrawn. The portal does not currently provide formal reports, export workflows, wallet balances, escrow balances, or in-platform payout processing.

@@ -223,6 +223,12 @@ export type InvestorPortalAgreement = InvestorAgreement & {
     harvestRecords: InvestorHarvestRecord[];
     saleRecords: InvestorSaleRecord[];
     distributionRecords: InvestorDistributionRecord[];
+    aiSummaries: {
+        id: number;
+        text: string;
+        html: string;
+        publishedAt: string;
+    }[];
     activities: InvestorActivity[];
     tasks: InvestorTask[];
     planChanges: InvestorPlanChange[];

@@ -4,6 +4,7 @@ import { Handshake, MessageSquare } from 'lucide-vue-next';
 import { computed } from 'vue';
 import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
+import SummaryText from '@/components/SummaryText.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -513,12 +514,26 @@ const currentTeamSlug = computed(() => currentTeam.value?.slug ?? '');
                         />
                         <div
                             v-if="
+                                agreement.aiSummaries.length ||
                                 agreement.activities.length ||
                                 agreement.tasks.length ||
                                 agreement.planChanges.length
                             "
                             class="space-y-3"
                         >
+                            <div
+                                v-for="summary in agreement.aiSummaries"
+                                :key="`summary-${summary.id}`"
+                                class="rounded-lg border p-3 text-sm"
+                            >
+                                <p class="font-medium">
+                                    Reviewed progress summary
+                                </p>
+                                <SummaryText
+                                    class="mt-1"
+                                    :html="summary.html"
+                                />
+                            </div>
                             <div
                                 v-for="activity in agreement.activities"
                                 :key="`activity-${activity.id}`"

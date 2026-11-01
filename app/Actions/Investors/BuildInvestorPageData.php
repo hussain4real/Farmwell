@@ -2,6 +2,7 @@
 
 namespace App\Actions\Investors;
 
+use App\Actions\AiSummaries\InvestorSummaryEligibility;
 use App\Enums\ApprovalRequestStatus;
 use App\Enums\ApprovalRequestType;
 use App\Enums\ApprovalTriggerType;
@@ -9,6 +10,7 @@ use App\Enums\CapitalRecoveryRule;
 use App\Enums\InvestorAgreementStatus;
 use App\Enums\InvestorVisibilityStatus;
 use App\Enums\TeamRole;
+use App\Models\AiSummary;
 use App\Models\ApprovalRequest;
 use App\Models\DistributionRecord;
 use App\Models\Expense;
@@ -26,14 +28,18 @@ use App\Models\SaleRecord;
 use App\Models\Team;
 use App\Models\User;
 use App\Support\Money;
+use App\Support\SummaryMarkdown;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 class BuildInvestorPageData
 {
-    public function __construct(private ResolveInvestorApprovalSettings $resolveInvestorApprovalSettings)
-    {
+    public function __construct(
+        private ResolveInvestorApprovalSettings $resolveInvestorApprovalSettings,
+        private InvestorSummaryEligibility $investorSummaryEligibility,
+    ) {
         //
     }
 
@@ -92,6 +98,7 @@ class BuildInvestorPageData
                 'harvestRecords' => $this->approvedHarvestRecords($agreement)->map(fn (HarvestRecord $harvest) => $this->harvestPayload($harvest, $agreement)),
                 'saleRecords' => $this->approvedSaleRecords($agreement)->map(fn (SaleRecord $sale) => $this->salePayload($sale, $agreement)),
                 'distributionRecords' => $this->approvedDistributionRecords($agreement)->map(fn (DistributionRecord $distribution) => $this->distributionPayload($distribution)),
+                'aiSummaries' => $this->publishedAiSummaries($agreement),
                 'activities' => $this->approvedActivities($agreement)->map(fn (FarmActivity $activity) => $this->activityPayload($activity, $agreement)),
                 'tasks' => $this->approvedTasks($agreement)->map(fn (FarmTask $task) => $this->taskPayload($task)),
                 'planChanges' => $this->approvedPlanChanges($agreement)->map(fn (ProductionPlanChange $change) => $this->planChangePayload($change)),
@@ -307,6 +314,29 @@ class BuildInvestorPageData
             ->where('investor_visibility_status', InvestorVisibilityStatus::Approved->value)
             ->latest('calculated_at')
             ->get();
+    }
+
+    /**
+     * @return \Illuminate\Support\Collection<int, array{id: int, text: string, html: string, publishedAt: string}>
+     */
+    private function publishedAiSummaries(InvestorAgreement $agreement): \Illuminate\Support\Collection
+    {
+        return AiSummary::query()
+            ->where('team_id', $agreement->team_id)
+            ->where('investor_agreement_id', $agreement->id)
+            ->where('type', 'investor_progress')
+            ->where('status', 'published')
+            ->whereNotNull('final_text')
+            ->whereNotNull('published_at')
+            ->latest('published_at')
+            ->get()
+            ->filter(fn (AiSummary $summary): bool => $this->investorSummaryEligibility->isCurrent($summary, $agreement))
+            ->map(fn (AiSummary $summary): array => [
+                'id' => $summary->id,
+                'text' => $summary->final_text ?? '',
+                'html' => SummaryMarkdown::render($summary->final_text) ?? '',
+                'publishedAt' => Carbon::parse($summary->published_at)->toISOString(),
+            ])->values();
     }
 
     /**
