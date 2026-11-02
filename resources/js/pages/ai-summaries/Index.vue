@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { useSummaryPolling } from '@/composables/useSummaryPolling';
+import { useSummaryReviewText } from '@/composables/useSummaryReviewText';
 import { dashboard } from '@/routes';
 import {
     index as summariesIndex,
@@ -98,6 +99,7 @@ const currentTeamSlug = computed(() => currentTeam.value?.slug ?? '');
 useSummaryPolling(() =>
     props.summaries.some((summary) => summary.status === 'queued'),
 );
+const reviewTexts = useSummaryReviewText(() => props.summaries);
 
 defineOptions({
     layout: (props: { currentTeam?: Team | null }) => ({
@@ -442,11 +444,7 @@ defineOptions({
                             <textarea
                                 :id="`summary-final-${summary.id}`"
                                 name="final_text"
-                                :value="
-                                    summary.final_text ??
-                                    summary.generated_text ??
-                                    ''
-                                "
+                                v-model="reviewTexts[summary.id]"
                                 class="min-h-32 rounded-md border bg-background px-3 py-2 text-sm"
                             ></textarea>
                             <InputError :message="errors.final_text" />
