@@ -97,28 +97,35 @@ class BuildInvestorPageData
 
         return [
             'permissions' => $user->toTeamPermissions($team),
-            'agreements' => $agreements->map(fn (InvestorAgreement $agreement) => [
-                ...$this->agreementPayload($agreement),
-                'summary' => $this->agreementSummary($agreement),
-                'fundingPhases' => $this->approvedFundingPhases($agreement)->map(fn (FundingPhase $phase) => $this->fundingPhasePayload($phase)),
-                'expenses' => $this->approvedExpenses($agreement)->map(fn (Expense $expense) => $this->expensePayload($expense, $agreement)),
-                'externalTransfers' => $this->approvedExternalTransfers($agreement)->map(fn (ExternalTransfer $transfer) => $this->externalTransferPayload($transfer, $agreement)),
-                'harvestRecords' => $this->approvedHarvestRecords($agreement)->map(fn (HarvestRecord $harvest) => $this->harvestPayload($harvest, $agreement)),
-                'saleRecords' => $this->approvedSaleRecords($agreement)->map(fn (SaleRecord $sale) => $this->salePayload($sale, $agreement)),
-                'distributionRecords' => $this->approvedDistributionRecords($agreement)->map(fn (DistributionRecord $distribution) => $this->distributionPayload($distribution)),
-                'aiSummaries' => $this->publishedAiSummaries($agreement),
-                'activities' => $this->approvedActivities($agreement)->map(fn (FarmActivity $activity) => $this->activityPayload($activity, $agreement)),
-                'tasks' => $this->approvedTasks($agreement)->map(fn (FarmTask $task) => $this->taskPayload($task)),
-                'planChanges' => $this->approvedPlanChanges($agreement)->map(fn (ProductionPlanChange $change) => $this->planChangePayload($change)),
-                'approvalRequests' => $agreement->approvalRequests
-                    ->sortByDesc('created_at')
-                    ->values()
-                    ->map(fn (ApprovalRequest $approvalRequest) => $this->approvalRequestPayload($approvalRequest)),
-                'comments' => $agreement->investorComments
-                    ->sortByDesc('created_at')
-                    ->values()
-                    ->map(fn (InvestorComment $comment) => $this->commentPayload($comment)),
-            ]),
+            'agreements' => $agreements->map(function (InvestorAgreement $agreement): array {
+                $fundingPhases = $this->approvedFundingPhases($agreement);
+                $expenses = $this->approvedExpenses($agreement);
+                $saleRecords = $this->approvedSaleRecords($agreement);
+                $distributionRecords = $this->approvedDistributionRecords($agreement);
+
+                return [
+                    ...$this->agreementPayload($agreement),
+                    'summary' => $this->agreementSummary($agreement, $fundingPhases, $expenses, $saleRecords, $distributionRecords),
+                    'fundingPhases' => $fundingPhases->map(fn (FundingPhase $phase) => $this->fundingPhasePayload($phase)),
+                    'expenses' => $expenses->map(fn (Expense $expense) => $this->expensePayload($expense, $agreement)),
+                    'externalTransfers' => $this->approvedExternalTransfers($agreement)->map(fn (ExternalTransfer $transfer) => $this->externalTransferPayload($transfer, $agreement)),
+                    'harvestRecords' => $this->approvedHarvestRecords($agreement)->map(fn (HarvestRecord $harvest) => $this->harvestPayload($harvest, $agreement)),
+                    'saleRecords' => $saleRecords->map(fn (SaleRecord $sale) => $this->salePayload($sale, $agreement)),
+                    'distributionRecords' => $distributionRecords->map(fn (DistributionRecord $distribution) => $this->distributionPayload($distribution)),
+                    'aiSummaries' => $this->publishedAiSummaries($agreement),
+                    'activities' => $this->approvedActivities($agreement)->map(fn (FarmActivity $activity) => $this->activityPayload($activity, $agreement)),
+                    'tasks' => $this->approvedTasks($agreement)->map(fn (FarmTask $task) => $this->taskPayload($task)),
+                    'planChanges' => $this->approvedPlanChanges($agreement)->map(fn (ProductionPlanChange $change) => $this->planChangePayload($change)),
+                    'approvalRequests' => $agreement->approvalRequests
+                        ->sortByDesc('created_at')
+                        ->values()
+                        ->map(fn (ApprovalRequest $approvalRequest) => $this->approvalRequestPayload($approvalRequest)),
+                    'comments' => $agreement->investorComments
+                        ->sortByDesc('created_at')
+                        ->values()
+                        ->map(fn (InvestorComment $comment) => $this->commentPayload($comment)),
+                ];
+            }),
             'options' => [
                 'commentSubjectTypes' => [
                     ['value' => 'expense', 'label' => 'Expense'],
@@ -216,19 +223,21 @@ class BuildInvestorPageData
     }
 
     /**
+     * @param  Collection<int, FundingPhase>  $fundingPhases
+     * @param  Collection<int, Expense>  $expenses
+     * @param  Collection<int, SaleRecord>  $saleRecords
+     * @param  Collection<int, DistributionRecord>  $distributionRecords
      * @return array<string, mixed>
      */
-    private function agreementSummary(InvestorAgreement $agreement): array
+    private function agreementSummary(InvestorAgreement $agreement, Collection $fundingPhases, Collection $expenses, Collection $saleRecords, Collection $distributionRecords): array
     {
-        $approvedSaleRecords = $this->approvedSaleRecords($agreement);
-        $approvedDistributionRecords = $this->approvedDistributionRecords($agreement);
-        $releasedMinor = (int) $this->approvedFundingPhases($agreement)->where('currency', $agreement->currency)->sum('externally_released_amount_minor');
-        $spentMinor = (int) $this->approvedExpenses($agreement)->where('currency', $agreement->currency)->sum('amount_minor');
-        $saleNetMinor = (int) $approvedSaleRecords->where('currency', $agreement->currency)->sum('net_amount_minor');
-        $capitalRecoveredMinor = (int) $approvedDistributionRecords->where('currency', $agreement->currency)->sum('capital_recovered_minor');
+        $releasedMinor = (int) $fundingPhases->where('currency', $agreement->currency)->sum('externally_released_amount_minor');
+        $spentMinor = (int) $expenses->where('currency', $agreement->currency)->sum('amount_minor');
+        $saleNetMinor = (int) $saleRecords->where('currency', $agreement->currency)->sum('net_amount_minor');
+        $capitalRecoveredMinor = (int) $distributionRecords->where('currency', $agreement->currency)->sum('capital_recovered_minor');
         $unrecoveredCapitalMinor = max(0, $agreement->amount_funded_minor - $capitalRecoveredMinor);
-        $investorShareMinor = (int) $approvedDistributionRecords->where('currency', $agreement->currency)->sum('investor_share_minor');
-        $farmShareMinor = (int) $approvedDistributionRecords->where('currency', $agreement->currency)->sum('farm_share_minor');
+        $investorShareMinor = (int) $distributionRecords->where('currency', $agreement->currency)->sum('investor_share_minor');
+        $farmShareMinor = (int) $distributionRecords->where('currency', $agreement->currency)->sum('farm_share_minor');
 
         return [
             'releasedMinor' => $releasedMinor,
