@@ -9,7 +9,7 @@ FROM composer:2 AS composer-bin
 FROM php:8.5-apache-bookworm AS app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git libpq-dev libzip-dev unzip \
-    && docker-php-ext-install -j2 pdo_pgsql zip exif \
+    && docker-php-ext-install -j2 pdo_pgsql zip exif pcntl \
     && a2enmod rewrite headers \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=composer-bin /usr/bin/composer /usr/local/bin/composer
