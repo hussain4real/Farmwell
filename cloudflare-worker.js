@@ -149,7 +149,8 @@ export class FarmwellQueue extends DurableObject {
 
 export default {
     async fetch(request, env) {
-        const web = env.FARMWELL_WEB.getByName(`staging-web-${env.CF_VERSION_METADATA.id}`);
+        const id = env.FARMWELL_WEB.idFromName(`staging-web-${env.CF_VERSION_METADATA.id}`);
+        const web = env.FARMWELL_WEB.get(id, { locationHint: 'weur' });
 
         try {
             return await web.fetch(request);

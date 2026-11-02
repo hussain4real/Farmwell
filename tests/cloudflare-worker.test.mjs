@@ -75,8 +75,13 @@ test('deployments route web requests to separate containers', async () => {
     const env = {
         CF_VERSION_METADATA: { id: 'version-one' },
         FARMWELL_WEB: {
-            getByName(name) {
+            idFromName(name) {
                 names.push(name);
+
+                return name;
+            },
+            get(_id, options) {
+                assert.equal(options.locationHint, 'weur');
 
                 return { fetch: async () => 'ok' };
             },
@@ -101,7 +106,7 @@ test('retries a safe request once when the container connection closes', async (
     let attempts = 0;
     const env = {
         CF_VERSION_METADATA: { id: 'version-one' },
-        FARMWELL_WEB: { getByName: () => ({ fetch: async () => {
+        FARMWELL_WEB: { idFromName: (name) => name, get: () => ({ fetch: async () => {
             attempts++;
 
             if (attempts === 1) {
@@ -127,7 +132,7 @@ test('does not retry mutations when the container connection closes', async () =
     let attempts = 0;
     const env = {
         CF_VERSION_METADATA: { id: 'version-one' },
-        FARMWELL_WEB: { getByName: () => ({ fetch: async () => {
+        FARMWELL_WEB: { idFromName: (name) => name, get: () => ({ fetch: async () => {
             attempts++;
 
             throw new Error('Container port connection closed unexpectedly.');
