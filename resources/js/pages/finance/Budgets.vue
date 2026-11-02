@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { formatCurrency } from '@/lib/currency';
 import { dashboard } from '@/routes';
 import { index as financeIndex } from '@/routes/finance';
 import { store as storeBudgetLine } from '@/routes/finance/budget-lines';
@@ -119,7 +120,7 @@ watch(
 
         <section
             v-if="permissions.canManageFinance && currentTeamSlug"
-            class="space-y-4 rounded-lg border p-4"
+            class="space-y-4 rounded-xl border border-[#d6e5dc] bg-card p-5 dark:border-border"
         >
             <div class="flex items-center gap-2">
                 <Plus class="size-4" />
@@ -269,7 +270,7 @@ watch(
                 currentTeamSlug &&
                 budgets.length > 0
             "
-            class="space-y-4 rounded-lg border p-4"
+            class="space-y-4 rounded-xl border border-[#d6e5dc] bg-card p-5 dark:border-border"
         >
             <div class="flex items-center gap-2">
                 <Plus class="size-4" />
@@ -367,7 +368,7 @@ watch(
                 <article
                     v-for="budget in budgets"
                     :key="budget.id"
-                    class="space-y-4 rounded-lg border p-4"
+                    class="space-y-4 rounded-xl border border-[#d6e5dc] bg-card p-5 dark:border-border"
                 >
                     <div class="flex items-start justify-between gap-3">
                         <div>
@@ -396,7 +397,14 @@ watch(
                                     line.expenseCategoryName ?? 'Uncategorized'
                                 }}
                             </p>
-                            <p>{{ line.plannedAmount }} {{ line.currency }}</p>
+                            <p>
+                                {{
+                                    formatCurrency(
+                                        line.plannedAmount,
+                                        line.currency,
+                                    )
+                                }}
+                            </p>
                         </div>
                     </div>
                     <p v-else class="text-sm text-muted-foreground">

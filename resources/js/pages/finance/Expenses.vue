@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { formatCurrency } from '@/lib/currency';
 import { dashboard } from '@/routes';
 import { index as financeIndex } from '@/routes/finance';
 import {
@@ -160,7 +161,7 @@ watch(expenseCycleId, () => {
 
         <section
             v-if="permissions.canManageFinance && currentTeamSlug"
-            class="space-y-4 rounded-lg border p-4"
+            class="space-y-4 rounded-xl border border-[#d6e5dc] bg-card p-5 dark:border-border"
         >
             <div class="flex items-center gap-2">
                 <FileUp class="size-4" />
@@ -474,7 +475,12 @@ watch(expenseCycleId, () => {
                                 </p>
                             </div>
                             <Badge variant="secondary">
-                                {{ expense.amount }} {{ expense.currency }}
+                                {{
+                                    formatCurrency(
+                                        expense.amount,
+                                        expense.currency,
+                                    )
+                                }}
                             </Badge>
                         </div>
                         <div class="flex flex-wrap gap-2">
@@ -511,7 +517,9 @@ watch(expenseCycleId, () => {
                 </p>
             </div>
 
-            <aside class="space-y-4 rounded-lg border p-4">
+            <aside
+                class="space-y-4 rounded-xl border border-[#d6e5dc] bg-card p-5 dark:border-border"
+            >
                 <Heading
                     variant="small"
                     title="Variance"
@@ -525,10 +533,15 @@ watch(expenseCycleId, () => {
                     >
                         <p class="font-medium">{{ category.categoryName }}</p>
                         <p class="mt-1 text-muted-foreground">
-                            Budgeted {{ category.budgeted }} / spent
-                            {{ category.spent }}
+                            Budgeted
+                            {{ formatCurrency(category.budgeted, currency) }} /
+                            spent
+                            {{ formatCurrency(category.spent, currency) }}
                         </p>
-                        <p class="mt-1">Balance {{ category.balance }}</p>
+                        <p class="mt-1">
+                            Balance
+                            {{ formatCurrency(category.balance, currency) }}
+                        </p>
                     </div>
                 </div>
             </aside>

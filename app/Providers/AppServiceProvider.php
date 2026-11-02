@@ -2,11 +2,16 @@
 
 namespace App\Providers;
 
+use Aws\CommandInterface;
 use Carbon\CarbonImmutable;
+use Illuminate\Filesystem\AwsS3V3Adapter;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
+use LogicException;
+use Psr\Http\Message\RequestInterface;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -23,6 +28,22 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Storage::extend('r2', function ($app, array $config) {
+            $disk = Storage::build([...$config, 'driver' => 's3']);
+            if (! $disk instanceof AwsS3V3Adapter) {
+                throw new LogicException('The R2 filesystem requires an S3 adapter.');
+            }
+            $disk->getClient()->getHandlerList()->appendInit(
+                fn (callable $handler) => function (CommandInterface $command, ?RequestInterface $request = null) use ($handler) {
+                    unset($command['ACL']);
+
+                    return $handler($command, $request);
+                },
+                'r2-no-acl',
+            );
+
+            return $disk;
+        });
         $this->configureDefaults();
     }
 

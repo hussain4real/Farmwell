@@ -3,6 +3,7 @@
 namespace App\Actions\FarmOperations;
 
 use App\Actions\Finance\BuildFinancePageData;
+use App\Actions\Finance\ResolveTeamFinanceCurrency;
 use App\Actions\Harvests\BuildHarvestPageData;
 use App\Enums\CommodityRole;
 use App\Enums\FarmActivityStatus;
@@ -34,6 +35,7 @@ class BuildFarmOperationsPageData
     public function __construct(
         private BuildFinancePageData $financePageData,
         private BuildHarvestPageData $harvestPageData,
+        private ResolveTeamFinanceCurrency $resolveTeamFinanceCurrency,
     ) {
         //
     }
@@ -101,6 +103,7 @@ class BuildFarmOperationsPageData
     public function fieldDiary(Team $team, User $user): array
     {
         return [
+            'currency' => $this->resolveTeamFinanceCurrency->handle($team),
             'permissions' => $user->toTeamPermissions($team),
             'farms' => $this->farms($team)->map(fn (Farm $farm) => $this->farmPayload($farm)),
             'commodities' => $this->commodities($team)->map(fn (Commodity $commodity) => $this->commodityPayload($commodity)),

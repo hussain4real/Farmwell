@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { formatCurrency } from '@/lib/currency';
 import { dashboard } from '@/routes';
 import { index as financeIndex } from '@/routes/finance';
 import { index as budgetsIndex } from '@/routes/finance/budgets';
@@ -102,55 +103,69 @@ const workspaceLinks = computed(() => {
 </script>
 
 <template>
-    <Head title="Finance" />
-
     <div class="flex flex-1 flex-col gap-8 p-4 md:p-6">
+        <Head title="Finance" />
         <Heading
             title="Finance"
-            description="Budgets, expenses, funding phases, external transfers, variance, and carry-forward"
+            description="Budgets, expenses, funding, and variance. Totals use the saved default currency; individual records retain their currency."
         />
 
-        <section class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <div class="rounded-lg border p-4">
+        <section
+            class="grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border xl:grid-cols-4"
+        >
+            <div class="min-w-0 bg-card p-5">
                 <div class="flex items-center justify-between gap-3">
                     <span class="text-sm text-muted-foreground">
                         Budgeted
                     </span>
                     <ChartNoAxesCombined class="size-4 text-muted-foreground" />
                 </div>
-                <p class="mt-3 text-2xl font-semibold">
-                    {{ summary.budgeted }} {{ currency }}
+                <p
+                    class="mt-3 text-xl font-semibold tracking-tight break-words"
+                >
+                    {{ formatCurrency(summary.budgeted, props.currency) }}
                 </p>
             </div>
-            <div class="rounded-lg border p-4">
+            <div class="min-w-0 bg-card p-5">
                 <div class="flex items-center justify-between gap-3">
                     <span class="text-sm text-muted-foreground">Spent</span>
                     <ReceiptText class="size-4 text-muted-foreground" />
                 </div>
-                <p class="mt-3 text-2xl font-semibold">
-                    {{ summary.spent }} {{ currency }}
+                <p
+                    class="mt-3 text-xl font-semibold tracking-tight break-words"
+                >
+                    {{ formatCurrency(summary.spent, props.currency) }}
                 </p>
             </div>
-            <div class="rounded-lg border p-4">
+            <div class="min-w-0 bg-card p-5">
                 <div class="flex items-center justify-between gap-3">
                     <span class="text-sm text-muted-foreground">
                         Released
                     </span>
                     <Banknote class="size-4 text-muted-foreground" />
                 </div>
-                <p class="mt-3 text-2xl font-semibold">
-                    {{ summary.released }} {{ currency }}
+                <p
+                    class="mt-3 text-xl font-semibold tracking-tight break-words"
+                >
+                    {{ formatCurrency(summary.released, props.currency) }}
                 </p>
             </div>
-            <div class="rounded-lg border p-4">
+            <div class="min-w-0 bg-card p-5">
                 <div class="flex items-center justify-between gap-3">
                     <span class="text-sm text-muted-foreground">
                         Carry-forward
                     </span>
                     <CircleDollarSign class="size-4 text-muted-foreground" />
                 </div>
-                <p class="mt-3 text-2xl font-semibold">
-                    {{ carryForward.carryForward }} {{ currency }}
+                <p
+                    class="mt-3 text-xl font-semibold tracking-tight break-words"
+                >
+                    {{
+                        formatCurrency(
+                            carryForward.carryForward,
+                            props.currency,
+                        )
+                    }}
                 </p>
             </div>
         </section>
@@ -160,12 +175,12 @@ const workspaceLinks = computed(() => {
                 v-for="workspace in workspaceLinks"
                 :key="workspace.title"
                 :href="workspace.href"
-                class="rounded-lg border p-4 transition-colors hover:bg-accent"
+                class="rounded-xl border border-[#d6e5dc] bg-card p-5 transition-colors hover:bg-[#f0f7f2] dark:border-border dark:hover:bg-muted"
             >
                 <div class="flex items-start gap-3">
                     <component
                         :is="workspace.icon"
-                        class="mt-1 size-4 text-muted-foreground"
+                        class="mt-1 size-4 text-[#32735a] dark:text-emerald-300"
                     />
                     <div>
                         <h3 class="font-medium">{{ workspace.title }}</h3>
@@ -230,9 +245,25 @@ const workspaceLinks = computed(() => {
                         class="grid gap-3 rounded-lg border p-3 text-sm md:grid-cols-4"
                     >
                         <p class="font-medium">{{ category.categoryName }}</p>
-                        <p>Budgeted {{ category.budgeted }}</p>
-                        <p>Spent {{ category.spent }}</p>
-                        <p>Balance {{ category.balance }}</p>
+                        <p>
+                            Budgeted
+                            {{
+                                formatCurrency(
+                                    category.budgeted,
+                                    props.currency,
+                                )
+                            }}
+                        </p>
+                        <p>
+                            Spent
+                            {{ formatCurrency(category.spent, props.currency) }}
+                        </p>
+                        <p>
+                            Balance
+                            {{
+                                formatCurrency(category.balance, props.currency)
+                            }}
+                        </p>
                     </article>
                 </div>
                 <p v-else class="text-sm text-muted-foreground">
@@ -259,12 +290,19 @@ const workspaceLinks = computed(() => {
                         <div class="flex items-start justify-between gap-3">
                             <p class="font-medium">{{ phase.phaseName }}</p>
                             <Badge variant="secondary">
-                                {{ phase.carryForward }}
+                                {{
+                                    formatCurrency(
+                                        phase.carryForward,
+                                        props.currency,
+                                    )
+                                }}
                             </Badge>
                         </div>
                         <p class="mt-2 text-muted-foreground">
-                            Released {{ phase.released }} / spent
-                            {{ phase.spent }}
+                            Released
+                            {{ formatCurrency(phase.released, props.currency) }}
+                            / spent
+                            {{ formatCurrency(phase.spent, props.currency) }}
                         </p>
                     </article>
                 </div>
@@ -300,7 +338,12 @@ const workspaceLinks = computed(() => {
                                 </p>
                             </div>
                             <Badge variant="secondary">
-                                {{ expense.amount }} {{ expense.currency }}
+                                {{
+                                    formatCurrency(
+                                        expense.amount,
+                                        expense.currency,
+                                    )
+                                }}
                             </Badge>
                         </div>
                     </article>

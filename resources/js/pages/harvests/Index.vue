@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { formatCurrency } from '@/lib/currency';
 import { dashboard } from '@/routes';
 import {
     index as harvestsIndex,
@@ -175,7 +176,7 @@ watch(saleHarvestId, () => {
                     <ReceiptText class="size-4 text-muted-foreground" />
                 </div>
                 <p class="mt-3 text-2xl font-semibold">
-                    {{ summary.saleNet }} {{ currency }}
+                    {{ formatCurrency(summary.saleNet, currency) }}
                 </p>
             </div>
             <div
@@ -189,7 +190,7 @@ watch(saleHarvestId, () => {
                     <Scale class="size-4 text-muted-foreground" />
                 </div>
                 <p class="mt-3 text-2xl font-semibold">
-                    {{ summary.capitalRecovered }} {{ currency }}
+                    {{ formatCurrency(summary.capitalRecovered, currency) }}
                 </p>
             </div>
             <div
@@ -203,7 +204,7 @@ watch(saleHarvestId, () => {
                     <HandCoins class="size-4 text-muted-foreground" />
                 </div>
                 <p class="mt-3 text-2xl font-semibold">
-                    {{ summary.investorShare }} {{ currency }}
+                    {{ formatCurrency(summary.investorShare, currency) }}
                 </p>
             </div>
             <div
@@ -217,7 +218,7 @@ watch(saleHarvestId, () => {
                     <HandCoins class="size-4 text-muted-foreground" />
                 </div>
                 <p class="mt-3 text-2xl font-semibold">
-                    {{ summary.farmShare }} {{ currency }}
+                    {{ formatCurrency(summary.farmShare, currency) }}
                 </p>
             </div>
         </section>
@@ -228,7 +229,7 @@ watch(saleHarvestId, () => {
                     permissions.canManageFinance) &&
                 currentTeamSlug
             "
-            class="space-y-4 rounded-lg border p-4"
+            class="space-y-4 rounded-xl border border-[#d6e5dc] bg-card p-5 dark:border-border"
         >
             <div class="flex items-center gap-2">
                 <FileUp class="size-4" />
@@ -482,7 +483,7 @@ watch(saleHarvestId, () => {
 
         <section
             v-if="permissions.canManageFinance && currentTeamSlug"
-            class="space-y-4 rounded-lg border p-4"
+            class="space-y-4 rounded-xl border border-[#d6e5dc] bg-card p-5 dark:border-border"
         >
             <div class="flex items-center gap-2">
                 <ReceiptText class="size-4" />
@@ -667,7 +668,9 @@ watch(saleHarvestId, () => {
             class="grid gap-6"
             :class="{ 'xl:grid-cols-2': permissions.canViewFinance }"
         >
-            <div class="space-y-4 rounded-lg border p-4">
+            <div
+                class="space-y-4 rounded-xl border border-[#d6e5dc] bg-card p-5 dark:border-border"
+            >
                 <div class="flex items-center gap-2">
                     <Sprout class="size-4" />
                     <Heading
@@ -712,7 +715,7 @@ watch(saleHarvestId, () => {
 
             <div
                 v-if="permissions.canViewFinance"
-                class="space-y-4 rounded-lg border p-4"
+                class="space-y-4 rounded-xl border border-[#d6e5dc] bg-card p-5 dark:border-border"
             >
                 <div class="flex items-center gap-2">
                     <ReceiptText class="size-4" />
@@ -743,8 +746,15 @@ watch(saleHarvestId, () => {
                             </Badge>
                         </div>
                         <p>
-                            Net {{ sale.netAmount }} {{ sale.currency }} after
-                            {{ sale.deductionAmount }}
+                            Net
+                            {{ formatCurrency(sale.netAmount, sale.currency) }}
+                            after
+                            {{
+                                formatCurrency(
+                                    sale.deductionAmount,
+                                    sale.currency,
+                                )
+                            }}
                             deductions
                         </p>
                     </article>
@@ -757,7 +767,7 @@ watch(saleHarvestId, () => {
 
         <section
             v-if="permissions.canViewFinance"
-            class="space-y-4 rounded-lg border p-4"
+            class="space-y-4 rounded-xl border border-[#d6e5dc] bg-card p-5 dark:border-border"
         >
             <div class="flex items-center gap-2">
                 <HandCoins class="size-4" />
@@ -783,18 +793,30 @@ watch(saleHarvestId, () => {
                     </div>
                     <p>
                         Recovered
-                        {{ distribution.capitalRecovered }}
-                        {{ distribution.currency }}
+                        {{
+                            formatCurrency(
+                                distribution.capitalRecovered,
+                                distribution.currency,
+                            )
+                        }}
                     </p>
                     <p>
                         Profit
-                        {{ distribution.netProfit }}
-                        {{ distribution.currency }}
+                        {{
+                            formatCurrency(
+                                distribution.netProfit,
+                                distribution.currency,
+                            )
+                        }}
                     </p>
                     <p>
                         Investor
-                        {{ distribution.investorShare }}
-                        {{ distribution.currency }}
+                        {{
+                            formatCurrency(
+                                distribution.investorShare,
+                                distribution.currency,
+                            )
+                        }}
                     </p>
                     <Badge variant="secondary" class="w-fit">
                         {{ distribution.statusLabel }}

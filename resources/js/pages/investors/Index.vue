@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { formatCurrency } from '@/lib/currency';
 import { dashboard } from '@/routes';
 import { index as investorsIndex } from '@/routes/investors';
 import { store as storeAgreement } from '@/routes/investors/agreements';
@@ -96,7 +97,7 @@ watch(agreementFarmId, () => {
 
         <section
             v-if="permissions.canManageApprovalRequests && currentTeamSlug"
-            class="space-y-4 rounded-lg border p-4"
+            class="space-y-4 rounded-xl border border-[#d6e5dc] bg-card p-5 dark:border-border"
         >
             <div class="flex items-center gap-2">
                 <Settings2 class="size-4" />
@@ -173,7 +174,7 @@ watch(agreementFarmId, () => {
 
         <section
             v-if="permissions.canManageInvestorAgreements && currentTeamSlug"
-            class="space-y-4 rounded-lg border p-4"
+            class="space-y-4 rounded-xl border border-[#d6e5dc] bg-card p-5 dark:border-border"
         >
             <div class="flex items-center gap-2">
                 <Handshake class="size-4" />
@@ -426,12 +427,22 @@ watch(agreementFarmId, () => {
                     </div>
                     <div class="grid gap-2 md:grid-cols-3">
                         <p>
-                            Committed {{ agreement.amountCommitted }}
-                            {{ agreement.currency }}
+                            Committed
+                            {{
+                                formatCurrency(
+                                    agreement.amountCommitted,
+                                    agreement.currency,
+                                )
+                            }}
                         </p>
                         <p>
-                            Funded {{ agreement.amountFunded }}
-                            {{ agreement.currency }}
+                            Funded
+                            {{
+                                formatCurrency(
+                                    agreement.amountFunded,
+                                    agreement.currency,
+                                )
+                            }}
                         </p>
                         <p>
                             Split

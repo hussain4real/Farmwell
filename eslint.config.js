@@ -74,6 +74,7 @@ export default defineConfigWithVueTs(
     },
     {
         ignores: [
+            '.wrangler/**',
             'vendor',
             'node_modules',
             'public',

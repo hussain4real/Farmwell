@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { formatCurrency } from '@/lib/currency';
 import { dashboard } from '@/routes';
 import { index as investorsIndex } from '@/routes/investors';
 import { index as approvalsIndex } from '@/routes/investors/approvals';
@@ -108,8 +109,13 @@ const decisionStatuses = computed(() =>
                     </div>
                     <div class="grid gap-2 md:grid-cols-4">
                         <p>
-                            Requested {{ request.requestedAmount }}
-                            {{ request.currency }}
+                            Requested
+                            {{
+                                formatCurrency(
+                                    request.requestedAmount,
+                                    request.currency,
+                                )
+                            }}
                         </p>
                         <p>{{ request.triggerTypeLabel }}</p>
                         <p>{{ request.requestedAt }}</p>

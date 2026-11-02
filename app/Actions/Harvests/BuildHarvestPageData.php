@@ -68,12 +68,14 @@ class BuildHarvestPageData
      */
     private function summary(Team $team): array
     {
-        $saleNetMinor = (int) $team->saleRecords()->sum('net_amount_minor');
-        $capitalRecoveredMinor = (int) $team->distributionRecords()->sum('capital_recovered_minor');
-        $investorShareMinor = (int) $team->distributionRecords()->sum('investor_share_minor');
-        $farmShareMinor = (int) $team->distributionRecords()->sum('farm_share_minor');
+        $currency = $this->resolveTeamFinanceCurrency->handle($team);
+        $saleNetMinor = (int) $team->saleRecords()->where('currency', $currency)->sum('net_amount_minor');
+        $capitalRecoveredMinor = (int) $team->distributionRecords()->where('currency', $currency)->sum('capital_recovered_minor');
+        $investorShareMinor = (int) $team->distributionRecords()->where('currency', $currency)->sum('investor_share_minor');
+        $farmShareMinor = (int) $team->distributionRecords()->where('currency', $currency)->sum('farm_share_minor');
         $unrecoveredCapitalMinor = (int) $team->investorAgreements()
-            ->withSum('distributionRecords', 'capital_recovered_minor')
+            ->where('currency', $currency)
+            ->withSum(['distributionRecords' => fn ($query) => $query->where('currency', $currency)], 'capital_recovered_minor')
             ->get()
             ->sum(function (InvestorAgreement $agreement): int {
                 $capitalRecoveredMinor = (int) $agreement->getAttribute('distribution_records_sum_capital_recovered_minor');
@@ -82,6 +84,7 @@ class BuildHarvestPageData
             });
 
         return [
+            'currency' => $currency,
             'harvestRecords' => $team->harvestRecords()->count(),
             'saleRecords' => $team->saleRecords()->count(),
             'distributionRecords' => $team->distributionRecords()->count(),

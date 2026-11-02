@@ -136,6 +136,7 @@ class BuildFinancePageData
     {
         return [
             ...$this->summary($team),
+            'currency' => $this->resolveTeamFinanceCurrency->handle($team),
             'variance' => $this->calculateBudgetVariance->handle($team),
             'carryForward' => $this->calculateCarryForwardBalance->handle($team),
         ];
@@ -146,10 +147,11 @@ class BuildFinancePageData
      */
     private function summary(Team $team): array
     {
-        $budgetedMinor = (int) $team->budgetLines()->sum('planned_amount_minor');
-        $spentMinor = (int) $team->expenses()->whereIn('status', ExpenseStatus::spendableValues())->sum('amount_minor');
-        $releasedMinor = (int) $team->fundingPhases()->sum('externally_released_amount_minor');
-        $transfersMinor = (int) $team->externalTransfers()->sum('amount_minor');
+        $currency = $this->resolveTeamFinanceCurrency->handle($team);
+        $budgetedMinor = (int) $team->budgetLines()->where('currency', $currency)->sum('planned_amount_minor');
+        $spentMinor = (int) $team->expenses()->where('currency', $currency)->whereIn('status', ExpenseStatus::spendableValues())->sum('amount_minor');
+        $releasedMinor = (int) $team->fundingPhases()->where('currency', $currency)->sum('externally_released_amount_minor');
+        $transfersMinor = (int) $team->externalTransfers()->where('currency', $currency)->sum('amount_minor');
 
         return [
             'budgets' => $team->budgets()->count(),

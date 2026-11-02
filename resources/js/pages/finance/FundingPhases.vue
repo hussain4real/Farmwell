@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { formatCurrency } from '@/lib/currency';
 import { dashboard } from '@/routes';
 import { index as financeIndex } from '@/routes/finance';
 import {
@@ -121,13 +122,13 @@ watch(phaseCycleId, () => {
             <div class="rounded-lg border p-4">
                 <span class="text-sm text-muted-foreground">Released</span>
                 <p class="mt-3 text-2xl font-semibold">
-                    {{ carryForward.released }} {{ currency }}
+                    {{ formatCurrency(carryForward.released, currency) }}
                 </p>
             </div>
             <div class="rounded-lg border p-4">
                 <span class="text-sm text-muted-foreground">Spent</span>
                 <p class="mt-3 text-2xl font-semibold">
-                    {{ carryForward.spent }} {{ currency }}
+                    {{ formatCurrency(carryForward.spent, currency) }}
                 </p>
             </div>
             <div class="rounded-lg border p-4">
@@ -135,14 +136,14 @@ watch(phaseCycleId, () => {
                     Carry-forward
                 </span>
                 <p class="mt-3 text-2xl font-semibold">
-                    {{ carryForward.carryForward }} {{ currency }}
+                    {{ formatCurrency(carryForward.carryForward, currency) }}
                 </p>
             </div>
         </section>
 
         <section
             v-if="permissions.canManageFinance && currentTeamSlug"
-            class="space-y-4 rounded-lg border p-4"
+            class="space-y-4 rounded-xl border border-[#d6e5dc] bg-card p-5 dark:border-border"
         >
             <div class="flex items-center gap-2">
                 <Plus class="size-4" />
@@ -381,10 +382,42 @@ watch(phaseCycleId, () => {
                         </Badge>
                     </div>
                     <div class="grid gap-2 md:grid-cols-4">
-                        <p>Planned {{ phase.plannedAmount }}</p>
-                        <p>Requested {{ phase.requestedAmount }}</p>
-                        <p>Approved {{ phase.approvedAmount }}</p>
-                        <p>Released {{ phase.externallyReleasedAmount }}</p>
+                        <p>
+                            Planned
+                            {{
+                                formatCurrency(
+                                    phase.plannedAmount,
+                                    phase.currency,
+                                )
+                            }}
+                        </p>
+                        <p>
+                            Requested
+                            {{
+                                formatCurrency(
+                                    phase.requestedAmount,
+                                    phase.currency,
+                                )
+                            }}
+                        </p>
+                        <p>
+                            Approved
+                            {{
+                                formatCurrency(
+                                    phase.approvedAmount,
+                                    phase.currency,
+                                )
+                            }}
+                        </p>
+                        <p>
+                            Released
+                            {{
+                                formatCurrency(
+                                    phase.externallyReleasedAmount,
+                                    phase.currency,
+                                )
+                            }}
+                        </p>
                     </div>
                 </article>
             </div>

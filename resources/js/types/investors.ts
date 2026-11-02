@@ -92,6 +92,7 @@ export type InvestorApprovalRequest = {
     approvedAmount: string | null;
     currency: string;
     subjectLabel: string;
+    expenseDescription: string | null;
     requesterComment: string | null;
     decisionComment: string | null;
     requestedAt: string;
