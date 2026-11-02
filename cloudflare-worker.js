@@ -64,7 +64,7 @@ export class FarmwellWeb extends DurableObject {
         if (!container.running) {
             container.start({
                 image: container.images.base,
-                instance: 'lite',
+                instance: 'basic',
                 enableInternet: true,
                 env: containerEnvironment(this.env),
                 entrypoint: ['sh', '-c', 'exec apache2-foreground >>/tmp/farmwell-apache.log 2>&1'],

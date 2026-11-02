@@ -30,8 +30,9 @@ async function startWeb(image, running = true) {
             events.push('destroy');
             container.running = false;
         },
-        start: ({ image: nextImage, env }) => {
+        start: ({ image: nextImage, instance, env }) => {
             events.push(`start:${nextImage}`);
+            events.push(`instance:${instance}`);
             events.push(`database:${env.DB_URL}`);
             events.push(`mail:${env.MAIL_MAILER}:${env.CLOUDFLARE_ACCOUNT_ID}`);
             container.running = true;
@@ -60,6 +61,7 @@ test('web requests keep the current container image running', async () => {
 test('a stopped web container starts with the current image and staging configuration', async () => {
     assert.deepEqual(await startWeb('', false), [
         'start:current-image',
+        'instance:basic',
         'database:postgres://db.example/test',
         'mail:cloudflare:test-account',
     ]);
