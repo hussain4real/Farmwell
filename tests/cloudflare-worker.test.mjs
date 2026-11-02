@@ -89,3 +89,51 @@ test('deployments route web requests to separate containers', async () => {
 
     assert.deepEqual(names, ['staging-web-version-one', 'staging-web-version-two']);
 });
+
+test('retries a safe request once when the container connection closes', async () => {
+    const worker = vm.runInNewContext(`${source}\nworker;`, {
+        AbortSignal,
+        Error,
+        URL,
+        DurableObject: class {},
+        scheduler: { wait: async () => {} },
+    });
+    let attempts = 0;
+    const env = {
+        CF_VERSION_METADATA: { id: 'version-one' },
+        FARMWELL_WEB: { getByName: () => ({ fetch: async () => {
+            attempts++;
+
+            if (attempts === 1) {
+                throw new Error('Container port connection closed unexpectedly.');
+            }
+
+            return 'ok';
+        } }) },
+    };
+
+    assert.equal(await worker.fetch({ method: 'GET' }, env), 'ok');
+    assert.equal(attempts, 2);
+});
+
+test('does not retry mutations when the container connection closes', async () => {
+    const worker = vm.runInNewContext(`${source}\nworker;`, {
+        AbortSignal,
+        Error,
+        URL,
+        DurableObject: class {},
+        scheduler: { wait: async () => {} },
+    });
+    let attempts = 0;
+    const env = {
+        CF_VERSION_METADATA: { id: 'version-one' },
+        FARMWELL_WEB: { getByName: () => ({ fetch: async () => {
+            attempts++;
+
+            throw new Error('Container port connection closed unexpectedly.');
+        } }) },
+    };
+
+    await assert.rejects(worker.fetch({ method: 'POST' }, env), /connection closed/);
+    assert.equal(attempts, 1);
+});

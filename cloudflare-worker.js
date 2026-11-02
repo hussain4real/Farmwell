@@ -148,8 +148,24 @@ export class FarmwellQueue extends DurableObject {
 }
 
 export default {
-    fetch(request, env) {
-        return env.FARMWELL_WEB.getByName(`staging-web-${env.CF_VERSION_METADATA.id}`).fetch(request);
+    async fetch(request, env) {
+        const web = env.FARMWELL_WEB.getByName(`staging-web-${env.CF_VERSION_METADATA.id}`);
+
+        try {
+            return await web.fetch(request);
+        } catch (error) {
+            if (
+                !['GET', 'HEAD'].includes(request.method) ||
+                !(error instanceof Error) ||
+                !error.message.includes('Container port connection closed unexpectedly')
+            ) {
+                throw error;
+            }
+
+            await scheduler.wait(250);
+
+            return web.fetch(request);
+        }
     },
     async scheduled(_event, env) {
         await env.FARMWELL_QUEUE.getByName('staging-cloudflare-mail').run();
