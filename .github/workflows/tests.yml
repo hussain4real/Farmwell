@@ -53,7 +53,9 @@ jobs:
         run: npm run build
 
       - name: Test Client Behavior
-        run: npm run test:client
+        run: |
+          npm run test:client
+          node --experimental-strip-types --test tests/summary-polling.test.mjs
 
       - name: Quality Gate
         run: composer ci:check
