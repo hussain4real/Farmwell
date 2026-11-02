@@ -125,6 +125,7 @@ test('farm operating workspaces render focused page boundaries', function () {
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('field-diary/Index')
+            ->where('currency', 'NGN')
             ->where('latestActivities.0.activityType', 'Inspection')
             ->missing('upcomingTasks')
             ->missing('pendingIntakes')

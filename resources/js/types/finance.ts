@@ -68,6 +68,7 @@ export type CarryForward = {
 };
 
 export type FinanceDashboardSummary = FinanceSummary & {
+    currency: string;
     variance: FinanceVariance;
     carryForward: CarryForward;
 };

@@ -1,5 +1,7 @@
 <?php
 
+use App\Enums\TeamRole;
+use App\Models\Team;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -91,4 +93,26 @@ test('users are rate limited', function () {
     ]);
 
     $response->assertTooManyRequests();
+});
+
+test('investor-only users land on their investor portal after login even when the dashboard was intended', function () {
+    $investor = User::factory()->create();
+    $team = Team::factory()->create();
+    $team->members()->attach($investor, ['role' => TeamRole::Investor->value]);
+    $investor->switchTeam($team);
+
+    $this->withSession(['url.intended' => route('dashboard', ['current_team' => $team])])
+        ->post(route('login.store'), ['email' => $investor->email, 'password' => 'password'])
+        ->assertRedirect(route('investor-portal.index', ['current_team' => $team]));
+});
+
+test('investor login discards a previous admin page as the intended destination', function () {
+    $investor = User::factory()->create();
+    $team = Team::factory()->create();
+    $team->members()->attach($investor, ['role' => TeamRole::Investor->value]);
+    $investor->switchTeam($team);
+
+    $this->withSession(['url.intended' => "/{$team->slug}/ai-summaries"])
+        ->post(route('login.store'), ['email' => $investor->email, 'password' => 'password'])
+        ->assertRedirect(route('investor-portal.index', ['current_team' => $team]));
 });

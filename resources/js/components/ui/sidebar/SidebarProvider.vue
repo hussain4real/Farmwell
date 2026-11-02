@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import type { HTMLAttributes, Ref } from "vue"
-import { defaultDocument, useEventListener, useMediaQuery, useVModel } from "@vueuse/core"
+import { defaultDocument, useEventListener, useVModel } from "@vueuse/core"
 import { TooltipProvider } from "reka-ui"
 import { computed, ref } from "vue"
 import { cn } from "@/lib/utils"
+import { useHydratedMediaQuery } from "@/composables/useHydratedMediaQuery"
 import { provideSidebarContext, SIDEBAR_COOKIE_MAX_AGE, SIDEBAR_COOKIE_NAME, SIDEBAR_KEYBOARD_SHORTCUT, SIDEBAR_WIDTH, SIDEBAR_WIDTH_ICON } from "./utils"
 
 const props = withDefaults(defineProps<{
@@ -19,7 +20,7 @@ const emits = defineEmits<{
   "update:open": [open: boolean]
 }>()
 
-const isMobile = useMediaQuery("(max-width: 768px)")
+const isMobile = useHydratedMediaQuery("(max-width: 767px)")
 const openMobile = ref(false)
 
 const open = useVModel(props, "open", emits, {

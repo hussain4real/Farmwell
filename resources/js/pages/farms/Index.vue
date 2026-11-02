@@ -59,6 +59,7 @@ type Props = {
 
 const props = defineProps<Props>();
 const page = usePage();
+const activeForm = ref<'farm' | 'commodity' | 'unit' | 'cycle' | null>(null);
 
 defineOptions({
     layout: (props: { currentTeam?: Team | null }) => ({
@@ -140,6 +141,10 @@ const planChangeInvestorAgreements = computed(() => {
 
 const bumpFormKey = (key: keyof typeof formKeys.value) => {
     formKeys.value[key]++;
+
+    if (key !== 'planChange') {
+        activeForm.value = null;
+    }
 };
 
 const syncFarmSelections = () => {
@@ -188,64 +193,143 @@ watch(
 </script>
 
 <template>
-    <Head title="Farms" />
-
     <div class="flex flex-1 flex-col gap-8 p-4 md:p-6">
-        <Heading
-            title="Farm operations"
-            description="Farms, units, cycles, commodities, and plan changes"
-        />
+        <Head title="Farms" />
+        <section
+            class="overflow-hidden rounded-2xl bg-[#214d40] text-white dark:bg-[#194438]"
+            aria-labelledby="farms-title"
+        >
+            <div
+                class="flex flex-col justify-between gap-4 px-6 py-6 sm:gap-6 sm:px-8 sm:py-8 lg:flex-row lg:items-end"
+            >
+                <div class="max-w-xl">
+                    <h1
+                        id="farms-title"
+                        class="text-2xl font-semibold tracking-tight sm:text-3xl"
+                    >
+                        Farms and production
+                    </h1>
+                    <p class="mt-3 max-w-lg text-sm leading-6 text-[#d6e8de]">
+                        Manage your farms, production units, and growing cycles.
+                    </p>
+                </div>
+                <Button
+                    v-if="
+                        permissions.canManageFarmOperations && currentTeamSlug
+                    "
+                    type="button"
+                    class="h-11 shrink-0 bg-white px-5 text-[#214d40] hover:bg-[#e7f1eb]"
+                    :aria-expanded="activeForm === 'farm'"
+                    aria-controls="farm-creation"
+                    @click="activeForm = activeForm === 'farm' ? null : 'farm'"
+                    ><Plus class="size-4" /> Add a farm</Button
+                >
+            </div>
+            <div
+                class="grid grid-cols-2 border-t border-white/15 sm:grid-cols-4"
+                aria-label="Farm overview"
+            >
+                <div
+                    class="flex items-center justify-between gap-2 px-6 py-3 sm:block sm:px-8 sm:py-4"
+                >
+                    <span class="block text-xs text-[#c6e8d6]">Farms</span
+                    ><strong
+                        class="block text-base font-semibold sm:mt-1 sm:text-xl"
+                        >{{ stats.farms }}</strong
+                    >
+                </div>
+                <div
+                    class="flex items-center justify-between gap-2 border-l border-white/15 px-6 py-3 sm:block sm:px-8 sm:py-4"
+                >
+                    <span class="block text-xs text-[#c6e8d6]"
+                        >Production units</span
+                    ><strong
+                        class="block text-base font-semibold sm:mt-1 sm:text-xl"
+                        >{{ stats.productionUnits }}</strong
+                    >
+                </div>
+                <div
+                    class="flex items-center justify-between gap-2 border-t border-white/15 px-6 py-3 sm:block sm:border-t-0 sm:border-l sm:px-8 sm:py-4"
+                >
+                    <span class="block text-xs text-[#c6e8d6]"
+                        >Production cycles</span
+                    ><strong
+                        class="block text-base font-semibold sm:mt-1 sm:text-xl"
+                        >{{ stats.productionCycles }}</strong
+                    >
+                </div>
+                <div
+                    class="flex items-center justify-between gap-2 border-t border-l border-white/15 px-6 py-3 sm:block sm:border-t-0 sm:px-8 sm:py-4"
+                >
+                    <span class="block text-xs text-[#c6e8d6]">Commodities</span
+                    ><strong
+                        class="block text-base font-semibold sm:mt-1 sm:text-xl"
+                        >{{ stats.commodities }}</strong
+                    >
+                </div>
+            </div>
+        </section>
 
-        <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <div class="rounded-lg border p-4">
-                <div class="flex items-center justify-between gap-3">
-                    <span class="text-sm text-muted-foreground">Farms</span>
-                    <Tractor class="size-4 text-muted-foreground" />
-                </div>
-                <p class="mt-3 text-2xl font-semibold">{{ stats.farms }}</p>
-            </div>
-            <div class="rounded-lg border p-4">
-                <div class="flex items-center justify-between gap-3">
-                    <span class="text-sm text-muted-foreground">Units</span>
-                    <MapPin class="size-4 text-muted-foreground" />
-                </div>
-                <p class="mt-3 text-2xl font-semibold">
-                    {{ stats.productionUnits }}
-                </p>
-            </div>
-            <div class="rounded-lg border p-4">
-                <div class="flex items-center justify-between gap-3">
-                    <span class="text-sm text-muted-foreground">Cycles</span>
-                    <CalendarDays class="size-4 text-muted-foreground" />
-                </div>
-                <p class="mt-3 text-2xl font-semibold">
-                    {{ stats.productionCycles }}
-                </p>
-            </div>
-            <div class="rounded-lg border p-4">
-                <div class="flex items-center justify-between gap-3">
-                    <span class="text-sm text-muted-foreground">
-                        Commodities
-                    </span>
-                    <Sprout class="size-4 text-muted-foreground" />
-                </div>
-                <p class="mt-3 text-2xl font-semibold">
-                    {{ stats.commodities }}
-                </p>
-            </div>
+        <div
+            v-if="permissions.canManageFarmOperations && currentTeamSlug"
+            class="flex flex-wrap items-center gap-2"
+            aria-label="Create records"
+        >
+            <span class="mr-2 text-sm font-medium text-muted-foreground"
+                >Add to your operation</span
+            >
+            <Button
+                type="button"
+                variant="outline"
+                class="h-10 border-[#c9dbd0] bg-transparent"
+                :aria-expanded="activeForm === 'unit'"
+                aria-controls="unit-creation"
+                @click="activeForm = activeForm === 'unit' ? null : 'unit'"
+                ><MapPin class="size-4 text-[#32735a] dark:text-emerald-300" />
+                Production unit</Button
+            >
+            <Button
+                type="button"
+                variant="outline"
+                class="h-10 border-[#c9dbd0] bg-transparent"
+                :aria-expanded="activeForm === 'cycle'"
+                aria-controls="cycle-creation"
+                @click="activeForm = activeForm === 'cycle' ? null : 'cycle'"
+                ><CalendarDays
+                    class="size-4 text-[#32735a] dark:text-emerald-300"
+                />
+                Production cycle</Button
+            >
+            <Button
+                type="button"
+                variant="outline"
+                class="h-10 border-[#c9dbd0] bg-transparent"
+                :aria-expanded="activeForm === 'commodity'"
+                aria-controls="commodity-creation"
+                @click="
+                    activeForm = activeForm === 'commodity' ? null : 'commodity'
+                "
+                ><Sprout class="size-4 text-[#32735a] dark:text-emerald-300" />
+                Commodity</Button
+            >
         </div>
 
         <div
             v-if="permissions.canManageFarmOperations && currentTeamSlug"
-            class="grid gap-6 xl:grid-cols-2"
+            v-show="activeForm !== null"
+            class="max-w-3xl"
         >
-            <section class="space-y-4 rounded-lg border p-4">
+            <section
+                id="farm-creation"
+                v-show="activeForm === 'farm'"
+                class="space-y-5 rounded-xl border border-[#c9dbd0] bg-card p-6 dark:border-border"
+            >
                 <div class="flex items-center gap-2">
                     <Plus class="size-4" />
                     <Heading
                         variant="small"
                         title="Create farm"
-                        description="Tenant-scoped farm record"
+                        description="Add a farm to your team"
                     />
                 </div>
 
@@ -302,7 +386,11 @@ watch(
                 </Form>
             </section>
 
-            <section class="space-y-4 rounded-lg border p-4">
+            <section
+                id="commodity-creation"
+                v-show="activeForm === 'commodity'"
+                class="space-y-5 rounded-xl border border-[#c9dbd0] bg-card p-6 dark:border-border"
+            >
                 <div class="flex items-center gap-2">
                     <Sprout class="size-4" />
                     <Heading
@@ -359,7 +447,11 @@ watch(
                 </Form>
             </section>
 
-            <section class="space-y-4 rounded-lg border p-4">
+            <section
+                id="unit-creation"
+                v-show="activeForm === 'unit'"
+                class="space-y-5 rounded-xl border border-[#c9dbd0] bg-card p-6 dark:border-border"
+            >
                 <div class="flex items-center gap-2">
                     <MapPin class="size-4" />
                     <Heading
@@ -449,7 +541,11 @@ watch(
                 </p>
             </section>
 
-            <section class="space-y-4 rounded-lg border p-4">
+            <section
+                id="cycle-creation"
+                v-show="activeForm === 'cycle'"
+                class="space-y-5 rounded-xl border border-[#c9dbd0] bg-card p-6 dark:border-border"
+            >
                 <div class="flex items-center gap-2">
                     <CalendarDays class="size-4" />
                     <Heading
@@ -648,137 +744,197 @@ watch(
             </section>
         </div>
 
-        <section class="space-y-4">
-            <Heading
-                variant="small"
-                title="Operating records"
-                description="Current-team farms, units, cycles, and commodity mixes"
-            />
+        <section class="space-y-5" aria-labelledby="farm-directory-title">
+            <div class="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                    <h2
+                        id="farm-directory-title"
+                        class="text-xl font-semibold tracking-tight"
+                    >
+                        Farm directory
+                    </h2>
+                    <p class="mt-1 text-sm text-muted-foreground">
+                        Explore the places and production cycles in your care.
+                    </p>
+                </div>
+                <span class="text-sm text-muted-foreground"
+                    >{{ farms.length }}
+                    {{ farms.length === 1 ? 'farm' : 'farms' }}</span
+                >
+            </div>
 
             <div v-if="farms.length > 0" class="space-y-4">
                 <article
                     v-for="farm in farms"
                     :key="farm.id"
-                    class="space-y-4 rounded-lg border p-4"
+                    class="overflow-hidden rounded-xl border border-[#d6e5dc] bg-card dark:border-border"
                 >
                     <div
-                        class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between"
+                        class="flex flex-col justify-between gap-5 px-5 py-5 sm:px-6 md:flex-row md:items-center"
                     >
-                        <div>
-                            <div class="flex flex-wrap items-center gap-2">
-                                <h2 class="text-lg font-semibold">
-                                    {{ farm.name }}
-                                </h2>
-                                <Badge variant="secondary">
-                                    {{ farm.farmTypeLabel }}
-                                </Badge>
-                                <Badge>{{ farm.status }}</Badge>
-                            </div>
-                            <p
-                                v-if="farm.location"
-                                class="mt-1 text-sm text-muted-foreground"
+                        <div class="flex min-w-0 items-start gap-4">
+                            <div
+                                class="flex size-12 shrink-0 items-center justify-center rounded-xl bg-[#e5f1e9] text-[#28664e] dark:bg-emerald-950 dark:text-emerald-300"
                             >
-                                {{ farm.location }}
-                            </p>
-                        </div>
-                        <div class="grid grid-cols-2 gap-3 text-sm md:min-w-48">
-                            <div>
-                                <p class="text-muted-foreground">Units</p>
-                                <p class="font-medium">
-                                    {{ farm.productionUnitsCount }}
+                                <Tractor class="size-5" />
+                            </div>
+                            <div class="min-w-0">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <h3 class="text-lg font-semibold">
+                                        {{ farm.name }}
+                                    </h3>
+                                    <span
+                                        class="rounded-full bg-[#e8f4ec] px-2.5 py-1 text-xs font-medium text-[#276146] dark:bg-emerald-950 dark:text-emerald-300"
+                                        >{{ farm.status }}</span
+                                    >
+                                </div>
+                                <p
+                                    class="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground"
+                                >
+                                    <span>{{ farm.farmTypeLabel }} farm</span
+                                    ><template v-if="farm.location"
+                                        ><span aria-hidden="true">/</span
+                                        ><span>{{
+                                            farm.location
+                                        }}</span></template
+                                    >
                                 </p>
                             </div>
+                        </div>
+                        <div class="flex gap-8 pl-16 text-sm md:pl-0">
                             <div>
-                                <p class="text-muted-foreground">Cycles</p>
-                                <p class="font-medium">
-                                    {{ farm.productionCyclesCount }}
-                                </p>
+                                <span class="block text-muted-foreground"
+                                    >Units</span
+                                ><strong class="mt-1 block font-semibold">{{
+                                    farm.productionUnitsCount
+                                }}</strong>
+                            </div>
+                            <div>
+                                <span class="block text-muted-foreground"
+                                    >Cycles</span
+                                ><strong class="mt-1 block font-semibold">{{
+                                    farm.productionCyclesCount
+                                }}</strong>
                             </div>
                         </div>
                     </div>
-
-                    <div class="grid gap-4 xl:grid-cols-2">
-                        <div class="space-y-2">
-                            <h3 class="text-sm font-medium">
-                                Production units
-                            </h3>
+                    <div
+                        class="grid border-t border-[#e1ebe5] bg-[#f8fbf9] md:grid-cols-2 dark:border-border dark:bg-muted/20"
+                    >
+                        <div class="px-5 py-5 sm:px-6">
                             <div
-                                v-if="farm.productionUnits.length > 0"
-                                class="grid gap-2"
+                                class="mb-3 flex items-center gap-2 text-sm font-semibold"
                             >
-                                <div
+                                <MapPin
+                                    class="size-4 text-[#32735a] dark:text-emerald-300"
+                                />
+                                Production units
+                            </div>
+                            <ul
+                                v-if="farm.productionUnits.length"
+                                class="divide-y divide-[#e3ede6] text-sm dark:divide-border"
+                            >
+                                <li
                                     v-for="unit in farm.productionUnits"
                                     :key="unit.id"
-                                    class="flex items-center justify-between rounded-lg border px-3 py-2 text-sm"
+                                    class="flex items-center justify-between gap-4 py-2"
                                 >
-                                    <span>{{ unit.name }}</span>
-                                    <span class="text-muted-foreground">
-                                        {{ unit.unitTypeLabel }}
-                                    </span>
-                                </div>
-                            </div>
-                            <p v-else class="text-sm text-muted-foreground">
-                                No production units yet.
+                                    <span>{{ unit.name }}</span
+                                    ><span class="text-muted-foreground">{{
+                                        unit.unitTypeLabel
+                                    }}</span>
+                                </li>
+                            </ul>
+                            <p
+                                v-else
+                                class="text-sm leading-6 text-muted-foreground"
+                            >
+                                No production units added yet.
                             </p>
                         </div>
-
-                        <div class="space-y-2">
-                            <h3 class="text-sm font-medium">
-                                Production cycles
-                            </h3>
+                        <div
+                            class="border-t border-[#e1ebe5] px-5 py-5 sm:px-6 md:border-t-0 md:border-l dark:border-border"
+                        >
                             <div
-                                v-if="farm.productionCycles.length > 0"
-                                class="grid gap-2"
+                                class="mb-3 flex items-center gap-2 text-sm font-semibold"
                             >
-                                <div
+                                <CalendarDays
+                                    class="size-4 text-[#32735a] dark:text-emerald-300"
+                                />
+                                Production cycles
+                            </div>
+                            <ul
+                                v-if="farm.productionCycles.length"
+                                class="space-y-4"
+                            >
+                                <li
                                     v-for="cycle in farm.productionCycles"
                                     :key="cycle.id"
-                                    class="space-y-2 rounded-lg border px-3 py-2 text-sm"
+                                    class="text-sm"
                                 >
                                     <div
                                         class="flex flex-wrap items-center justify-between gap-2"
                                     >
-                                        <span class="font-medium">
-                                            {{ cycle.name }}
-                                        </span>
-                                        <Badge variant="secondary">
-                                            v{{ cycle.planVersion }}
-                                        </Badge>
+                                        <span class="font-medium">{{
+                                            cycle.name
+                                        }}</span
+                                        ><span
+                                            class="text-xs text-muted-foreground"
+                                            >{{ cycle.statusLabel }} · v{{
+                                                cycle.planVersion
+                                            }}</span
+                                        >
                                     </div>
-                                    <div
-                                        class="flex flex-wrap items-center gap-2 text-muted-foreground"
+                                    <p
+                                        class="mt-1 text-xs text-muted-foreground"
                                     >
-                                        <span>{{ cycle.statusLabel }}</span>
-                                        <span>{{ cycle.plannedStartOn }}</span>
-                                        <span v-if="cycle.plannedEndOn">
-                                            {{ cycle.plannedEndOn }}
-                                        </span>
-                                    </div>
-                                    <div class="flex flex-wrap gap-2">
-                                        <Badge
+                                        <span v-if="cycle.plannedStartOn">{{
+                                            cycle.plannedStartOn
+                                        }}</span
+                                        ><span v-if="cycle.plannedEndOn">
+                                            – {{ cycle.plannedEndOn }}</span
+                                        >
+                                    </p>
+                                    <div
+                                        v-if="cycle.commodities.length"
+                                        class="mt-2 flex flex-wrap gap-1.5"
+                                    >
+                                        <span
                                             v-for="commodity in cycle.commodities"
                                             :key="`${cycle.id}-${commodity.id}`"
-                                            variant="outline"
+                                            class="rounded-md bg-white px-2 py-1 text-xs text-[#315745] dark:bg-muted dark:text-foreground"
+                                            >{{ commodity.name }}
+                                            <span class="text-muted-foreground"
+                                                >({{
+                                                    commodity.roleLabel
+                                                }})</span
+                                            ></span
                                         >
-                                            {{ commodity.name }}:
-                                            {{ commodity.roleLabel }}
-                                        </Badge>
                                     </div>
-                                </div>
-                            </div>
-                            <p v-else class="text-sm text-muted-foreground">
-                                No production cycles yet.
+                                </li>
+                            </ul>
+                            <p
+                                v-else
+                                class="text-sm leading-6 text-muted-foreground"
+                            >
+                                No production cycles planned yet.
                             </p>
                         </div>
                     </div>
                 </article>
             </div>
-
             <div
                 v-else
-                class="rounded-lg border p-4 text-sm text-muted-foreground"
+                class="rounded-xl border border-dashed border-[#b7d4c3] bg-[#f8fbf9] px-6 py-10 text-center dark:border-border dark:bg-muted/20"
             >
-                No farm records yet.
+                <Sprout
+                    class="mx-auto size-6 text-[#32735a] dark:text-emerald-300"
+                />
+                <h3 class="mt-3 font-semibold">Start with your first farm</h3>
+                <p class="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
+                    Add a farm to begin organizing its production units and
+                    cycles.
+                </p>
             </div>
         </section>
 
@@ -793,134 +949,153 @@ watch(
                     />
                 </div>
 
-                <Form
+                <details
                     v-if="
                         permissions.canManageFarmOperations &&
                         currentTeamSlug &&
                         cycleTargets.length > 0
                     "
-                    :key="formKeys.planChange"
-                    v-bind="
-                        storePlanChange.form([
-                            currentTeamSlug,
-                            selectedPlanChangeTarget?.farmId ?? 0,
-                            selectedPlanChangeTarget?.cycleId ?? 0,
-                        ])
-                    "
-                    class="grid gap-4"
-                    v-slot="{ errors, processing }"
-                    @success="bumpFormKey('planChange')"
+                    class="group"
                 >
-                    <div class="grid gap-2">
-                        <Label for="plan-change-target">Cycle</Label>
-                        <select
-                            id="plan-change-target"
-                            v-model="planChangeTarget"
-                            class="h-9 rounded-md border bg-background px-3 text-sm"
-                            required
-                        >
-                            <option value="">Select cycle</option>
-                            <option
-                                v-for="target in cycleTargets"
-                                :key="target.key"
-                                :value="target.key"
+                    <summary
+                        class="cursor-pointer rounded-md text-sm font-medium underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4"
+                    >
+                        Record a plan change
+                    </summary>
+                    <Form
+                        :key="formKeys.planChange"
+                        v-bind="
+                            storePlanChange.form([
+                                currentTeamSlug,
+                                selectedPlanChangeTarget?.farmId ?? 0,
+                                selectedPlanChangeTarget?.cycleId ?? 0,
+                            ])
+                        "
+                        class="mt-4 grid gap-4"
+                        v-slot="{ errors, processing }"
+                        @success="bumpFormKey('planChange')"
+                    >
+                        <div class="grid gap-2">
+                            <Label for="plan-change-target">Cycle</Label>
+                            <select
+                                id="plan-change-target"
+                                v-model="planChangeTarget"
+                                class="h-9 rounded-md border bg-background px-3 text-sm"
+                                required
                             >
-                                {{ target.label }}
-                            </option>
-                        </select>
-                    </div>
-                    <div class="grid gap-2">
-                        <Label for="plan-change-type">Type</Label>
-                        <Select v-model="planChangeType" name="change_type">
-                            <SelectTrigger id="plan-change-type" class="w-full">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem
-                                    v-for="option in options.planChangeTypes"
+                                <option value="">Select cycle</option>
+                                <option
+                                    v-for="target in cycleTargets"
+                                    :key="target.key"
+                                    :value="target.key"
+                                >
+                                    {{ target.label }}
+                                </option>
+                            </select>
+                        </div>
+                        <div class="grid gap-2">
+                            <Label for="plan-change-type">Type</Label>
+                            <Select v-model="planChangeType" name="change_type">
+                                <SelectTrigger
+                                    id="plan-change-type"
+                                    class="w-full"
+                                >
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem
+                                        v-for="option in options.planChangeTypes"
+                                        :key="option.value"
+                                        :value="option.value"
+                                    >
+                                        {{ option.label }}
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <InputError :message="errors.change_type" />
+                        </div>
+                        <div class="grid gap-2">
+                            <Label for="plan-reason">Reason</Label>
+                            <Input id="plan-reason" name="reason" required />
+                            <InputError :message="errors.reason" />
+                        </div>
+                        <div class="grid gap-2">
+                            <Label for="plan-impact">Impact</Label>
+                            <Input id="plan-impact" name="impact" required />
+                            <InputError :message="errors.impact" />
+                        </div>
+                        <div class="grid gap-2">
+                            <Label for="investor-summary">
+                                Investor-safe summary
+                            </Label>
+                            <Input
+                                id="investor-summary"
+                                name="investor_safe_summary"
+                            />
+                            <InputError
+                                :message="errors.investor_safe_summary"
+                            />
+                        </div>
+                        <div class="grid gap-2">
+                            <Label for="plan-investor-agreement">
+                                Investor agreement
+                            </Label>
+                            <select
+                                id="plan-investor-agreement"
+                                v-model="planChangeInvestorAgreementId"
+                                name="investor_agreement_id"
+                                class="h-9 rounded-md border bg-background px-3 text-sm"
+                            >
+                                <option value="">Not linked</option>
+                                <option
+                                    v-for="agreement in planChangeInvestorAgreements"
+                                    :key="agreement.id"
+                                    :value="String(agreement.id)"
+                                >
+                                    {{ agreement.title }} /
+                                    {{ agreement.investorName }}
+                                </option>
+                            </select>
+                            <InputError
+                                :message="errors.investor_agreement_id"
+                            />
+                        </div>
+                        <div class="grid gap-2">
+                            <Label for="plan-investor-visibility">
+                                Investor visibility
+                            </Label>
+                            <select
+                                id="plan-investor-visibility"
+                                v-model="planChangeInvestorVisibilityStatus"
+                                name="investor_visibility_status"
+                                class="h-9 rounded-md border bg-background px-3 text-sm"
+                            >
+                                <option
+                                    v-for="option in options.investorVisibilityStatuses"
                                     :key="option.value"
                                     :value="option.value"
                                 >
                                     {{ option.label }}
-                                </SelectItem>
-                            </SelectContent>
-                        </Select>
-                        <InputError :message="errors.change_type" />
-                    </div>
-                    <div class="grid gap-2">
-                        <Label for="plan-reason">Reason</Label>
-                        <Input id="plan-reason" name="reason" required />
-                        <InputError :message="errors.reason" />
-                    </div>
-                    <div class="grid gap-2">
-                        <Label for="plan-impact">Impact</Label>
-                        <Input id="plan-impact" name="impact" required />
-                        <InputError :message="errors.impact" />
-                    </div>
-                    <div class="grid gap-2">
-                        <Label for="investor-summary">
-                            Investor-safe summary
-                        </Label>
-                        <Input
-                            id="investor-summary"
-                            name="investor_safe_summary"
-                        />
-                        <InputError :message="errors.investor_safe_summary" />
-                    </div>
-                    <div class="grid gap-2">
-                        <Label for="plan-investor-agreement">
-                            Investor agreement
-                        </Label>
-                        <select
-                            id="plan-investor-agreement"
-                            v-model="planChangeInvestorAgreementId"
-                            name="investor_agreement_id"
-                            class="h-9 rounded-md border bg-background px-3 text-sm"
+                                </option>
+                            </select>
+                            <InputError
+                                :message="errors.investor_visibility_status"
+                            />
+                        </div>
+                        <Button
+                            type="submit"
+                            :disabled="processing || !selectedPlanChangeTarget"
                         >
-                            <option value="">Not linked</option>
-                            <option
-                                v-for="agreement in planChangeInvestorAgreements"
-                                :key="agreement.id"
-                                :value="String(agreement.id)"
-                            >
-                                {{ agreement.title }} /
-                                {{ agreement.investorName }}
-                            </option>
-                        </select>
-                        <InputError :message="errors.investor_agreement_id" />
-                    </div>
-                    <div class="grid gap-2">
-                        <Label for="plan-investor-visibility">
-                            Investor visibility
-                        </Label>
-                        <select
-                            id="plan-investor-visibility"
-                            v-model="planChangeInvestorVisibilityStatus"
-                            name="investor_visibility_status"
-                            class="h-9 rounded-md border bg-background px-3 text-sm"
-                        >
-                            <option
-                                v-for="option in options.investorVisibilityStatuses"
-                                :key="option.value"
-                                :value="option.value"
-                            >
-                                {{ option.label }}
-                            </option>
-                        </select>
-                        <InputError
-                            :message="errors.investor_visibility_status"
-                        />
-                    </div>
-                    <Button
-                        type="submit"
-                        :disabled="processing || !selectedPlanChangeTarget"
-                    >
-                        Record change
-                    </Button>
-                </Form>
+                            Record change
+                        </Button>
+                    </Form>
+                </details>
 
-                <p v-else class="text-sm text-muted-foreground">
-                    No production cycles yet.
+                <p
+                    v-else-if="cycleTargets.length === 0"
+                    class="text-sm text-muted-foreground"
+                >
+                    Add a production cycle before recording a plan change.
                 </p>
             </div>
 

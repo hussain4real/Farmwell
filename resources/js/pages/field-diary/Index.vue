@@ -15,6 +15,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { formatCurrency } from '@/lib/currency';
 import { dashboard } from '@/routes';
 import { store as storeFarmActivity } from '@/routes/farm-activities';
 import { index as fieldDiaryIndex } from '@/routes/field-diary';
@@ -28,6 +29,7 @@ import type {
 } from '@/types';
 
 type Props = {
+    currency: string;
     permissions: FarmOperationPermissions;
     farms: Farm[];
     commodities: Commodity[];
@@ -127,7 +129,7 @@ watch(activityFarmId, () => {
 
         <section
             v-if="permissions.canManageFarmOperations && currentTeamSlug"
-            class="space-y-4 rounded-lg border p-4"
+            class="space-y-4 rounded-xl border border-[#d6e5dc] bg-card p-5 dark:border-border"
         >
             <div class="flex items-center gap-2">
                 <FileUp class="size-4" />
@@ -393,7 +395,10 @@ watch(activityFarmId, () => {
                     </div>
                     <p>{{ activity.description }}</p>
                     <div class="grid gap-2 text-muted-foreground">
-                        <p v-if="activity.cost">Cost: {{ activity.cost }}</p>
+                        <p v-if="activity.cost">
+                            Cost (team currency):
+                            {{ formatCurrency(activity.cost, currency) }}
+                        </p>
                         <p v-if="activity.nextActivity">
                             Next: {{ activity.nextActivity }}
                         </p>

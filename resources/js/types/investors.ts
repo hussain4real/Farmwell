@@ -92,6 +92,7 @@ export type InvestorApprovalRequest = {
     approvedAmount: string | null;
     currency: string;
     subjectLabel: string;
+    expenseDescription: string | null;
     requesterComment: string | null;
     decisionComment: string | null;
     requestedAt: string;
@@ -223,6 +224,12 @@ export type InvestorPortalAgreement = InvestorAgreement & {
     harvestRecords: InvestorHarvestRecord[];
     saleRecords: InvestorSaleRecord[];
     distributionRecords: InvestorDistributionRecord[];
+    aiSummaries: {
+        id: number;
+        text: string;
+        html: string;
+        publishedAt: string;
+    }[];
     activities: InvestorActivity[];
     tasks: InvestorTask[];
     planChanges: InvestorPlanChange[];

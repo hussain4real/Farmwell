@@ -63,6 +63,38 @@ function farmwellInvestorRoute(string $name, Team $team, array $parameters = [])
     return route($name, ['current_team' => $team, ...$parameters]);
 }
 
+test('investors receive the description and requester comment for their scoped expense approval', function () {
+    [$owner, $investor, $team, $farm, $cycle, $category] = farmwellInvestorContext();
+    $agreement = InvestorAgreement::factory()->create([
+        'team_id' => $team->id, 'investor_id' => $investor->id, 'farm_id' => $farm->id, 'production_cycle_id' => $cycle->id,
+    ]);
+    $expense = Expense::factory()->create([
+        'team_id' => $team->id, 'farm_id' => $farm->id, 'production_cycle_id' => $cycle->id,
+        'investor_agreement_id' => $agreement->id, 'expense_category_id' => $category->id,
+        'investor_visibility_status' => InvestorVisibilityStatus::PendingApproval,
+        'description' => 'Replace the irrigation pump.', 'notes' => 'Private finance notes.',
+    ]);
+    $request = ApprovalRequest::factory()->create([
+        'team_id' => $team->id, 'farm_id' => $farm->id, 'investor_agreement_id' => $agreement->id,
+        'requested_by_id' => $owner->id, 'subject_type' => $expense->getMorphClass(), 'subject_id' => $expense->id,
+        'requester_comment' => 'The current pump is beyond repair.',
+    ]);
+
+    $this->actingAs($investor)->get(farmwellInvestorRoute('investor-portal.index', $team))
+        ->assertOk()->assertInertia(fn (Assert $page) => $page
+        ->where('agreements.0.approvalRequests.0.id', $request->id)
+        ->where('agreements.0.approvalRequests.0.expenseDescription', 'Replace the irrigation pump.')
+        ->where('agreements.0.approvalRequests.0.requesterComment', 'The current pump is beyond repair.')
+        ->where('agreements.0.expenses', []))
+        ->assertDontSee('Private finance notes.');
+
+    $otherAgreement = InvestorAgreement::factory()->create(['team_id' => $team->id, 'farm_id' => $farm->id]);
+    $expense->update(['investor_agreement_id' => $otherAgreement->id]);
+    $this->get(farmwellInvestorRoute('investor-portal.index', $team))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('agreements.0.approvalRequests.0.expenseDescription', null));
+});
+
 test('investor role can be invited and receives portal-only navigation permissions', function () {
     Notification::fake();
 

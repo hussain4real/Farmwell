@@ -12,6 +12,7 @@ import {
 import { computed } from 'vue';
 import Heading from '@/components/Heading.vue';
 import { Badge } from '@/components/ui/badge';
+import { formatCurrency } from '@/lib/currency';
 import { dashboard } from '@/routes';
 import { index as farmTasksIndex } from '@/routes/farm-tasks';
 import { index as farmsIndex } from '@/routes/farms';
@@ -108,50 +109,61 @@ const workspaceLinks = computed(() => {
 </script>
 
 <template>
-    <Head title="Dashboard" />
-
     <div class="flex flex-1 flex-col gap-8 p-4 md:p-6">
+        <Head title="Dashboard" />
         <Heading
             title="Dashboard"
-            description="High-level farm, activity, task, intake, and plan-change summary"
+            description="Farm activity and financial totals in the team’s default currency"
         />
 
-        <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <div class="rounded-lg border p-4">
+        <div
+            class="grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border xl:grid-cols-4"
+        >
+            <div class="min-w-0 bg-card p-5">
                 <div class="flex items-center justify-between gap-3">
                     <span class="text-sm text-muted-foreground">Farms</span>
                     <Tractor class="size-4 text-muted-foreground" />
                 </div>
-                <p class="mt-3 text-2xl font-semibold">{{ stats.farms }}</p>
+                <p
+                    class="mt-3 text-xl font-semibold tracking-tight break-words"
+                >
+                    {{ stats.farms }}
+                </p>
             </div>
-            <div class="rounded-lg border p-4">
+            <div class="min-w-0 bg-card p-5">
                 <div class="flex items-center justify-between gap-3">
                     <span class="text-sm text-muted-foreground">Cycles</span>
                     <CalendarDays class="size-4 text-muted-foreground" />
                 </div>
-                <p class="mt-3 text-2xl font-semibold">
+                <p
+                    class="mt-3 text-xl font-semibold tracking-tight break-words"
+                >
                     {{ stats.productionCycles }}
                 </p>
             </div>
-            <div class="rounded-lg border p-4">
+            <div class="min-w-0 bg-card p-5">
                 <div class="flex items-center justify-between gap-3">
                     <span class="text-sm text-muted-foreground">
                         Activities
                     </span>
                     <ClipboardList class="size-4 text-muted-foreground" />
                 </div>
-                <p class="mt-3 text-2xl font-semibold">
+                <p
+                    class="mt-3 text-xl font-semibold tracking-tight break-words"
+                >
                     {{ stats.activities }}
                 </p>
             </div>
-            <div class="rounded-lg border p-4">
+            <div class="min-w-0 bg-card p-5">
                 <div class="flex items-center justify-between gap-3">
                     <span class="text-sm text-muted-foreground">
                         Open tasks
                     </span>
                     <ListTodo class="size-4 text-muted-foreground" />
                 </div>
-                <p class="mt-3 text-2xl font-semibold">
+                <p
+                    class="mt-3 text-xl font-semibold tracking-tight break-words"
+                >
                     {{ stats.openTasks }}
                 </p>
             </div>
@@ -159,113 +171,164 @@ const workspaceLinks = computed(() => {
 
         <section
             v-if="financeSummary"
-            class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
+            class="grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border xl:grid-cols-4"
         >
-            <div class="rounded-lg border p-4">
+            <div class="min-w-0 bg-card p-5">
                 <div class="flex items-center justify-between gap-3">
                     <span class="text-sm text-muted-foreground">
                         Budgeted
                     </span>
                     <Landmark class="size-4 text-muted-foreground" />
                 </div>
-                <p class="mt-3 text-2xl font-semibold">
-                    {{ financeSummary.budgeted }}
+                <p
+                    class="mt-3 text-xl font-semibold tracking-tight break-words"
+                >
+                    {{
+                        formatCurrency(
+                            financeSummary.budgeted,
+                            financeSummary.currency,
+                        )
+                    }}
                 </p>
             </div>
-            <div class="rounded-lg border p-4">
+            <div class="min-w-0 bg-card p-5">
                 <div class="flex items-center justify-between gap-3">
                     <span class="text-sm text-muted-foreground">Spent</span>
                     <Landmark class="size-4 text-muted-foreground" />
                 </div>
-                <p class="mt-3 text-2xl font-semibold">
-                    {{ financeSummary.spent }}
+                <p
+                    class="mt-3 text-xl font-semibold tracking-tight break-words"
+                >
+                    {{
+                        formatCurrency(
+                            financeSummary.spent,
+                            financeSummary.currency,
+                        )
+                    }}
                 </p>
             </div>
-            <div class="rounded-lg border p-4">
+            <div class="min-w-0 bg-card p-5">
                 <div class="flex items-center justify-between gap-3">
                     <span class="text-sm text-muted-foreground">
                         Variance
                     </span>
                     <Landmark class="size-4 text-muted-foreground" />
                 </div>
-                <p class="mt-3 text-2xl font-semibold">
-                    {{ financeSummary.variance.variance }}
+                <p
+                    class="mt-3 text-xl font-semibold tracking-tight break-words"
+                >
+                    {{
+                        formatCurrency(
+                            financeSummary.variance.variance,
+                            financeSummary.currency,
+                        )
+                    }}
                 </p>
             </div>
-            <div class="rounded-lg border p-4">
+            <div class="min-w-0 bg-card p-5">
                 <div class="flex items-center justify-between gap-3">
                     <span class="text-sm text-muted-foreground">
                         Carry-forward
                     </span>
                     <Landmark class="size-4 text-muted-foreground" />
                 </div>
-                <p class="mt-3 text-2xl font-semibold">
-                    {{ financeSummary.carryForward.carryForward }}
+                <p
+                    class="mt-3 text-xl font-semibold tracking-tight break-words"
+                >
+                    {{
+                        formatCurrency(
+                            financeSummary.carryForward.carryForward,
+                            financeSummary.currency,
+                        )
+                    }}
                 </p>
             </div>
         </section>
 
         <section
             v-if="harvestSummary"
-            class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
+            class="grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border xl:grid-cols-4"
         >
-            <div class="rounded-lg border p-4">
+            <div class="min-w-0 bg-card p-5">
                 <div class="flex items-center justify-between gap-3">
                     <span class="text-sm text-muted-foreground">
                         Harvests
                     </span>
                     <Sprout class="size-4 text-muted-foreground" />
                 </div>
-                <p class="mt-3 text-2xl font-semibold">
+                <p
+                    class="mt-3 text-xl font-semibold tracking-tight break-words"
+                >
                     {{ harvestSummary.harvestRecords }}
                 </p>
             </div>
-            <div class="rounded-lg border p-4">
+            <div class="min-w-0 bg-card p-5">
                 <div class="flex items-center justify-between gap-3">
                     <span class="text-sm text-muted-foreground">
                         Net sales
                     </span>
                     <Landmark class="size-4 text-muted-foreground" />
                 </div>
-                <p class="mt-3 text-2xl font-semibold">
-                    {{ harvestSummary.saleNet }}
+                <p
+                    class="mt-3 text-xl font-semibold tracking-tight break-words"
+                >
+                    {{
+                        formatCurrency(
+                            harvestSummary.saleNet,
+                            harvestSummary.currency ?? '',
+                        )
+                    }}
                 </p>
             </div>
-            <div class="rounded-lg border p-4">
+            <div class="min-w-0 bg-card p-5">
                 <div class="flex items-center justify-between gap-3">
                     <span class="text-sm text-muted-foreground">
                         Capital recovered
                     </span>
                     <Landmark class="size-4 text-muted-foreground" />
                 </div>
-                <p class="mt-3 text-2xl font-semibold">
-                    {{ harvestSummary.capitalRecovered }}
+                <p
+                    class="mt-3 text-xl font-semibold tracking-tight break-words"
+                >
+                    {{
+                        formatCurrency(
+                            harvestSummary.capitalRecovered,
+                            harvestSummary.currency ?? '',
+                        )
+                    }}
                 </p>
             </div>
-            <div class="rounded-lg border p-4">
+            <div class="min-w-0 bg-card p-5">
                 <div class="flex items-center justify-between gap-3">
                     <span class="text-sm text-muted-foreground">
                         Investor share
                     </span>
                     <Landmark class="size-4 text-muted-foreground" />
                 </div>
-                <p class="mt-3 text-2xl font-semibold">
-                    {{ harvestSummary.investorShare }}
+                <p
+                    class="mt-3 text-xl font-semibold tracking-tight break-words"
+                >
+                    {{
+                        formatCurrency(
+                            harvestSummary.investorShare,
+                            harvestSummary.currency ?? '',
+                        )
+                    }}
                 </p>
             </div>
         </section>
 
-        <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
+        <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             <Link
                 v-for="workspace in workspaceLinks"
                 :key="workspace.title"
                 :href="workspace.href"
-                class="rounded-lg border p-4 transition-colors hover:bg-accent"
+                class="rounded-xl border border-[#d6e5dc] bg-card p-4 transition-colors hover:bg-[#f0f7f2] dark:border-border dark:hover:bg-muted"
             >
                 <div class="flex items-start gap-3">
                     <component
                         :is="workspace.icon"
-                        class="mt-1 size-4 text-muted-foreground"
+                        class="mt-1 size-4 text-[#32735a] dark:text-emerald-300"
                     />
                     <div>
                         <h3 class="font-medium">{{ workspace.title }}</h3>

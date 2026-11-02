@@ -4,10 +4,12 @@ import { Handshake, MessageSquare } from 'lucide-vue-next';
 import { computed } from 'vue';
 import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
+import SummaryText from '@/components/SummaryText.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { formatCurrency } from '@/lib/currency';
 import { store as storeInvestorComment } from '@/routes/investor-comments';
 import { index as investorPortalIndex } from '@/routes/investor-portal';
 import { store as storeDecision } from '@/routes/investors/approvals/decisions';
@@ -38,24 +40,26 @@ const currentTeamSlug = computed(() => currentTeam.value?.slug ?? '');
 </script>
 
 <template>
-    <Head title="Investor Portal" />
-
     <div class="flex flex-1 flex-col gap-8 p-4 md:p-6">
+        <Head title="Investor Portal" />
         <Heading
-            title="Investor Portal"
-            description="Agreement-scoped progress, approved expenses, releases, and questions"
+            title="Your investments"
+            description="Follow farm progress, financial updates, and decisions for your agreements."
         />
 
         <section v-if="agreements.length > 0" class="space-y-6">
             <article
                 v-for="agreement in agreements"
                 :key="agreement.id"
-                class="space-y-6 rounded-lg border p-4"
+                class="space-y-6 rounded-xl border border-[#d6e5dc] bg-card p-5 sm:p-6 dark:border-border"
             >
                 <div class="flex flex-wrap items-start justify-between gap-4">
                     <div>
                         <div class="flex items-center gap-2">
-                            <Handshake class="size-4" />
+                            <span
+                                class="flex size-11 shrink-0 items-center justify-center rounded-xl bg-[#e5f1e9] text-[#28664e] dark:bg-emerald-950 dark:text-emerald-300"
+                                ><Handshake class="size-5"
+                            /></span>
                             <h2 class="text-lg font-semibold">
                                 {{ agreement.title }}
                             </h2>
@@ -85,51 +89,89 @@ const currentTeamSlug = computed(() => currentTeam.value?.slug ?? '');
                     </a>
                 </div>
 
-                <div class="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
-                    <div class="rounded-lg border p-4">
+                <div
+                    class="grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border xl:grid-cols-3"
+                >
+                    <div class="min-w-0 bg-[#f8fbf9] p-4 dark:bg-muted/20">
                         <p class="text-sm text-muted-foreground">Released</p>
-                        <p class="mt-2 text-xl font-semibold">
-                            {{ agreement.summary.released }}
-                            {{ agreement.currency }}
+                        <p
+                            class="mt-2 text-lg font-semibold tracking-tight break-words"
+                        >
+                            {{
+                                formatCurrency(
+                                    agreement.summary.released,
+                                    agreement.currency,
+                                )
+                            }}
                         </p>
                     </div>
-                    <div class="rounded-lg border p-4">
+                    <div class="min-w-0 bg-[#f8fbf9] p-4 dark:bg-muted/20">
                         <p class="text-sm text-muted-foreground">Spent</p>
-                        <p class="mt-2 text-xl font-semibold">
-                            {{ agreement.summary.spent }}
-                            {{ agreement.currency }}
+                        <p
+                            class="mt-2 text-lg font-semibold tracking-tight break-words"
+                        >
+                            {{
+                                formatCurrency(
+                                    agreement.summary.spent,
+                                    agreement.currency,
+                                )
+                            }}
                         </p>
                     </div>
-                    <div class="rounded-lg border p-4">
+                    <div class="min-w-0 bg-[#f8fbf9] p-4 dark:bg-muted/20">
                         <p class="text-sm text-muted-foreground">Balance</p>
-                        <p class="mt-2 text-xl font-semibold">
-                            {{ agreement.summary.balance }}
-                            {{ agreement.currency }}
+                        <p
+                            class="mt-2 text-lg font-semibold tracking-tight break-words"
+                        >
+                            {{
+                                formatCurrency(
+                                    agreement.summary.balance,
+                                    agreement.currency,
+                                )
+                            }}
                         </p>
                     </div>
-                    <div class="rounded-lg border p-4">
+                    <div class="min-w-0 bg-[#f8fbf9] p-4 dark:bg-muted/20">
                         <p class="text-sm text-muted-foreground">Net sales</p>
-                        <p class="mt-2 text-xl font-semibold">
-                            {{ agreement.summary.saleNet }}
-                            {{ agreement.currency }}
+                        <p
+                            class="mt-2 text-lg font-semibold tracking-tight break-words"
+                        >
+                            {{
+                                formatCurrency(
+                                    agreement.summary.saleNet,
+                                    agreement.currency,
+                                )
+                            }}
                         </p>
                     </div>
-                    <div class="rounded-lg border p-4">
+                    <div class="min-w-0 bg-[#f8fbf9] p-4 dark:bg-muted/20">
                         <p class="text-sm text-muted-foreground">
                             Capital recovered
                         </p>
-                        <p class="mt-2 text-xl font-semibold">
-                            {{ agreement.summary.capitalRecovered }}
-                            {{ agreement.currency }}
+                        <p
+                            class="mt-2 text-lg font-semibold tracking-tight break-words"
+                        >
+                            {{
+                                formatCurrency(
+                                    agreement.summary.capitalRecovered,
+                                    agreement.currency,
+                                )
+                            }}
                         </p>
                     </div>
-                    <div class="rounded-lg border p-4">
+                    <div class="min-w-0 bg-[#f8fbf9] p-4 dark:bg-muted/20">
                         <p class="text-sm text-muted-foreground">
                             Investor share
                         </p>
-                        <p class="mt-2 text-xl font-semibold">
-                            {{ agreement.summary.investorShare }}
-                            {{ agreement.currency }}
+                        <p
+                            class="mt-2 text-lg font-semibold tracking-tight break-words"
+                        >
+                            {{
+                                formatCurrency(
+                                    agreement.summary.investorShare,
+                                    agreement.currency,
+                                )
+                            }}
                         </p>
                     </div>
                 </div>
@@ -162,7 +204,12 @@ const currentTeamSlug = computed(() => currentTeam.value?.slug ?? '');
                                 </div>
                                 <p class="mt-1 text-muted-foreground">
                                     Released
-                                    {{ phase.externallyReleasedAmount }}
+                                    {{
+                                        formatCurrency(
+                                            phase.externallyReleasedAmount,
+                                            agreement.currency,
+                                        )
+                                    }}
                                 </p>
                             </div>
                         </div>
@@ -190,8 +237,12 @@ const currentTeamSlug = computed(() => currentTeam.value?.slug ?? '');
                                         {{ expense.categoryName }}
                                     </p>
                                     <Badge variant="secondary">
-                                        {{ expense.amount }}
-                                        {{ expense.currency }}
+                                        {{
+                                            formatCurrency(
+                                                expense.amount,
+                                                expense.currency,
+                                            )
+                                        }}
                                     </Badge>
                                 </div>
                                 <p class="mt-2">{{ expense.description }}</p>
@@ -292,8 +343,12 @@ const currentTeamSlug = computed(() => currentTeam.value?.slug ?? '');
                                         {{ sale.buyerName }}
                                     </p>
                                     <Badge variant="secondary">
-                                        {{ sale.netAmount }}
-                                        {{ sale.currency }}
+                                        {{
+                                            formatCurrency(
+                                                sale.netAmount,
+                                                sale.currency,
+                                            )
+                                        }}
                                     </Badge>
                                 </div>
                                 <p class="mt-1 text-muted-foreground">
@@ -301,8 +356,19 @@ const currentTeamSlug = computed(() => currentTeam.value?.slug ?? '');
                                     {{ sale.soldOn }}
                                 </p>
                                 <p class="mt-2">
-                                    Gross {{ sale.grossAmount }}, deductions
-                                    {{ sale.deductionAmount }}
+                                    Gross
+                                    {{
+                                        formatCurrency(
+                                            sale.grossAmount,
+                                            sale.currency,
+                                        )
+                                    }}, deductions
+                                    {{
+                                        formatCurrency(
+                                            sale.deductionAmount,
+                                            sale.currency,
+                                        )
+                                    }}
                                 </p>
                             </div>
                         </div>
@@ -338,13 +404,34 @@ const currentTeamSlug = computed(() => currentTeam.value?.slug ?? '');
                                 </div>
                                 <p class="mt-2">
                                     Capital
-                                    {{ distribution.capitalRecovered }}, profit
-                                    {{ distribution.netProfit }}
+                                    {{
+                                        formatCurrency(
+                                            distribution.capitalRecovered,
+                                            distribution.currency,
+                                        )
+                                    }}, profit
+                                    {{
+                                        formatCurrency(
+                                            distribution.netProfit,
+                                            distribution.currency,
+                                        )
+                                    }}
                                 </p>
                                 <p class="mt-1 text-muted-foreground">
-                                    Investor {{ distribution.investorShare }} /
-                                    farm {{ distribution.farmShare }}
-                                    {{ distribution.currency }}
+                                    Investor
+                                    {{
+                                        formatCurrency(
+                                            distribution.investorShare,
+                                            distribution.currency,
+                                        )
+                                    }}
+                                    / farm
+                                    {{
+                                        formatCurrency(
+                                            distribution.farmShare,
+                                            distribution.currency,
+                                        )
+                                    }}
                                 </p>
                             </div>
                         </div>
@@ -377,8 +464,12 @@ const currentTeamSlug = computed(() => currentTeam.value?.slug ?? '');
                                         {{ transfer.transferType }}
                                     </p>
                                     <Badge variant="secondary">
-                                        {{ transfer.amount }}
-                                        {{ transfer.currency }}
+                                        {{
+                                            formatCurrency(
+                                                transfer.amount,
+                                                transfer.currency,
+                                            )
+                                        }}
                                     </Badge>
                                 </div>
                                 <p class="mt-1 text-muted-foreground">
@@ -431,9 +522,43 @@ const currentTeamSlug = computed(() => currentTeam.value?.slug ?? '');
                                 </div>
                                 <p class="mt-1 text-muted-foreground">
                                     {{ request.subjectLabel }} /
-                                    {{ request.requestedAmount }}
-                                    {{ request.currency }}
+                                    {{
+                                        formatCurrency(
+                                            request.requestedAmount,
+                                            request.currency,
+                                        )
+                                    }}
                                 </p>
+                                <div
+                                    v-if="request.expenseDescription"
+                                    class="mt-3"
+                                >
+                                    <p
+                                        class="text-xs font-medium text-muted-foreground"
+                                    >
+                                        Expense description
+                                    </p>
+                                    <p
+                                        class="mt-1 break-words whitespace-pre-wrap"
+                                    >
+                                        {{ request.expenseDescription }}
+                                    </p>
+                                </div>
+                                <div
+                                    v-if="request.requesterComment"
+                                    class="mt-3"
+                                >
+                                    <p
+                                        class="text-xs font-medium text-muted-foreground"
+                                    >
+                                        Requester’s comment
+                                    </p>
+                                    <p
+                                        class="mt-1 break-words whitespace-pre-wrap"
+                                    >
+                                        {{ request.requesterComment }}
+                                    </p>
+                                </div>
                                 <p v-if="request.decisionComment" class="mt-2">
                                     {{ request.decisionComment }}
                                 </p>
@@ -513,12 +638,26 @@ const currentTeamSlug = computed(() => currentTeam.value?.slug ?? '');
                         />
                         <div
                             v-if="
+                                agreement.aiSummaries.length ||
                                 agreement.activities.length ||
                                 agreement.tasks.length ||
                                 agreement.planChanges.length
                             "
                             class="space-y-3"
                         >
+                            <div
+                                v-for="summary in agreement.aiSummaries"
+                                :key="`summary-${summary.id}`"
+                                class="rounded-lg border p-3 text-sm"
+                            >
+                                <p class="font-medium">
+                                    Reviewed progress summary
+                                </p>
+                                <SummaryText
+                                    class="mt-1"
+                                    :html="summary.html"
+                                />
+                            </div>
                             <div
                                 v-for="activity in agreement.activities"
                                 :key="`activity-${activity.id}`"

@@ -243,6 +243,7 @@ test('finance workflows create budgets funding expenses transfers reconciliation
         ->assertInertia(fn (Assert $page) => $page
             ->component('finance/Index')
             ->where('currency', 'USD')
+            ->where('permissions.canManageFinance', true)
             ->where('summary.budgeted', '2000.00')
             ->where('summary.spent', '250.25')
             ->where('summary.released', '1000.00')

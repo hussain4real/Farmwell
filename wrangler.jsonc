@@ -1,0 +1,37 @@
+{
+    "name": "farmwell-staging",
+    "main": "cloudflare-worker.js",
+    "compatibility_date": "2026-11-01",
+    "workers_dev": true,
+    "preview_urls": false,
+    "vars": {
+        "CLOUDFLARE_ACCOUNT_ID": "40344948b73fa9da3008958fdc3faf12",
+        "APP_URL": "https://farmwell-staging.familyfunds-lab.workers.dev",
+        "AWS_ENDPOINT": "https://40344948b73fa9da3008958fdc3faf12.r2.cloudflarestorage.com",
+        "AWS_BUCKET": "farmwell-staging-private",
+    },
+    "observability": { "enabled": true },
+    "triggers": { "crons": ["* * * * *"] },
+    "containers": [
+        {
+            "class_name": "FarmwellWeb",
+            "scheduling_policy": "durable_object",
+            "images": { "base": { "dockerfile": "./Dockerfile" } },
+        },
+        {
+            "class_name": "FarmwellQueue",
+            "scheduling_policy": "durable_object",
+            "images": { "base": { "dockerfile": "./Dockerfile" } },
+        },
+    ],
+    "durable_objects": {
+        "bindings": [
+            { "name": "FARMWELL_WEB", "class_name": "FarmwellWeb" },
+            { "name": "FARMWELL_QUEUE", "class_name": "FarmwellQueue" },
+        ],
+    },
+    "exports": {
+        "FarmwellWeb": { "type": "durable-object", "storage": "sqlite" },
+        "FarmwellQueue": { "type": "durable-object", "storage": "sqlite" },
+    },
+}

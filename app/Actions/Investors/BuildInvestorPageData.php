@@ -2,6 +2,7 @@
 
 namespace App\Actions\Investors;
 
+use App\Actions\AiSummaries\InvestorSummaryEligibility;
 use App\Enums\ApprovalRequestStatus;
 use App\Enums\ApprovalRequestType;
 use App\Enums\ApprovalTriggerType;
@@ -9,6 +10,7 @@ use App\Enums\CapitalRecoveryRule;
 use App\Enums\InvestorAgreementStatus;
 use App\Enums\InvestorVisibilityStatus;
 use App\Enums\TeamRole;
+use App\Models\AiSummary;
 use App\Models\ApprovalRequest;
 use App\Models\DistributionRecord;
 use App\Models\Expense;
@@ -26,14 +28,19 @@ use App\Models\SaleRecord;
 use App\Models\Team;
 use App\Models\User;
 use App\Support\Money;
+use App\Support\SummaryMarkdown;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Support\Carbon;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 class BuildInvestorPageData
 {
-    public function __construct(private ResolveInvestorApprovalSettings $resolveInvestorApprovalSettings)
-    {
+    public function __construct(
+        private ResolveInvestorApprovalSettings $resolveInvestorApprovalSettings,
+        private InvestorSummaryEligibility $investorSummaryEligibility,
+    ) {
         //
     }
 
@@ -77,7 +84,14 @@ class BuildInvestorPageData
         $agreements = $team->investorAgreements()
             ->where('investor_id', $user->id)
             ->whereIn('status', [InvestorAgreementStatus::Active->value, InvestorAgreementStatus::Completed->value])
-            ->with(['team', 'investor', 'farm', 'productionCycle', 'approvalRequests', 'investorComments.author'])
+            ->with([
+                'team', 'investor', 'farm', 'productionCycle', 'approvalRequests.investorAgreement.investor', 'investorComments.author',
+                'approvalRequests.subject' => fn (MorphTo $subject) => $subject->morphWith([
+                    Expense::class => ['expenseCategory'],
+                    DistributionRecord::class => ['saleRecord'],
+                    HarvestRecord::class => ['commodity'],
+                ]),
+            ])
             ->latest()
             ->get();
 
@@ -92,6 +106,7 @@ class BuildInvestorPageData
                 'harvestRecords' => $this->approvedHarvestRecords($agreement)->map(fn (HarvestRecord $harvest) => $this->harvestPayload($harvest, $agreement)),
                 'saleRecords' => $this->approvedSaleRecords($agreement)->map(fn (SaleRecord $sale) => $this->salePayload($sale, $agreement)),
                 'distributionRecords' => $this->approvedDistributionRecords($agreement)->map(fn (DistributionRecord $distribution) => $this->distributionPayload($distribution)),
+                'aiSummaries' => $this->publishedAiSummaries($agreement),
                 'activities' => $this->approvedActivities($agreement)->map(fn (FarmActivity $activity) => $this->activityPayload($activity, $agreement)),
                 'tasks' => $this->approvedTasks($agreement)->map(fn (FarmTask $task) => $this->taskPayload($task)),
                 'planChanges' => $this->approvedPlanChanges($agreement)->map(fn (ProductionPlanChange $change) => $this->planChangePayload($change)),
@@ -207,13 +222,13 @@ class BuildInvestorPageData
     {
         $approvedSaleRecords = $this->approvedSaleRecords($agreement);
         $approvedDistributionRecords = $this->approvedDistributionRecords($agreement);
-        $releasedMinor = (int) $this->approvedFundingPhases($agreement)->sum('externally_released_amount_minor');
-        $spentMinor = (int) $this->approvedExpenses($agreement)->sum('amount_minor');
-        $saleNetMinor = (int) $approvedSaleRecords->sum('net_amount_minor');
-        $capitalRecoveredMinor = (int) $approvedDistributionRecords->sum('capital_recovered_minor');
+        $releasedMinor = (int) $this->approvedFundingPhases($agreement)->where('currency', $agreement->currency)->sum('externally_released_amount_minor');
+        $spentMinor = (int) $this->approvedExpenses($agreement)->where('currency', $agreement->currency)->sum('amount_minor');
+        $saleNetMinor = (int) $approvedSaleRecords->where('currency', $agreement->currency)->sum('net_amount_minor');
+        $capitalRecoveredMinor = (int) $approvedDistributionRecords->where('currency', $agreement->currency)->sum('capital_recovered_minor');
         $unrecoveredCapitalMinor = max(0, $agreement->amount_funded_minor - $capitalRecoveredMinor);
-        $investorShareMinor = (int) $approvedDistributionRecords->sum('investor_share_minor');
-        $farmShareMinor = (int) $approvedDistributionRecords->sum('farm_share_minor');
+        $investorShareMinor = (int) $approvedDistributionRecords->where('currency', $agreement->currency)->sum('investor_share_minor');
+        $farmShareMinor = (int) $approvedDistributionRecords->where('currency', $agreement->currency)->sum('farm_share_minor');
 
         return [
             'releasedMinor' => $releasedMinor,
@@ -310,6 +325,29 @@ class BuildInvestorPageData
     }
 
     /**
+     * @return \Illuminate\Support\Collection<int, array{id: int, text: string, html: string, publishedAt: string}>
+     */
+    private function publishedAiSummaries(InvestorAgreement $agreement): \Illuminate\Support\Collection
+    {
+        return AiSummary::query()
+            ->where('team_id', $agreement->team_id)
+            ->where('investor_agreement_id', $agreement->id)
+            ->where('type', 'investor_progress')
+            ->where('status', 'published')
+            ->whereNotNull('final_text')
+            ->whereNotNull('published_at')
+            ->latest('published_at')
+            ->get()
+            ->filter(fn (AiSummary $summary): bool => $this->investorSummaryEligibility->isCurrent($summary, $agreement))
+            ->map(fn (AiSummary $summary): array => [
+                'id' => $summary->id,
+                'text' => $summary->final_text ?? '',
+                'html' => SummaryMarkdown::render($summary->final_text) ?? '',
+                'publishedAt' => Carbon::parse($summary->published_at)->toISOString(),
+            ])->values();
+    }
+
+    /**
      * @return Collection<int, FarmActivity>
      */
     private function approvedActivities(InvestorAgreement $agreement): Collection
@@ -358,6 +396,8 @@ class BuildInvestorPageData
      */
     private function approvalRequestPayload(ApprovalRequest $approvalRequest): array
     {
+        $subject = $approvalRequest->subject;
+
         return [
             'id' => $approvalRequest->id,
             'investorAgreementId' => $approvalRequest->investor_agreement_id,
@@ -372,7 +412,11 @@ class BuildInvestorPageData
             'requestedAmount' => Money::toDecimal($approvalRequest->requested_amount_minor),
             'approvedAmount' => $approvalRequest->approved_amount_minor === null ? null : Money::toDecimal($approvalRequest->approved_amount_minor),
             'currency' => $approvalRequest->currency,
-            'subjectLabel' => $this->subjectLabel($approvalRequest->subject),
+            'subjectLabel' => $this->subjectLabel($subject),
+            'expenseDescription' => $subject instanceof Expense
+                && $subject->team_id === $approvalRequest->team_id
+                && $subject->investor_agreement_id === $approvalRequest->investor_agreement_id
+                ? $subject->description : null,
             'requesterComment' => $approvalRequest->requester_comment,
             'decisionComment' => $approvalRequest->decision_comment,
             'requestedAt' => $approvalRequest->requested_at->toISOString(),

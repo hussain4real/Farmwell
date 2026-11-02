@@ -1,6 +1,6 @@
 # Farmwell MVP Implementation Progress
 
-Last updated: 2026-06-11
+Last updated: 2026-11-01
 
 ## Status Legend
 
@@ -10,7 +10,7 @@ Last updated: 2026-06-11
 
 ## Current Assessment
 
-Phases 0 through 6 are complete against the approved MVP plan. Phase 6 achieves its stated goal: harvest/output records, sales, capital-first recovery, investor distributions, partial recovery, loss handling, multiple-sale recovery, and investor acknowledgement visibility are implemented with audit, authorization, browser smoke, static analysis, and 100% coverage gates.
+Phases 0 through 6 are recorded as complete against the approved MVP plan. Phase 7 includes queued progress, weekly, risk/decision, and intake-cleanup drafts, with separate review and investor publication controls. Phase 6 achieves its stated goal: harvest/output records, sales, capital-first recovery, investor distributions, partial recovery, loss handling, multiple-sale recovery, and investor acknowledgement visibility are implemented with audit, authorization, browser smoke, static analysis, and 100% coverage gates.
 
 The pre-Phase-4 product structure follow-up is complete: Dashboard, Farm Operations, Field Diary, Task Calendar, and WhatsApp Intake now have separate route-backed page boundaries.
 
@@ -25,7 +25,7 @@ The pre-Phase-4 product structure follow-up is complete: Dashboard, Farm Operati
 | 4. Budgets, Expenses, Funding, Transfers | Track operating money without wallet/escrow behavior. | [x] Complete | Budgets, funding phases, expenses, receipts, external transfers, proof, reconciliation, variance, carry-forward, and finance pages are implemented. |
 | 5. Investor Agreements and Approvals | Add private investor transparency safely. | [x] Complete | Investor role, agreements, approval rules, decisions, approved feeds, comments, and scoped investor portal are implemented. |
 | 6. Harvest, Sales, Capital Recovery | Close the farm season financial loop. | [x] Complete | Harvests, sales, capital recovery, investor distribution calculations, acknowledgement approval, and investor portal visibility are implemented. |
-| 7. AI Summaries and Assisted Reporting | Add BRS AI capabilities safely after authoritative data exists. | [ ] Not started | Must use Laravel AI SDK and review-gated drafts. |
+| 7. AI Summaries and Assisted Reporting | Add BRS AI capabilities safely after authoritative data exists. | [~] In progress | All four summary types and review-gated investor publication are implemented; live provider and production acceptance remain. |
 | 8. Reports, Exports, Operations Readiness | Make the system shareable and pilot-ready. | [ ] Not started | Pending core finance, investor, harvest, and AI data paths. |
 | 9. Later Enhancements | Start only after MVP sign-off. | [ ] Not started | Deferred until explicitly selected. |
 
@@ -137,21 +137,21 @@ The pre-Phase-4 product structure follow-up is complete: Dashboard, Farm Operati
 
 ### Phase 7. AI Summaries and Assisted Reporting
 
-- [ ] Install `laravel/ai`.
-- [ ] Publish Laravel AI SDK config and migrations.
-- [ ] Keep provider/model selection in `config/ai.php` and environment variables.
+- [x] Install `laravel/ai`.
+- [x] Publish Laravel AI SDK config and migrations.
+- [x] Keep provider/model selection in `config/ai.php` and environment variables.
 - [ ] Use Sub-agents as needed for specialized tasks or data access.
-- [ ] Add Farmwell AI agent for investor-safe progress summaries.
-- [ ] Add Farmwell AI agent for weekly summaries.
-- [ ] Add Farmwell AI agent for risk/decision summaries.
-- [ ] Add Farmwell AI agent for WhatsApp/intake cleanup suggestions.
-- [ ] Queue long-running AI summary work.
-- [ ] Store prompts, selected source record IDs, generated output, review status, reviewer, and final published text.
-- [ ] Ensure AI outputs are drafts only and never publish directly to investors.
-- [ ] Ensure investor-facing prompts only include policy-approved records.
-- [ ] Exclude private notes, unrelated tenant data, unrelated investor data, sensitive bank details, and unapproved evidence from prompts.
-- [ ] Use Laravel AI SDK fakes/assertions in tests.
-- [ ] Maintain 100% coverage without calling live AI providers.
+- [x] Add Farmwell AI agent for investor-safe progress summaries and explicitly reviewed investor publication.
+- [x] Add Farmwell AI agent for weekly summaries.
+- [x] Add Farmwell AI agent for risk/decision summaries.
+- [x] Add Farmwell AI agent for WhatsApp/intake cleanup suggestions using a manually sanitized excerpt.
+- [x] Queue all four summary types.
+- [x] Store prompts, selected source record IDs, generated output, review status, reviewer, and final published text.
+- [x] Require approval and a separate publication action before an investor sees a progress summary.
+- [x] Restrict investor progress prompts to investor-safe activities within the agreement scope and recheck source and audience snapshots for publication and display.
+- [~] Exclude private notes, unrelated tenants and evidence from selected fields. Intake cleanup sends a user-provided sanitized excerpt; users must remove sensitive data before submission.
+- [x] Use Laravel AI SDK fakes/assertions for summary types.
+- [x] Maintain 100% coverage without calling live AI providers.
 
 ### Phase 8. Reports, Exports, Operations Readiness
 
@@ -196,4 +196,4 @@ The pre-Phase-4 product structure follow-up is complete: Dashboard, Farm Operati
 
 ## Next Recommended Goal
 
-Start Phase 7: AI Summaries and Assisted Reporting.
+Verify Phase 7 with a configured provider and obtain user acceptance; then start Phase 8 reports, exports, and operations readiness.

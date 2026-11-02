@@ -119,7 +119,7 @@ watch(whatsappFarmId, () => {
 
         <section
             v-if="permissions.canManageFarmOperations && currentTeamSlug"
-            class="space-y-4 rounded-lg border p-4"
+            class="space-y-4 rounded-xl border border-[#d6e5dc] bg-card p-5 dark:border-border"
         >
             <div class="flex items-center gap-2">
                 <MessageSquare class="size-4" />

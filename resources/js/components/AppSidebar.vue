@@ -4,6 +4,7 @@ import {
     BookOpen,
     ClipboardList,
     FolderGit2,
+    FileText,
     Handshake,
     Landmark,
     LayoutGrid,
@@ -29,6 +30,7 @@ import {
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { dashboard } from '@/routes';
+import { index as aiSummariesIndex } from '@/routes/ai-summaries';
 import { index as farmTasksIndex } from '@/routes/farm-tasks';
 import { index as farmsIndex } from '@/routes/farms';
 import { index as fieldDiaryIndex } from '@/routes/field-diary';
@@ -86,6 +88,11 @@ const investorApprovalsUrl = computed(() =>
 const investorPortalUrl = computed(() =>
     page.props.currentTeam
         ? investorPortalIndex(page.props.currentTeam.slug).url
+        : '/',
+);
+const aiSummariesUrl = computed(() =>
+    page.props.currentTeam
+        ? aiSummariesIndex(page.props.currentTeam.slug).url
         : '/',
 );
 const currentPermissions = computed(() => page.props.currentTeamPermissions);
@@ -170,6 +177,17 @@ const mainNavItems = computed<NavItem[]>(() => {
         });
     }
 
+    if (
+        permissions?.canManageInvestorAgreements ||
+        permissions?.canManageFarmOperations
+    ) {
+        items.push({
+            title: 'AI summaries',
+            href: aiSummariesUrl.value,
+            icon: FileText,
+        });
+    }
+
     if (permissions?.canViewApprovalRequests) {
         items.push({
             title: 'Approvals',
@@ -184,12 +202,12 @@ const mainNavItems = computed<NavItem[]>(() => {
 const footerNavItems: NavItem[] = [
     {
         title: 'Repository',
-        href: 'https://github.com/laravel/vue-starter-kit',
+        href: 'https://github.com/hussain4real/Farmwell',
         icon: FolderGit2,
     },
     {
         title: 'Documentation',
-        href: 'https://laravel.com/docs/starter-kits#vue',
+        href: 'https://github.com/hussain4real/Farmwell/tree/dev/docs/user-guides',
         icon: BookOpen,
     },
 ];

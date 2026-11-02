@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
-import AppLogoIcon from '@/components/AppLogoIcon.vue';
+import { Sprout } from 'lucide-vue-next';
 import { home } from '@/routes';
 
 defineProps<{
@@ -21,13 +21,11 @@ defineProps<{
                         class="flex flex-col items-center gap-2 font-medium"
                     >
                         <div
-                            class="mb-1 flex h-9 w-9 items-center justify-center rounded-md"
+                            class="mb-1 flex size-11 items-center justify-center rounded-xl bg-[#214d40] text-white"
                         >
-                            <AppLogoIcon
-                                class="size-9 fill-current text-[var(--foreground)] dark:text-white"
-                            />
+                            <Sprout class="size-6" />
                         </div>
-                        <span class="sr-only">{{ title }}</span>
+                        <span class="text-base font-semibold">Farmwell</span>
                     </Link>
                     <div class="space-y-2 text-center">
                         <h1 class="text-xl font-medium">{{ title }}</h1>
