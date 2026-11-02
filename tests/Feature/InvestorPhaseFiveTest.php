@@ -26,6 +26,7 @@ use App\Models\TeamInvitation;
 use App\Models\User;
 use App\Models\WhatsappIntake;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -62,6 +63,32 @@ function farmwellInvestorRoute(string $name, Team $team, array $parameters = [])
 {
     return route($name, ['current_team' => $team, ...$parameters]);
 }
+
+test('investor portal reuses approved financial records for its totals and lists', function () {
+    [, $investor, $team, $farm, $cycle] = farmwellInvestorContext();
+    InvestorAgreement::factory()->create([
+        'team_id' => $team->id,
+        'investor_id' => $investor->id,
+        'farm_id' => $farm->id,
+        'production_cycle_id' => $cycle->id,
+    ]);
+
+    DB::flushQueryLog();
+    DB::enableQueryLog();
+    $this->actingAs($investor)->get(farmwellInvestorRoute('investor-portal.index', $team))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('agreements.0.summary.releasedMinor', 0)
+            ->where('agreements.0.summary.spentMinor', 0)
+            ->where('agreements.0.fundingPhases', [])
+            ->where('agreements.0.expenses', []));
+
+    $queries = collect(DB::getQueryLog())->pluck('query');
+    DB::disableQueryLog();
+    foreach (['funding_phases', 'expenses', 'sale_records', 'distribution_records'] as $table) {
+        expect($queries->filter(fn (string $sql): bool => str_starts_with(strtolower($sql), 'select * from "'.$table.'"')))->toHaveCount(1);
+    }
+});
 
 test('investors receive the description and requester comment for their scoped expense approval', function () {
     [$owner, $investor, $team, $farm, $cycle, $category] = farmwellInvestorContext();

@@ -60,17 +60,11 @@ export class FarmwellWeb extends DurableObject {
 
     async startAndWait() {
         const container = this.ctx.container;
-        const configuredImage = container.images.base;
-        const current = await container.inspect();
-
-        if (current && current.image !== '' && current.image !== configuredImage) {
-            await container.destroy();
-        }
 
         if (!container.running) {
             container.start({
                 image: container.images.base,
-                instance: 'lite',
+                instance: 'basic',
                 enableInternet: true,
                 env: containerEnvironment(this.env),
                 entrypoint: ['sh', '-c', 'exec apache2-foreground >>/tmp/farmwell-apache.log 2>&1'],
@@ -154,8 +148,25 @@ export class FarmwellQueue extends DurableObject {
 }
 
 export default {
-    fetch(request, env) {
-        return env.FARMWELL_WEB.getByName('staging-cloudflare-mail').fetch(request);
+    async fetch(request, env) {
+        const id = env.FARMWELL_WEB.idFromName(`staging-web-${env.CF_VERSION_METADATA.id}`);
+        const web = env.FARMWELL_WEB.get(id, { locationHint: 'weur' });
+
+        try {
+            return await web.fetch(request);
+        } catch (error) {
+            if (
+                !['GET', 'HEAD'].includes(request.method) ||
+                !(error instanceof Error) ||
+                !error.message.includes('Container port connection closed unexpectedly')
+            ) {
+                throw error;
+            }
+
+            await scheduler.wait(250);
+
+            return web.fetch(request);
+        }
     },
     async scheduled(_event, env) {
         await env.FARMWELL_QUEUE.getByName('staging-cloudflare-mail').run();

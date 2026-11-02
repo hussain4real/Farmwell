@@ -20,18 +20,19 @@ const FarmwellWeb = vm.runInNewContext(`${source}\nFarmwellWeb;`, {
     scheduler: { wait: async () => {} },
 });
 
-async function startWeb(image) {
+async function startWeb(image, running = true) {
     const events = [];
     const container = {
         images: { base: 'current-image' },
-        running: true,
+        running,
         inspect: async () => ({ image }),
         destroy: async () => {
             events.push('destroy');
             container.running = false;
         },
-        start: ({ image: nextImage, env }) => {
+        start: ({ image: nextImage, instance, env }) => {
             events.push(`start:${nextImage}`);
+            events.push(`instance:${instance}`);
             events.push(`database:${env.DB_URL}`);
             events.push(`mail:${env.MAIL_MAILER}:${env.CLOUDFLARE_ACCOUNT_ID}`);
             container.running = true;
@@ -49,15 +50,97 @@ async function startWeb(image) {
     return events;
 }
 
-test('web requests replace an outdated container image', async () => {
-    assert.deepEqual(await startWeb('previous-image'), [
-        'destroy',
+test('a running web container is not destroyed while requests may be in flight', async () => {
+    assert.deepEqual(await startWeb('previous-image'), []);
+});
+
+test('web requests keep the current container image running', async () => {
+    assert.deepEqual(await startWeb('current-image'), []);
+});
+
+test('a stopped web container starts with the current image and staging configuration', async () => {
+    assert.deepEqual(await startWeb('', false), [
         'start:current-image',
+        'instance:basic',
         'database:postgres://db.example/test',
         'mail:cloudflare:test-account',
     ]);
 });
 
-test('web requests keep the current container image running', async () => {
-    assert.deepEqual(await startWeb('current-image'), []);
+test('deployments route web requests to separate containers', async () => {
+    const worker = vm.runInNewContext(`${source}\nworker;`, {
+        AbortSignal,
+        URL,
+        DurableObject: class {},
+    });
+    const names = [];
+    const env = {
+        CF_VERSION_METADATA: { id: 'version-one' },
+        FARMWELL_WEB: {
+            idFromName(name) {
+                names.push(name);
+
+                return name;
+            },
+            get(_id, options) {
+                assert.equal(options.locationHint, 'weur');
+
+                return { fetch: async () => 'ok' };
+            },
+        },
+    };
+
+    await worker.fetch({}, env);
+    env.CF_VERSION_METADATA.id = 'version-two';
+    await worker.fetch({}, env);
+
+    assert.deepEqual(names, ['staging-web-version-one', 'staging-web-version-two']);
+});
+
+test('retries a safe request once when the container connection closes', async () => {
+    const worker = vm.runInNewContext(`${source}\nworker;`, {
+        AbortSignal,
+        Error,
+        URL,
+        DurableObject: class {},
+        scheduler: { wait: async () => {} },
+    });
+    let attempts = 0;
+    const env = {
+        CF_VERSION_METADATA: { id: 'version-one' },
+        FARMWELL_WEB: { idFromName: (name) => name, get: () => ({ fetch: async () => {
+            attempts++;
+
+            if (attempts === 1) {
+                throw new Error('Container port connection closed unexpectedly.');
+            }
+
+            return 'ok';
+        } }) },
+    };
+
+    assert.equal(await worker.fetch({ method: 'GET' }, env), 'ok');
+    assert.equal(attempts, 2);
+});
+
+test('does not retry mutations when the container connection closes', async () => {
+    const worker = vm.runInNewContext(`${source}\nworker;`, {
+        AbortSignal,
+        Error,
+        URL,
+        DurableObject: class {},
+        scheduler: { wait: async () => {} },
+    });
+    let attempts = 0;
+    const env = {
+        CF_VERSION_METADATA: { id: 'version-one' },
+        FARMWELL_WEB: { idFromName: (name) => name, get: () => ({ fetch: async () => {
+            attempts++;
+
+            throw new Error('Container port connection closed unexpectedly.');
+        } }) },
+    };
+
+    await assert.rejects(worker.fetch({ method: 'POST' }, env), /connection closed/);
+    assert.equal(attempts, 1);
 });
