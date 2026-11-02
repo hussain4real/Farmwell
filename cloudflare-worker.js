@@ -60,12 +60,6 @@ export class FarmwellWeb extends DurableObject {
 
     async startAndWait() {
         const container = this.ctx.container;
-        const configuredImage = container.images.base;
-        const current = await container.inspect();
-
-        if (current && current.image !== '' && current.image !== configuredImage) {
-            await container.destroy();
-        }
 
         if (!container.running) {
             container.start({
@@ -155,7 +149,7 @@ export class FarmwellQueue extends DurableObject {
 
 export default {
     fetch(request, env) {
-        return env.FARMWELL_WEB.getByName('staging-cloudflare-mail').fetch(request);
+        return env.FARMWELL_WEB.getByName(`staging-web-${env.CF_VERSION_METADATA.id}`).fetch(request);
     },
     async scheduled(_event, env) {
         await env.FARMWELL_QUEUE.getByName('staging-cloudflare-mail').run();

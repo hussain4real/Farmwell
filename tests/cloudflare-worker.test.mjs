@@ -20,11 +20,11 @@ const FarmwellWeb = vm.runInNewContext(`${source}\nFarmwellWeb;`, {
     scheduler: { wait: async () => {} },
 });
 
-async function startWeb(image) {
+async function startWeb(image, running = true) {
     const events = [];
     const container = {
         images: { base: 'current-image' },
-        running: true,
+        running,
         inspect: async () => ({ image }),
         destroy: async () => {
             events.push('destroy');
@@ -49,15 +49,43 @@ async function startWeb(image) {
     return events;
 }
 
-test('web requests replace an outdated container image', async () => {
-    assert.deepEqual(await startWeb('previous-image'), [
-        'destroy',
+test('a running web container is not destroyed while requests may be in flight', async () => {
+    assert.deepEqual(await startWeb('previous-image'), []);
+});
+
+test('web requests keep the current container image running', async () => {
+    assert.deepEqual(await startWeb('current-image'), []);
+});
+
+test('a stopped web container starts with the current image and staging configuration', async () => {
+    assert.deepEqual(await startWeb('', false), [
         'start:current-image',
         'database:postgres://db.example/test',
         'mail:cloudflare:test-account',
     ]);
 });
 
-test('web requests keep the current container image running', async () => {
-    assert.deepEqual(await startWeb('current-image'), []);
+test('deployments route web requests to separate containers', async () => {
+    const worker = vm.runInNewContext(`${source}\nworker;`, {
+        AbortSignal,
+        URL,
+        DurableObject: class {},
+    });
+    const names = [];
+    const env = {
+        CF_VERSION_METADATA: { id: 'version-one' },
+        FARMWELL_WEB: {
+            getByName(name) {
+                names.push(name);
+
+                return { fetch: async () => 'ok' };
+            },
+        },
+    };
+
+    await worker.fetch({}, env);
+    env.CF_VERSION_METADATA.id = 'version-two';
+    await worker.fetch({}, env);
+
+    assert.deepEqual(names, ['staging-web-version-one', 'staging-web-version-two']);
 });
