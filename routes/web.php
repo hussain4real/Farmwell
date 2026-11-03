@@ -17,6 +17,7 @@ use App\Http\Controllers\FarmOperations\ProductionUnitController;
 use App\Http\Controllers\FarmOperations\WhatsappIntakeController;
 use App\Http\Controllers\FarmOperations\WhatsappIntakeReviewController;
 use App\Http\Controllers\Finance\BudgetController;
+use App\Http\Controllers\Finance\BudgetExportController;
 use App\Http\Controllers\Finance\BudgetLineController;
 use App\Http\Controllers\Finance\ExpenseController;
 use App\Http\Controllers\Finance\ExternalTransferController;
@@ -60,6 +61,12 @@ Route::prefix('{current_team}')
         Route::get('whatsapp-intakes', WhatsappIntakeReviewController::class)->name('whatsapp-intakes.index');
         Route::get('finance', FinanceDashboardController::class)->name('finance.index');
         Route::get('finance/budgets', [BudgetController::class, 'index'])->name('finance.budgets.index');
+        Route::prefix('finance/budgets/{budget}/exports')->name('finance.budget-exports.')
+            ->middleware('can:manageFinance,current_team')->controller(BudgetExportController::class)->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::post('/', 'store')->name('store');
+                Route::get('{report_artifact}', 'download')->whereNumber('report_artifact')->name('download');
+            });
         Route::get('finance/expenses', [ExpenseController::class, 'index'])->name('finance.expenses.index');
         Route::get('finance/funding-phases', [FundingPhaseController::class, 'index'])->name('finance.funding-phases.index');
         Route::get('finance/external-transfers', [ExternalTransferController::class, 'index'])->name('finance.external-transfers.index');

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Form, Head, usePage } from '@inertiajs/vue3';
+import { Form, Head, Link, usePage } from '@inertiajs/vue3';
 import { ChartNoAxesCombined, Plus } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
 import Heading from '@/components/Heading.vue';
@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { formatCurrency } from '@/lib/currency';
 import { dashboard } from '@/routes';
 import { index as financeIndex } from '@/routes/finance';
+import { index as budgetExports } from '@/routes/finance/budget-exports';
 import { store as storeBudgetLine } from '@/routes/finance/budget-lines';
 import {
     index as budgetsIndex,
@@ -384,6 +385,13 @@ watch(
                             {{ budget.statusLabel }}
                         </Badge>
                     </div>
+
+                    <Link
+                        v-if="permissions.canManageFinance && currentTeamSlug"
+                        :href="budgetExports([currentTeamSlug, budget.id])"
+                        class="inline-block text-sm font-medium underline"
+                        >Export budget variance</Link
+                    >
 
                     <div v-if="budget.lines?.length" class="space-y-2">
                         <div

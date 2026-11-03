@@ -164,7 +164,7 @@ Staging application revision `15f6295` served five successful warm portal reques
 - [x] Add report artifact records with the team, agreement, generator, period, creation time, and saved output.
 - [x] Add investor-generated PDF statements for a selected period on an active or completed agreement.
 - [x] Add downloadable field diary XLSX snapshots with period, farm, unit, commodity, funding phase, and activity type filters.
-- [ ] Add budget exports.
+- [x] Add budget variance XLSX exports with category totals, expense notes, and linked field activities.
 - [ ] Add harvest exports.
 - [ ] Add sales exports.
 - [ ] Add distribution exports.
@@ -199,4 +199,4 @@ Staging application revision `15f6295` served five successful warm portal reques
 
 ## Next Recommended Goal
 
-Continue Phase 8 with budget exports, followed by harvest and remaining financial exports, queued generation, and backup and recovery checks.
+Continue Phase 8 with harvest exports, followed by the remaining financial exports, queued generation, and backup and recovery checks.
