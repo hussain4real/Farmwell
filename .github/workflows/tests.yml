@@ -59,6 +59,9 @@ jobs:
           node --experimental-strip-types --test tests/summary-review-text.test.mjs
           node --test tests/font-build.test.mjs
 
+      - name: Restore a Farmwell backup into an isolated PostgreSQL cluster
+        run: bash tests/backup-restore.sh
+
       - name: Quality Gate
         run: composer ci:check
 

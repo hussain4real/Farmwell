@@ -57,6 +57,22 @@ return [
             'report' => false,
         ],
 
+        'farmwell_backups' => env('FARMWELL_BACKUP_DISK') === 'r2' ? [
+            'driver' => 'r2',
+            'key' => env('BACKUP_R2_ACCESS_KEY_ID'),
+            'secret' => env('BACKUP_R2_SECRET_ACCESS_KEY'),
+            'region' => 'auto',
+            'bucket' => env('BACKUP_R2_BUCKET'),
+            'endpoint' => env('BACKUP_R2_ENDPOINT'),
+            'use_path_style_endpoint' => true,
+            'throw' => true,
+        ] : [
+            'driver' => 'local',
+            'root' => env('FARMWELL_BACKUP_ROOT', storage_path('app/backups')),
+            'visibility' => 'private',
+            'throw' => true,
+        ],
+
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),

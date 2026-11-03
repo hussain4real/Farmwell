@@ -160,7 +160,7 @@ Staging application revision `15f6295` served five successful warm portal reques
 
 - [x] Install Spatie PDF with the DOMPDF renderer.
 - [x] Install Laravel Excel for XLSX exports.
-- [ ] Install Spatie Backup.
+- [x] Install Spatie Backup and configure encrypted PostgreSQL and private media archives.
 - [x] Add report artifact records with the team, agreement, generator, period, creation time, and saved output.
 - [x] Add investor-generated PDF statements for a selected period on an active or completed agreement.
 - [x] Add downloadable field diary XLSX snapshots with period, farm, unit, commodity, funding phase, and activity type filters.
@@ -172,7 +172,8 @@ Staging application revision `15f6295` served five successful warm portal reques
 - [ ] Add optional AI-generated summary sections for reviewable reports.
 - [ ] Ensure authorized report/export downloads work.
 - [ ] Ensure investor reports exclude private data.
-- [ ] Test backup and queue paths.
+- [x] Test the database queue and restore an encrypted backup into an isolated PostgreSQL cluster.
+- [ ] Activate scheduled staging backups and restore an archive retrieved from the private backup bucket.
 - [ ] Maintain 100% coverage and static-analysis pass.
 
 ### Phase 9. Later Enhancements
@@ -199,4 +200,8 @@ Staging application revision `15f6295` served five successful warm portal reques
 
 ## Next Recommended Goal
 
-Continue Phase 8 with backup configuration and a restore drill.
+Activate the staging backup workflow and restore an archive downloaded from R2 before signing off operations readiness.
+
+**Backup operations.** The staging workflow runs daily at 01:17 UTC on the default branch. Configure the `staging-backups` GitHub environment with the variables and secrets named in `.github/workflows/staging-backup.yml`. Use a direct Neon endpoint with a read-only login that can dump every Farmwell table and sequence, a read-only media bucket credential, and a separate read/write credential for a dedicated private backup bucket. Store the archive password in an operator password manager for recovery. Grant access to this environment only to trusted deployment branches. Workflow failures require operator attention. An independent 13:17 UTC check flags an empty destination or a latest backup older than two days. Retention keeps every archive for seven days, then one per week for four weeks.
+
+**Restore procedure.** Download the chosen archive into a private workspace and decrypt it with the saved password. Restore `database.dump` to a new empty database using `pg_restore --exit-on-error --single-transaction --no-owner --no-privileges`. Copy the contents of `media/` to a new private bucket with the same object keys. Reapply Farmwell’s scoped database grants and supply the original Laravel application key from the secret store. Keep workers and outbound notifications disabled while checking reports, roles, and protected media in the restored environment. The automated drill in `tests/backup-restore.sh` exercises the restore using synthetic data and local storage.
