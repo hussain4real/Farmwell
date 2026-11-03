@@ -9,6 +9,7 @@ use App\Models\InvestorAgreement;
 use App\Models\ProductionCycle;
 use App\Models\Team;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
@@ -119,4 +120,26 @@ test('published summaries are hidden after source revocation or audience changes
     $this->actingAs($newInvestor)->get($url)->assertInertia($assertCount(0));
     $agreement->update(['investor_id' => $investor->id, 'status' => InvestorAgreementStatus::Suspended]);
     $this->actingAs($investor)->get($url)->assertInertia(fn (Assert $page) => $page->has('agreements', 0));
+});
+
+test('published summaries sharing a snapshot use one freshness query and are hidden after source changes', function () {
+    [$team, $investor, $agreement, $activity] = publishedSummaryContext();
+    publishedSummary($agreement, $activity);
+    publishedSummary($agreement, $activity);
+
+    DB::flushQueryLog();
+    DB::enableQueryLog();
+    $this->actingAs($investor)->get(route('investor-portal.index', $team))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->has('agreements.0.aiSummaries', 2));
+
+    $queries = collect(DB::getQueryLog())->pluck('query');
+    DB::disableQueryLog();
+
+    expect($queries->filter(fn (string $query): bool => str_contains($query, '"activity_date", "activity_type", "status", "investor_safe_summary"'))->count())->toBe(1);
+
+    $activity->update(['investor_safe_summary' => 'Updated after publication.']);
+    $this->get(route('investor-portal.index', $team))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->has('agreements.0.aiSummaries', 0));
 });
