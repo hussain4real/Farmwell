@@ -60,7 +60,7 @@ test('an investor generates and retrieves a saved period statement from approved
     $this->get(route('investor-statements.index', $this->routeArgs))->assertInertia(fn (Assert $page) => $page
         ->component('investor-portal/Statements')->where('statements.data.0.id', $report->id)->missing('statements.data.0.document'));
     expect(app(BuildInvestorStatement::class)->render($this->agreement, ...array_values($this->period)))->toContain('Opening funding balance</td><td>100.00', 'Funds released</td><td>30.00', 'Approved spend</td><td>42.00', 'Closing funding balance</td><td>88.00', 'Net sales</td><td>81.00', 'Capital recovered</td><td>29.00', 'Investor profit share</td><td>18.00', 'kg')
-        ->not->toContain('confidential terms');
+        ->not->toContain('confidential terms', 'Reviewed AI progress summary');
     $expense->update(['amount_minor' => 100]);
     $response = $this->get(route('investor-statements.download', [...$this->routeArgs, $report]))
         ->assertOk()->assertDownload('investor-statement-'.$report->id.'.pdf')->assertHeader('Content-Type', 'application/pdf');
@@ -88,4 +88,14 @@ test('statement access follows the current agreement and its original audience',
     $this->get($url)->assertNotFound();
     $this->agreement->update(['investor_id' => $this->investor->id, 'status' => InvestorAgreementStatus::Suspended]);
     $this->actingAs($this->investor)->get($url)->assertNotFound();
+});
+
+test('the optional statement section formats reviewed text without embedding linked resources', function () {
+    $html = app(BuildInvestorStatement::class)->render(
+        $this->agreement, '2026-10-01', '2026-10-31',
+        '**Planting complete.** ![receipt](https://example.test/private.png) <script>private()</script>',
+    );
+
+    expect($html)->toContain('Reviewed AI progress summary', '<strong>Planting complete.</strong>')
+        ->not->toContain('<img', '<script', 'example.test/private.png');
 });

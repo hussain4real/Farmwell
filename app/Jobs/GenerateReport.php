@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Actions\AiSummaries\InvestorSummaryEligibility;
 use App\Actions\FarmOperations\ActivityLogExport;
 use App\Actions\Finance\BudgetVarianceExport;
 use App\Actions\Harvests\DistributionExport;
@@ -76,7 +77,13 @@ class GenerateReport implements ShouldQueue
         if ($report->type === 'investor_statement') {
             $agreement = InvestorAgreement::query()->where($scope)->where('investor_id', $report->generated_by_id)
                 ->whereIn('status', [InvestorAgreementStatus::Active, InvestorAgreementStatus::Completed])->findOrFail($report->investor_agreement_id);
-            $html = app(BuildInvestorStatement::class)->render($agreement, $report->period_start, $report->period_end);
+            $summary = ($report->filters['include_summary'] ?? false)
+                ? app(InvestorSummaryEligibility::class)->forStatement($agreement, $report->period_start, $report->period_end)
+                : null;
+            if ($summary !== null) {
+                $report->filters = [...$report->filters, 'summary_id' => $summary->id, 'summary_hash' => hash('sha256', $summary->final_text)];
+            }
+            $html = app(BuildInvestorStatement::class)->render($agreement, $report->period_start, $report->period_end, $summary?->final_text);
 
             return Pdf::html($html)->driver('dompdf')->base64();
         }

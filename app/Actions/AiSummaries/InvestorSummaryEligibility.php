@@ -6,9 +6,33 @@ use App\Enums\InvestorAgreementStatus;
 use App\Models\AiSummary;
 use App\Models\FarmActivity;
 use App\Models\InvestorAgreement;
+use Illuminate\Database\Eloquent\Builder;
 
 class InvestorSummaryEligibility
 {
+    /** @return Builder<AiSummary> */
+    public function publishedFor(InvestorAgreement $agreement): Builder
+    {
+        return AiSummary::query()
+            ->where('team_id', $agreement->team_id)
+            ->where('investor_agreement_id', $agreement->id)
+            ->where('type', 'investor_progress')
+            ->where('status', 'published')
+            ->whereNotNull('final_text')
+            ->whereNotNull('published_at')
+            ->latest('published_at')
+            ->latest('id');
+    }
+
+    public function forStatement(InvestorAgreement $agreement, string $start, string $end, ?int $summaryId = null): ?AiSummary
+    {
+        return $this->publishedFor($agreement)
+            ->when($summaryId !== null, fn (Builder $query) => $query->whereKey($summaryId))
+            ->cursor()
+            ->first(fn (AiSummary $summary): bool => $this->isCurrent($summary, $agreement)
+                && collect($summary->source_snapshot)->every(fn (array $source): bool => $source['date'] >= $start && $source['date'] <= $end));
+    }
+
     public function isCurrent(AiSummary $summary, InvestorAgreement $agreement, bool $lock = false): bool
     {
         if ($summary->type !== 'investor_progress'

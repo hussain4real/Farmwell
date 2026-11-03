@@ -169,7 +169,7 @@ Staging application revision `15f6295` served five successful warm portal reques
 - [x] Add sales XLSX exports with buyer, quantity, price, deductions, payment status, and revenue totals by commodity, unit, and currency.
 - [x] Add distribution XLSX exports with recorded capital recovery, profit splits, payout status, and totals by agreement and currency.
 - [x] Generate investor statements and all five Excel exports on the database queue, with permission checks, bounded retries, and ready-only downloads.
-- [ ] Add optional AI-generated summary sections for reviewable reports.
+- [x] Offer an optional reviewed AI progress section on investor PDF statements. Only published, current updates for the agreement and statement period qualify.
 - [ ] Ensure authorized report/export downloads work.
 - [ ] Ensure investor reports exclude private data.
 - [x] Test the database queue and restore an encrypted backup into an isolated PostgreSQL cluster.
@@ -200,7 +200,7 @@ Staging application revision `15f6295` served five successful warm portal reques
 
 ## Next Recommended Goal
 
-Continue Phase 8 with optional AI-generated report sections and the remaining report access and privacy acceptance checks.
+Continue Phase 8 with the remaining report access and privacy acceptance checks.
 
 **Staging recovery evidence, 3 November 2026.** PR #8 merged the backup workflow onto `main` at `839f74b`. Post-merge tests (run `41611716541`) and lint (run `41611716421`) passed. The first live backup (run `41611718354`) wrote `Farmwell/2026-11-03-09-32-17.zip` to the private backup bucket. The downloaded archive restored into an isolated PostgreSQL cluster with 41 migrations, one farm, one agreement and 29 AI summaries, matching staging. Staging had no private media rows. A temporary R2 object matched its original SHA-256 after recovery and was removed from the source bucket. The recovery password is held in macOS Keychain under `Farmwell staging backup archive` for `hussain4real/Farmwell`.
 

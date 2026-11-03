@@ -69,6 +69,17 @@ const slug = computed(() => (page.props.currentTeam as Team).slug);
                         required
                     /><InputError :message="errors.period_end" />
                 </div>
+                <label class="flex w-full items-start gap-2 text-sm">
+                    <input
+                        type="checkbox"
+                        name="include_summary"
+                        value="1"
+                        class="mt-1"
+                    />
+                    Include the latest reviewed and published AI progress update
+                    if all its activities fall within this period.
+                </label>
+                <InputError :message="errors.include_summary" />
                 <Button type="submit" :disabled="processing" class="self-end"
                     >Generate statement</Button
                 >

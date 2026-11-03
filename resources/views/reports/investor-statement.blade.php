@@ -17,4 +17,8 @@
 @empty
 <p>No approved harvest output in this period.</p>
 @endforelse
+@if ($summary !== null)
+<h2>Reviewed AI progress summary</h2>
+{!! strip_tags(\App\Support\SummaryMarkdown::render($summary), '<p><strong><em><ul><ol><li><h1><h2><h3><h4><blockquote><br>') !!}
+@endif
 <p>Generated {{ $generatedAt }}.</p></body></html>

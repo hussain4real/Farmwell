@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Builder;
 
 class BuildInvestorStatement
 {
-    public function render(InvestorAgreement $agreement, string $start, string $end): string
+    public function render(InvestorAgreement $agreement, string $start, string $end, ?string $summary = null): string
     {
         $scope = [
             'team_id' => $agreement->team_id,
@@ -51,6 +51,7 @@ class BuildInvestorStatement
 
         return view('reports.investor-statement', [
             'agreement' => $agreement, 'start' => $start, 'end' => $end,
+            'summary' => $summary,
             'generatedAt' => now()->toIso8601String(),
             'amounts' => array_map(Money::toDecimal(...), $amounts),
             'receipts' => $periodExpenses->sum('receipts_count'), 'harvests' => $harvests,
