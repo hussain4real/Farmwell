@@ -5,12 +5,16 @@ namespace App\Http\Requests\Finance;
 use App\Enums\ExpenseStatus;
 use App\Enums\InvestorVisibilityStatus;
 use App\Http\Requests\Finance\Concerns\ResolvesFinanceRequestData;
+use App\Models\Budget;
+use App\Models\BudgetLine;
+use App\Models\FundingPhase;
 use App\Support\Money;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\File;
+use Illuminate\Validation\Validator;
 
 class StoreExpenseRequest extends FormRequest
 {
@@ -42,7 +46,7 @@ class StoreExpenseRequest extends FormRequest
             'vendor' => ['nullable', 'string', 'max:255'],
             'payment_method' => ['nullable', 'string', 'max:255'],
             'description' => ['required', 'string', 'max:4000'],
-            'amount' => ['required', 'numeric', 'min:0'],
+            'amount' => ['required', 'numeric', 'min:0', 'regex:/^\d+(\.\d{1,2})?$/'],
             'status' => ['sometimes', 'filled', Rule::enum(ExpenseStatus::class)],
             'investor_visibility_status' => ['sometimes', 'filled', Rule::enum(InvestorVisibilityStatus::class)],
             'notes' => ['nullable', 'string', 'max:4000'],
@@ -53,6 +57,80 @@ class StoreExpenseRequest extends FormRequest
                 File::types(['jpg', 'jpeg', 'png', 'webp', 'pdf', 'doc', 'docx'])
                     ->max(10 * 1024),
             ],
+        ];
+    }
+
+    /**
+     * @return array<int, callable(Validator): void>
+     */
+    public function after(): array
+    {
+        return [
+            function (Validator $validator): void {
+                $scopeFields = [
+                    'farm_id',
+                    'production_cycle_id',
+                    'budget_id',
+                    'budget_line_id',
+                    'funding_phase_id',
+                    'expense_category_id',
+                ];
+
+                if ($validator->errors()->hasAny($scopeFields)) {
+                    return;
+                }
+
+                $teamId = $this->team()->id;
+                $farmId = $this->integer('farm_id');
+                $productionCycleId = $this->filled('production_cycle_id')
+                    ? $this->integer('production_cycle_id')
+                    : null;
+                $budgetId = $this->filled('budget_id') ? $this->integer('budget_id') : null;
+                $categoryId = $this->integer('expense_category_id');
+
+                $budget = $budgetId === null
+                    ? null
+                    : Budget::query()->where('team_id', $teamId)->find($budgetId);
+                $budgetLine = $this->filled('budget_line_id')
+                    ? BudgetLine::query()->where('team_id', $teamId)->find($this->integer('budget_line_id'))
+                    : null;
+                $fundingPhase = $this->filled('funding_phase_id')
+                    ? FundingPhase::query()->where('team_id', $teamId)->find($this->integer('funding_phase_id'))
+                    : null;
+
+                if (
+                    $budget instanceof Budget
+                    && (
+                        $budget->farm_id !== $farmId
+                        || ($budget->production_cycle_id !== null && $budget->production_cycle_id !== $productionCycleId)
+                    )
+                ) {
+                    $validator->errors()->add('budget_id', __('The budget must belong to the expense farm and production cycle.'));
+                }
+
+                if (
+                    $budgetLine instanceof BudgetLine
+                    && (
+                        $budgetLine->farm_id !== $farmId
+                        || $budgetLine->budget_id !== $budgetId
+                        || ($budgetLine->production_cycle_id !== null && $budgetLine->production_cycle_id !== $productionCycleId)
+                        || ($budgetLine->expense_category_id !== null && $budgetLine->expense_category_id !== $categoryId)
+                    )
+                ) {
+                    $validator->errors()->add('budget_line_id', __('The budget line must match the selected budget, category, farm, and production cycle.'));
+                }
+
+                if (
+                    $fundingPhase instanceof FundingPhase
+                    && (
+                        $fundingPhase->farm_id !== $farmId
+                        || ($fundingPhase->production_cycle_id !== null && $fundingPhase->production_cycle_id !== $productionCycleId)
+                        || ($fundingPhase->budget_id !== null && $fundingPhase->budget_id !== $budgetId)
+                    )
+                ) {
+                    $validator->errors()->add('funding_phase_id', __('The funding phase must match the selected budget, farm, and production cycle.'));
+                }
+            },
         ];
     }
 

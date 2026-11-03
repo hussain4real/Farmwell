@@ -12,6 +12,7 @@ use App\Models\Team;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class DecideApprovalRequest
 {
@@ -23,6 +24,13 @@ class DecideApprovalRequest
     public function handle(Team $team, ApprovalRequest $approvalRequest, User $actor, ApprovalRequestStatus $status, ?int $approvedAmountMinor = null, ?string $comment = null): ApprovalRequest
     {
         return DB::transaction(function () use ($team, $approvalRequest, $actor, $status, $approvedAmountMinor, $comment): ApprovalRequest {
+            $approvalRequest = ApprovalRequest::query()
+                ->where('team_id', $team->id)
+                ->lockForUpdate()
+                ->findOrFail($approvalRequest->id);
+
+            $this->validateStatusTransition($approvalRequest->status, $status);
+
             $oldValues = [
                 'status' => $approvalRequest->status->value,
                 'approved_amount_minor' => $approvalRequest->approved_amount_minor,
@@ -76,5 +84,29 @@ class DecideApprovalRequest
 
             return $approvalRequest->refresh();
         });
+    }
+
+    private function validateStatusTransition(ApprovalRequestStatus $currentStatus, ApprovalRequestStatus $newStatus): void
+    {
+        $isAllowed = match ($currentStatus) {
+            ApprovalRequestStatus::Pending => in_array($newStatus, [
+                ApprovalRequestStatus::Approved,
+                ApprovalRequestStatus::Rejected,
+                ApprovalRequestStatus::ClarificationRequested,
+            ], true),
+            ApprovalRequestStatus::ClarificationRequested => in_array($newStatus, [
+                ApprovalRequestStatus::Approved,
+                ApprovalRequestStatus::Rejected,
+            ], true),
+            ApprovalRequestStatus::Approved,
+            ApprovalRequestStatus::Rejected,
+            ApprovalRequestStatus::Cancelled => false,
+        };
+
+        if (! $isAllowed) {
+            throw ValidationException::withMessages([
+                'status' => __('This approval request has already been decided.'),
+            ]);
+        }
     }
 }

@@ -30,7 +30,7 @@ class StoreTransferReconciliationRequest extends FormRequest
     {
         return [
             'status' => ['required', Rule::enum(TransferReconciliationStatus::class)],
-            'reconciled_amount' => ['required', 'numeric', 'min:0'],
+            'reconciled_amount' => ['required', 'numeric', 'min:0', 'regex:/^\d+(\.\d{1,2})?$/'],
             'reconciled_at' => ['nullable', 'date'],
             'notes' => ['nullable', 'string', 'max:4000'],
         ];

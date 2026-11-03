@@ -29,7 +29,7 @@ class StoreBudgetLineRequest extends FormRequest
         return [
             'expense_category_id' => ['nullable', 'integer', $this->categoryRule()],
             'description' => ['required', 'string', 'max:255'],
-            'planned_amount' => ['required', 'numeric', 'min:0'],
+            'planned_amount' => ['required', 'numeric', 'min:0', 'regex:/^\d+(\.\d{1,2})?$/'],
             'sort_order' => ['nullable', 'integer', 'min:0', 'max:500'],
         ];
     }
