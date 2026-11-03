@@ -340,14 +340,7 @@ class BuildInvestorPageData
     {
         $eligibilityBySnapshot = [];
 
-        return AiSummary::query()
-            ->where('team_id', $agreement->team_id)
-            ->where('investor_agreement_id', $agreement->id)
-            ->where('type', 'investor_progress')
-            ->where('status', 'published')
-            ->whereNotNull('final_text')
-            ->whereNotNull('published_at')
-            ->latest('published_at')
+        return $this->investorSummaryEligibility->publishedFor($agreement)
             ->get()
             ->filter(function (AiSummary $summary) use ($agreement, &$eligibilityBySnapshot): bool {
                 $key = serialize([$summary->generation_context, $summary->source_snapshot]);

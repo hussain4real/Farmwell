@@ -61,7 +61,7 @@ test('web requests keep the current container image running', async () => {
 test('a stopped web container starts with the current image and staging configuration', async () => {
     assert.deepEqual(await startWeb('', false), [
         'start:current-image',
-        'instance:basic',
+        'instance:standard-1',
         'database:postgres://db.example/test',
         'mail:cloudflare:test-account',
     ]);
@@ -180,4 +180,25 @@ test('a cold POST retries readiness on a fresh stub before forwarding its body o
     assert.equal(await worker.fetch(request, env), 'synthetic draft');
     assert.equal(connections, 2);
     assert.equal(submissions, 1);
+});
+
+test('each deployed version processes reports with its own queue container', async () => {
+    const worker = vm.runInNewContext(`${source}\nworker;`, { DurableObject: class {} });
+    const runs = [];
+    const env = {
+        CF_VERSION_METADATA: { id: 'first' },
+        FARMWELL_QUEUE: {
+            getByName(name, options) {
+                assert.equal(options.locationHint, 'weur');
+
+                return { run: async () => runs.push(name) };
+            },
+        },
+    };
+
+    await worker.scheduled({}, env);
+    env.CF_VERSION_METADATA.id = 'second';
+    await worker.scheduled({}, env);
+
+    assert.deepEqual(runs, ['staging-queue-first', 'staging-queue-second']);
 });

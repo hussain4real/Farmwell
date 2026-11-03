@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Form, Head, usePage } from '@inertiajs/vue3';
+import { Form, Head, Link, usePage } from '@inertiajs/vue3';
 import { ClipboardList, FileUp } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
 import Heading from '@/components/Heading.vue';
@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/select';
 import { formatCurrency } from '@/lib/currency';
 import { dashboard } from '@/routes';
+import { index as activityExports } from '@/routes/activity-exports';
 import { store as storeFarmActivity } from '@/routes/farm-activities';
 import { index as fieldDiaryIndex } from '@/routes/field-diary';
 import type {
@@ -126,6 +127,13 @@ watch(activityFarmId, () => {
             title="Field diary"
             description="Activities, evidence, costs, next actions, and activity history"
         />
+
+        <Link
+            v-if="permissions.canManageFarmOperations && currentTeamSlug"
+            :href="activityExports(currentTeamSlug)"
+            class="self-start text-sm font-medium underline"
+            >Export activity log</Link
+        >
 
         <section
             v-if="permissions.canManageFarmOperations && currentTeamSlug"

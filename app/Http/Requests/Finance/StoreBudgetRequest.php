@@ -36,7 +36,7 @@ class StoreBudgetRequest extends FormRequest
             'lines' => ['nullable', 'array', 'max:20'],
             'lines.*.expense_category_id' => ['nullable', 'integer', $this->categoryRule()],
             'lines.*.description' => ['required_with:lines', 'string', 'max:255'],
-            'lines.*.planned_amount' => ['required_with:lines', 'numeric', 'min:0'],
+            'lines.*.planned_amount' => ['required_with:lines', 'numeric', 'min:0', 'regex:/^\d+(\.\d{1,2})?$/'],
             'lines.*.sort_order' => ['nullable', 'integer', 'min:0', 'max:500'],
         ];
     }

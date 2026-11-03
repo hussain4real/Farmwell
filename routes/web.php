@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AiSummaryController;
+use App\Http\Controllers\FarmOperations\ActivityExportController;
 use App\Http\Controllers\FarmOperations\CommodityController;
 use App\Http\Controllers\FarmOperations\EvidenceController;
 use App\Http\Controllers\FarmOperations\FarmActivityController;
@@ -16,6 +17,7 @@ use App\Http\Controllers\FarmOperations\ProductionUnitController;
 use App\Http\Controllers\FarmOperations\WhatsappIntakeController;
 use App\Http\Controllers\FarmOperations\WhatsappIntakeReviewController;
 use App\Http\Controllers\Finance\BudgetController;
+use App\Http\Controllers\Finance\BudgetExportController;
 use App\Http\Controllers\Finance\BudgetLineController;
 use App\Http\Controllers\Finance\ExpenseController;
 use App\Http\Controllers\Finance\ExternalTransferController;
@@ -24,9 +26,12 @@ use App\Http\Controllers\Finance\FinanceEvidenceController;
 use App\Http\Controllers\Finance\FinanceSettingController;
 use App\Http\Controllers\Finance\FundingPhaseController;
 use App\Http\Controllers\Finance\TransferReconciliationController;
+use App\Http\Controllers\Harvests\DistributionExportController;
 use App\Http\Controllers\Harvests\HarvestDashboardController;
+use App\Http\Controllers\Harvests\HarvestExportController;
 use App\Http\Controllers\Harvests\HarvestRecordController;
 use App\Http\Controllers\Harvests\SaleRecordController;
+use App\Http\Controllers\Harvests\SalesExportController;
 use App\Http\Controllers\Investors\InvestorAgreementController;
 use App\Http\Controllers\Investors\InvestorAgreementDocumentController;
 use App\Http\Controllers\Investors\InvestorApprovalController;
@@ -36,6 +41,7 @@ use App\Http\Controllers\Investors\InvestorCommentController;
 use App\Http\Controllers\Investors\InvestorController;
 use App\Http\Controllers\Investors\InvestorEvidenceController;
 use App\Http\Controllers\Investors\InvestorPortalController;
+use App\Http\Controllers\Investors\InvestorStatementController;
 use App\Http\Controllers\Teams\TeamInvitationController;
 use App\Http\Middleware\EnsureTeamMembership;
 use Illuminate\Support\Facades\Route;
@@ -48,14 +54,43 @@ Route::prefix('{current_team}')
     ->group(function () {
         Route::get('dashboard', FarmDashboardController::class)->name('dashboard');
         Route::get('farms', FarmOperationsController::class)->name('farms.index');
+        Route::controller(ActivityExportController::class)->prefix('field-diary/exports')->name('activity-exports.')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::post('/', 'store')->name('store');
+            Route::get('{report_artifact}', 'download')->whereNumber('report_artifact')->name('download');
+        });
         Route::get('field-diary', FieldDiaryController::class)->name('field-diary.index');
         Route::get('farm-tasks', FarmTaskCalendarController::class)->name('farm-tasks.index');
         Route::get('whatsapp-intakes', WhatsappIntakeReviewController::class)->name('whatsapp-intakes.index');
         Route::get('finance', FinanceDashboardController::class)->name('finance.index');
         Route::get('finance/budgets', [BudgetController::class, 'index'])->name('finance.budgets.index');
+        Route::prefix('finance/budgets/{budget}/exports')->name('finance.budget-exports.')
+            ->middleware('can:manageFinance,current_team')->controller(BudgetExportController::class)->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::post('/', 'store')->name('store');
+                Route::get('{report_artifact}', 'download')->whereNumber('report_artifact')->name('download');
+            });
         Route::get('finance/expenses', [ExpenseController::class, 'index'])->name('finance.expenses.index');
         Route::get('finance/funding-phases', [FundingPhaseController::class, 'index'])->name('finance.funding-phases.index');
         Route::get('finance/external-transfers', [ExternalTransferController::class, 'index'])->name('finance.external-transfers.index');
+        Route::prefix('harvests/exports')->name('harvests.exports.')->middleware('can:manageHarvests,current_team')
+            ->controller(HarvestExportController::class)->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::post('/', 'store')->name('store');
+                Route::get('{report_artifact}', 'download')->whereNumber('report_artifact')->name('download');
+            });
+        Route::prefix('harvests/sales/exports')->name('harvests.sales.exports.')->middleware('can:manageFinance,current_team')
+            ->controller(SalesExportController::class)->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::post('/', 'store')->name('store');
+                Route::get('{report_artifact}', 'download')->whereNumber('report_artifact')->name('download');
+            });
+        Route::prefix('harvests/distributions/exports')->name('harvests.distributions.exports.')->middleware('can:manageFinance,current_team')
+            ->controller(DistributionExportController::class)->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::post('/', 'store')->name('store');
+                Route::get('{report_artifact}', 'download')->whereNumber('report_artifact')->name('download');
+            });
         Route::get('harvests', HarvestDashboardController::class)->name('harvests.index');
         Route::get('ai-summaries', [AiSummaryController::class, 'index'])->name('ai-summaries.index');
         Route::post('ai-summaries', [AiSummaryController::class, 'store'])->name('ai-summaries.store');
@@ -65,6 +100,11 @@ Route::prefix('{current_team}')
         Route::get('investors', InvestorController::class)->name('investors.index');
         Route::get('investors/approvals', InvestorApprovalController::class)->name('investors.approvals.index');
         Route::get('investor-portal', InvestorPortalController::class)->name('investor-portal.index');
+        Route::prefix('investor-portal/{investor_agreement}/statements')->name('investor-statements.')->controller(InvestorStatementController::class)->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::post('/', 'store')->name('store');
+            Route::get('{report_artifact}', 'download')->whereNumber('report_artifact')->name('download');
+        });
         Route::post('commodities', [CommodityController::class, 'store'])->name('commodities.store');
         Route::post('farms', [FarmController::class, 'store'])->name('farms.store');
         Route::post('farms/{farm}/production-units', [ProductionUnitController::class, 'store'])->name('farms.production-units.store');

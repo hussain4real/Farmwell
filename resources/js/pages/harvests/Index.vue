@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Form, Head, usePage } from '@inertiajs/vue3';
+import { Form, Head, Link, usePage } from '@inertiajs/vue3';
 import { FileUp, HandCoins, ReceiptText, Scale, Sprout } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
 import Heading from '@/components/Heading.vue';
@@ -14,7 +14,10 @@ import {
     index as harvestsIndex,
     store as storeHarvest,
 } from '@/routes/harvests';
+import { index as distributionExports } from '@/routes/harvests/distributions/exports';
+import { index as harvestExports } from '@/routes/harvests/exports';
 import { store as storeSale } from '@/routes/harvests/sales';
+import { index as salesExports } from '@/routes/harvests/sales/exports';
 import type {
     DistributionRecord,
     HarvestCommodity,
@@ -152,6 +155,35 @@ watch(saleHarvestId, () => {
             title="Harvests"
             description="Output records, sales, capital recovery, and investor distribution calculations"
         />
+
+        <nav
+            v-if="
+                currentTeamSlug &&
+                (permissions.canManageFarmOperations ||
+                    permissions.canManageFinance)
+            "
+            aria-label="Report exports"
+            class="flex flex-wrap gap-4"
+        >
+            <Link
+                :href="harvestExports(currentTeamSlug)"
+                class="self-start text-sm font-medium underline"
+                >Export harvest records</Link
+            >
+
+            <Link
+                v-if="permissions.canManageFinance"
+                :href="salesExports(currentTeamSlug)"
+                class="text-sm font-medium underline"
+                >Export sales records</Link
+            >
+            <Link
+                v-if="permissions.canManageFinance"
+                :href="distributionExports(currentTeamSlug)"
+                class="text-sm font-medium underline"
+                >Export distributions</Link
+            >
+        </nav>
 
         <section class="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
             <div class="rounded-lg border p-4">

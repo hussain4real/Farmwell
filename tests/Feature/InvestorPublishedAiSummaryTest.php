@@ -7,9 +7,12 @@ use App\Models\Farm;
 use App\Models\FarmActivity;
 use App\Models\InvestorAgreement;
 use App\Models\ProductionCycle;
+use App\Models\ReportArtifact;
 use App\Models\Team;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\View;
+use Illuminate\View\View as StatementView;
 use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
@@ -168,4 +171,47 @@ test('two investors on the same team and farm receive only their own agreements'
         DB::disableQueryLog();
         expect($membershipReads)->toBeLessThan(10);
     }
+});
+
+test('queued investor statements include only the latest eligible reviewed update on request', function () {
+    [$team, $investor, $agreement, $activity] = publishedSummaryContext();
+    $activity->update(['activity_date' => '2026-10-01']);
+    $summary = publishedSummary($agreement, $activity);
+    $outside = $activity->replicate();
+    $outside->activity_date = '2026-11-01';
+    $outside->save();
+    $mixed = publishedSummary($agreement, $outside);
+    $mixed->update(['source_snapshot' => [...$summary->source_snapshot, ...$mixed->source_snapshot]]);
+    publishedSummary($agreement, $activity, ['status' => 'approved']);
+    [, , $otherAgreement, $otherActivity] = publishedSummaryContext();
+    publishedSummary($otherAgreement, $otherActivity);
+
+    $period = ['period_start' => '2026-10-01', 'period_end' => '2026-10-31'];
+    $store = route('investor-statements.store', [$team, $agreement]);
+    $rendered = [];
+    View::composer('reports.investor-statement', function (StatementView $view) use (&$rendered): void {
+        $rendered[] = $view->getData()['summary'];
+    });
+    $this->actingAs($investor)->post($store, [...$period, 'include_summary' => 'invalid'])->assertSessionHasErrors('include_summary');
+    $this->post($store, $period)->assertRedirect();
+    $this->artisan('queue:work database --once --no-interaction')->assertExitCode(0);
+    $plain = ReportArtifact::sole();
+    $this->post($store, [...$period, 'include_summary' => '1'])->assertRedirect();
+    $this->artisan('queue:work database --once --no-interaction')->assertExitCode(0);
+    $report = ReportArtifact::latest('id')->firstOrFail();
+    expect($rendered)->toBe([null, $summary->final_text])
+        ->and($report->filters['summary_id'])->toBe($summary->id);
+    $download = route('investor-statements.download', [$team, $agreement, $report]);
+    expect($this->get($download)->assertOk()->getContent())->toStartWith('%PDF-');
+    $summary->update(['final_text' => 'Changed publication']);
+    $this->get($download)->assertNotFound();
+    $summary->update(['final_text' => 'Reviewed investor update.', 'status' => 'approved']);
+    $this->get($download)->assertNotFound();
+    $summary->update(['status' => 'published']);
+    $this->post($store, [...$period, 'include_summary' => true])->assertRedirect();
+    $activity->update(['investor_safe_summary' => null]);
+    $this->artisan('queue:work database --once --no-interaction')->assertExitCode(0);
+    expect($rendered)->toBe([null, 'Reviewed investor update.', null]);
+    $this->get($download)->assertNotFound();
+    $this->get(route('investor-statements.download', [$team, $agreement, $plain]))->assertOk();
 });

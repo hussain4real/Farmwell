@@ -1,7 +1,9 @@
 import stylistic from '@stylistic/eslint-plugin';
 import { defineConfigWithVueTs, vueTsConfigs } from '@vue/eslint-config-typescript';
 import prettier from 'eslint-config-prettier/flat';
-import importPlugin from 'eslint-plugin-import';
+import { createTypeScriptImportResolver } from 'eslint-import-resolver-typescript';
+import consistentTypeSpecifierStyle from 'eslint-plugin-import-x/rules/consistent-type-specifier-style';
+import importOrder from 'eslint-plugin-import-x/rules/order';
 import vue from 'eslint-plugin-vue';
 
 const controlStatements = [
@@ -26,16 +28,18 @@ export default defineConfigWithVueTs(
     vueTsConfigs.recommended,
     {
         plugins: {
-            import: importPlugin,
+            // Load the two rules used here. The full preset imports minimatch's removed makeRe API.
+            import: {
+                rules: {
+                    order: importOrder,
+                    'consistent-type-specifier-style': consistentTypeSpecifierStyle,
+                },
+            },
         },
         settings: {
-            'import/resolver': {
-                typescript: {
-                    alwaysTryTypes: true,
-                    project: './tsconfig.json',
-                },
-                node: true,
-            },
+            'import-x/resolver-next': [
+                createTypeScriptImportResolver({ alwaysTryTypes: true, project: './tsconfig.json' }),
+            ],
         },
         rules: {
             'vue/multi-word-component-names': 'off',

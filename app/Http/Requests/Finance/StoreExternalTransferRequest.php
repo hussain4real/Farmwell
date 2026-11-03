@@ -49,7 +49,7 @@ class StoreExternalTransferRequest extends FormRequest
             'investor_visibility_status' => ['sometimes', 'filled', Rule::enum(InvestorVisibilityStatus::class)],
             'counterparty_name' => ['nullable', 'string', 'max:255'],
             'reference' => ['nullable', 'string', 'max:255'],
-            'amount' => ['required', 'numeric', 'min:0'],
+            'amount' => ['required', 'numeric', 'min:0', 'regex:/^\d+(\.\d{1,2})?$/'],
             'transferred_on' => ['required', 'date'],
             'notes' => ['nullable', 'string', 'max:4000'],
             'proof_caption' => ['nullable', 'string', 'max:255'],
