@@ -1,7 +1,7 @@
 # Farm Operations Guide
 
-Applies through: Phase 6 - Harvest, Sales, Capital Recovery
-Last reviewed: 2026-06-11  
+Applies through: Phase 8 and pilot operator access
+Last reviewed: 2026-11-03
 Audience: Farm managers, farmers, and operations/log keepers  
 Related app areas: Dashboard, Farms, Field Diary, Tasks, WhatsApp Intake, Harvests
 
@@ -153,4 +153,6 @@ Internal notes and messy source text should stay internal.
 
 ## Current Limits
 
-This guide does not cover AI summaries or formal reports because those workflows are not current through Phase 6. Sales, capital recovery, and distributions are covered in the Finance Guide.
+Operators can create diary entries and schedule or update field tasks across their team’s farms. Finance, farm setup, WhatsApp intake, and activity exports require additional permissions.
+
+Farm managers can open **Field Diary**, select **Export activity log**, choose a farm, dates, and optional filters, then select **Generate export**. When it is ready, select **Download XLSX**. A workbook includes up to 1,000 matching activities. Sales, capital recovery, and distributions are covered in the Finance Guide.

@@ -1,7 +1,7 @@
 # Finance Guide
 
-Applies through: Phase 6 - Harvest, Sales, Capital Recovery
-Last reviewed: 2026-06-11  
+Applies through: Phase 8 - Reports, Exports, and Operations Readiness
+Last reviewed: 2026-11-03
 Audience: Finance/admin users and farm organization admins  
 Related app areas: Finance, Budgets, Expenses, Funding Phases, External Transfers, Harvests, Investors, Approvals
 
@@ -161,4 +161,10 @@ Investor-linked finance records should be checked before approval.
 
 ## Current Limits
 
-This guide does not cover formal statements, exports, AI summaries, or backup operations because those workflows are not current through Phase 6.
+## Export financial records
+
+Open **Budgets** and select **Export budget variance** for a budget. Choose the reporting period and select **Generate workbook**. The workbook includes budget totals and expenses in the period, including draft and submitted expenses.
+
+In **Harvests**, use the report exports to generate harvest, sales, or distribution workbooks. Select a farm and dates, then apply any relevant filters. Wait for generation to finish and select **Download XLSX**. Each workbook is limited to 1,000 matching records. Narrow the date range or filters if generation reports that the limit was exceeded.
+
+Investors generate their own PDF statements from the Investor Portal. See the Investor Guide.

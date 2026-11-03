@@ -1,7 +1,7 @@
 # Owner and Admin Guide
 
-Applies through: Phase 7 - AI Summaries and Assisted Reporting
-Last reviewed: 2026-11-01
+Applies through: Phase 8 and pilot operator access
+Last reviewed: 2026-11-03
 Audience: Farm owners and farm organization admins  
 Related app areas: Dashboard, Farms, Finance, Harvests, Investors, Approvals, Team Settings
 
@@ -22,13 +22,14 @@ Use this guide when you are responsible for setting up the farm organization, in
 
 Team settings and membership are managed from Team Settings.
 
-- Use invitations to add admins, members, and investors.
+- Use invitations to add admins, members, operators, and investors.
 - Use Admin for users who manage farm operations, finance, investor agreements, and approval requests.
 - Use Member for users who only need farm operations visibility.
+- Use Operator for users who need to record diary entries and manage tasks across the team’s farms without finance or team administration.
 - Use Investor only for users who should access the investor portal.
 - Review audit events when sensitive settings, roles, finance records, agreements, approvals, or visibility values change.
 
-The Owner role has full team permissions. Admin users have broad team management, farm operations, finance, investor agreement, and approval permissions. Members and Investors have narrower access.
+The Owner role has full team permissions. Admin users have broad team management, farm operations, finance, investor agreement, and approval permissions. Members, Operators, and Investors have narrower access.
 
 ## Farm Operations Setup
 

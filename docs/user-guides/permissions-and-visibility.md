@@ -1,7 +1,7 @@
 # Permissions and Visibility
 
-Applies through: Phase 6 - Harvest, Sales, Capital Recovery
-Last reviewed: 2026-06-11  
+Applies through: Phase 8 and pilot operator access
+Last reviewed: 2026-11-03
 Audience: Support users, owners, admins, and implementation maintainers  
 Related app areas: Team Settings, Dashboard, Farms, Finance, Harvests, Investors, Approvals, Investor Portal
 
@@ -14,32 +14,32 @@ Use this guide to understand why a user can or cannot see a Farmwell workspace o
 | Owner | Full team access | Can manage team, settings, farm operations, finance, investor agreements, approval requests, and deletion. |
 | Admin | Broad operational access | Can update team details, invite/cancel invitations, manage settings, farm operations, finance, investor agreements, and approval requests. |
 | Member | Farm operations visibility | Can view farm operations. No finance or investor administration by default. |
+| Operator | Field diary and tasks | Can record diary entries and create or update tasks across the team’s farms. |
 | Investor | Investor portal only | Can view the investor portal for their own active or completed agreements and approved scoped records. |
 
-The BRS includes additional user groups such as farm manager, operations/log keeper, finance/admin, agronomist/advisor, buyer/customer, and platform administrator. Through Phase 6, these map onto the current team roles above rather than separate app roles.
+The BRS includes additional user groups such as farm manager, operations/log keeper, finance/admin, agronomist/advisor, buyer/customer, and platform administrator. These responsibilities map onto the current team roles above.
 
 ## Permission Summary
 
-| Permission area | Owner | Admin | Member | Investor |
-| --- | --- | --- | --- | --- |
-| Team update | Yes | Yes | No | No |
-| Team deletion | Yes | No | No | No |
-| Invitations | Yes | Yes | No | No |
-| Team settings | Yes | Yes | No | No |
-| Audit events | Yes | No by default | No | No |
-| Farm operations | Yes | Yes | View only | No |
-| Finance | Yes | Yes | No | No |
-| Harvests | Yes | Yes | View only when farm operations access exists | No |
-| Investor agreements | Yes | Yes | No | No |
-| Approval requests | Yes | Yes | No | No |
-| Investor portal | Yes by full permission set | No by default | No | Yes |
+| Permission area | Owner | Admin | Member | Operator | Investor |
+| --- | --- | --- | --- | --- | --- |
+| Team update and invitations | Yes | Yes | No | No | No |
+| Team deletion | Yes | No | No | No | No |
+| Team settings | Yes | Yes | No | No | No |
+| Audit events | Yes | No by default | No | No | No |
+| Farm setup and WhatsApp intake | Manage | Manage | View only | No | No |
+| Field diary and tasks | Manage | Manage | View only | Manage | No |
+| Finance | Yes | Yes | No | No | No |
+| Harvests | Yes | Yes | View only | No | No |
+| Investor agreements and approvals | Yes | Yes | No | No | No |
+| Investor portal | Yes by full permission set | No by default | No | No | Yes |
 
 Always confirm the current team before investigating access. The same user may belong to multiple teams with different roles.
 
 ## Workspace Access
 
 - Dashboard requires current-team access and is intended for internal summary review.
-- Farms, Field Diary, Tasks, and WhatsApp Intake require farm operations access.
+- Farms and WhatsApp Intake require farm operations access. Operators can access Field Diary and Tasks.
 - Finance pages require finance access.
 - Harvests can be viewed by users with farm operations access or finance access.
 - Recording harvests requires farm operations management or finance management.
@@ -98,7 +98,7 @@ When a user cannot see a workspace:
 - Confirm they are on the correct current team.
 - Confirm their team role.
 - Confirm the role includes the needed permission.
-- Confirm the page is implemented through Phase 6.
+- Confirm the page is included in the current release.
 - Confirm generated navigation is permission-aware for that user.
 
 When an investor cannot see a record:
@@ -116,7 +116,7 @@ When an internal user cannot create or update finance or investor records:
 
 - Confirm they are Owner or Admin.
 - Confirm related farm, cycle, category, expense, transfer, or agreement records belong to the same team.
-- Confirm the workflow is implemented through Phase 6.
+- Confirm the workflow is included in the current release.
 - Confirm validation is not rejecting a cross-team reference.
 
 When an internal user cannot create harvest or sale records:
@@ -128,4 +128,4 @@ When an internal user cannot create harvest or sale records:
 
 ## Current Limits
 
-This guide does not define separate permissions for platform administrator, agronomist/advisor, buyer/customer, AI, reports, exports, or backups because those workflows are not current through Phase 6.
+Platform administrator, agronomist/advisor, buyer/customer, marketplace, and public investment workflows are outside the current role model.
