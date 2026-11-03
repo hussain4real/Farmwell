@@ -52,5 +52,8 @@ jobs:
       - name: Build Assets
         run: npm run build
 
+      - name: Restore a synthetic encrypted staging backup
+        run: bash tests/backup-restore.sh
+
       - name: Quality Gate
         run: composer ci:check
