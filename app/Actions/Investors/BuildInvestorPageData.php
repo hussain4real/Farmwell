@@ -338,6 +338,8 @@ class BuildInvestorPageData
      */
     private function publishedAiSummaries(InvestorAgreement $agreement): \Illuminate\Support\Collection
     {
+        $eligibilityBySnapshot = [];
+
         return AiSummary::query()
             ->where('team_id', $agreement->team_id)
             ->where('investor_agreement_id', $agreement->id)
@@ -347,7 +349,11 @@ class BuildInvestorPageData
             ->whereNotNull('published_at')
             ->latest('published_at')
             ->get()
-            ->filter(fn (AiSummary $summary): bool => $this->investorSummaryEligibility->isCurrent($summary, $agreement))
+            ->filter(function (AiSummary $summary) use ($agreement, &$eligibilityBySnapshot): bool {
+                $key = serialize([$summary->generation_context, $summary->source_snapshot]);
+
+                return $eligibilityBySnapshot[$key] ??= $this->investorSummaryEligibility->isCurrent($summary, $agreement);
+            })
             ->map(fn (AiSummary $summary): array => [
                 'id' => $summary->id,
                 'text' => $summary->final_text ?? '',

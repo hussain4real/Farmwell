@@ -85,7 +85,7 @@ test('deployments route web requests to separate containers', async () => {
             get(_id, options) {
                 assert.equal(options.locationHint, 'weur');
 
-                return { fetch: async () => 'ok' };
+                return { ready: async () => {}, fetch: async () => 'ok' };
             },
         },
     };
@@ -108,7 +108,7 @@ test('retries a safe request once when the container connection closes', async (
     let attempts = 0;
     const env = {
         CF_VERSION_METADATA: { id: 'version-one' },
-        FARMWELL_WEB: { idFromName: (name) => name, get: () => ({ fetch: async () => {
+        FARMWELL_WEB: { idFromName: (name) => name, get: () => ({ ready: async () => {}, fetch: async () => {
             attempts++;
 
             if (attempts === 1) {
@@ -134,7 +134,7 @@ test('does not retry mutations when the container connection closes', async () =
     let attempts = 0;
     const env = {
         CF_VERSION_METADATA: { id: 'version-one' },
-        FARMWELL_WEB: { idFromName: (name) => name, get: () => ({ fetch: async () => {
+        FARMWELL_WEB: { idFromName: (name) => name, get: () => ({ ready: async () => {}, fetch: async () => {
             attempts++;
 
             throw new Error('Container port connection closed unexpectedly.');
@@ -143,4 +143,41 @@ test('does not retry mutations when the container connection closes', async () =
 
     await assert.rejects(worker.fetch({ method: 'POST' }, env), /connection closed/);
     assert.equal(attempts, 1);
+});
+
+test('a cold POST retries readiness on a fresh stub before forwarding its body once', async () => {
+    const worker = vm.runInNewContext(`${source}\nworker;`, {
+        DurableObject: class {},
+        scheduler: { wait: async () => {} },
+    });
+    let connections = 0;
+    let submissions = 0;
+    const env = {
+        CF_VERSION_METADATA: { id: 'cold' },
+        FARMWELL_WEB: {
+            idFromName: (name) => name,
+            get() {
+                connections++;
+                const cold = connections === 1;
+
+                return {
+                    async ready() {
+                        if (cold) {
+                            throw Object.assign(new Error('placement temporarily unavailable'), { retryable: true });
+                        }
+                    },
+                    async fetch(request) {
+                        submissions++;
+
+                        return request.text();
+                    },
+                };
+            },
+        },
+    };
+    const request = new Request('https://staging.example/', { method: 'POST', body: 'synthetic draft' });
+
+    assert.equal(await worker.fetch(request, env), 'synthetic draft');
+    assert.equal(connections, 2);
+    assert.equal(submissions, 1);
 });

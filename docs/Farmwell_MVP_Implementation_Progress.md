@@ -10,7 +10,7 @@ Last updated: 2026-11-01
 
 ## Current Assessment
 
-Phases 0 through 6 are recorded as complete against the approved MVP plan. Phase 7 includes queued progress, weekly, risk/decision, and intake-cleanup drafts, with separate review and investor publication controls. Phase 6 achieves its stated goal: harvest/output records, sales, capital-first recovery, investor distributions, partial recovery, loss handling, multiple-sale recovery, and investor acknowledgement visibility are implemented with audit, authorization, browser smoke, static analysis, and 100% coverage gates.
+Phases 0 through 7 are recorded as complete against the approved MVP plan. Phase 7 includes queued progress, weekly, risk/decision, and intake-cleanup drafts, with separate review and investor publication controls. Phase 6 achieves its stated goal: harvest/output records, sales, capital-first recovery, investor distributions, partial recovery, loss handling, multiple-sale recovery, and investor acknowledgement visibility are implemented with audit, authorization, browser smoke, static analysis, and 100% coverage gates.
 
 The pre-Phase-4 product structure follow-up is complete: Dashboard, Farm Operations, Field Diary, Task Calendar, and WhatsApp Intake now have separate route-backed page boundaries.
 
@@ -25,8 +25,8 @@ The pre-Phase-4 product structure follow-up is complete: Dashboard, Farm Operati
 | 4. Budgets, Expenses, Funding, Transfers | Track operating money without wallet/escrow behavior. | [x] Complete | Budgets, funding phases, expenses, receipts, external transfers, proof, reconciliation, variance, carry-forward, and finance pages are implemented. |
 | 5. Investor Agreements and Approvals | Add private investor transparency safely. | [x] Complete | Investor role, agreements, approval rules, decisions, approved feeds, comments, and scoped investor portal are implemented. |
 | 6. Harvest, Sales, Capital Recovery | Close the farm season financial loop. | [x] Complete | Harvests, sales, capital recovery, investor distribution calculations, acknowledgement approval, and investor portal visibility are implemented. |
-| 7. AI Summaries and Assisted Reporting | Add BRS AI capabilities safely after authoritative data exists. | [~] In progress | All four summary types and review-gated investor publication are implemented; live provider and production acceptance remain. |
-| 8. Reports, Exports, Operations Readiness | Make the system shareable and pilot-ready. | [ ] Not started | Pending core finance, investor, harvest, and AI data paths. |
+| 7. AI Summaries and Assisted Reporting | Add BRS AI capabilities safely after authoritative data exists. | [x] Complete | Accepted on private staging with the live provider, queue recovery, review-gated publication, and investor isolation verified. |
+| 8. Reports, Exports, Operations Readiness | Make the system shareable and pilot-ready. | [ ] Not started | Ready to begin after Phase 7 closeout. |
 | 9. Later Enhancements | Start only after MVP sign-off. | [ ] Not started | Deferred until explicitly selected. |
 
 ## Completed Phase Details
@@ -137,10 +137,13 @@ The pre-Phase-4 product structure follow-up is complete: Dashboard, Farm Operati
 
 ### Phase 7. AI Summaries and Assisted Reporting
 
+Private staging acceptance, 2026-11-03: the scheduled worker generated all four summary types with OpenAI. A controlled transient failure produced one draft after retry. The investor saw the reviewed update only after publication. A two-investor regression verified agreement isolation on the same team and farm.
+
+Staging application revision `15f6295` served five successful warm portal requests with a median of 1.43 seconds to response headers (range 1.33–2.15 seconds). The cold request took 18.73 seconds. Track cold-start latency and any recurrence of Cloudflare 1101 during operations readiness. [PR #7 and acceptance evidence](https://github.com/hussain4real/Farmwell/pull/7)
+
 - [x] Install `laravel/ai`.
 - [x] Publish Laravel AI SDK config and migrations.
 - [x] Keep provider/model selection in `config/ai.php` and environment variables.
-- [ ] Use Sub-agents as needed for specialized tasks or data access.
 - [x] Add Farmwell AI agent for investor-safe progress summaries and explicitly reviewed investor publication.
 - [x] Add Farmwell AI agent for weekly summaries.
 - [x] Add Farmwell AI agent for risk/decision summaries.
@@ -196,4 +199,4 @@ The pre-Phase-4 product structure follow-up is complete: Dashboard, Farm Operati
 
 ## Next Recommended Goal
 
-Verify Phase 7 with a configured provider and obtain user acceptance; then start Phase 8 reports, exports, and operations readiness.
+Begin Phase 8 reports, exports, and operations readiness.
