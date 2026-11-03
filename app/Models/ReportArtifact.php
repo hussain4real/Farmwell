@@ -18,8 +18,10 @@ class ReportArtifact extends Model
 {
     protected $fillable = [
         'team_id', 'generated_by_id', 'farm_id', 'production_cycle_id', 'type',
-        'period_start', 'period_end', 'document',
+        'period_start', 'period_end', 'document', 'filters',
     ];
+
+    protected $casts = ['filters' => 'array'];
 
     protected $hidden = ['document'];
 }

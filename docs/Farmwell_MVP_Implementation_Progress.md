@@ -159,11 +159,11 @@ Staging application revision `15f6295` served five successful warm portal reques
 ### Phase 8. Reports, Exports, Operations Readiness
 
 - [x] Install Spatie PDF with the DOMPDF renderer.
-- [ ] Install Laravel Excel.
+- [x] Install Laravel Excel for XLSX exports.
 - [ ] Install Spatie Backup.
 - [x] Add report artifact records with the team, agreement, generator, period, creation time, and saved output.
 - [x] Add investor-generated PDF statements for a selected period on an active or completed agreement.
-- [ ] Add activity exports.
+- [x] Add downloadable field diary XLSX snapshots with period, farm, unit, commodity, funding phase, and activity type filters.
 - [ ] Add budget exports.
 - [ ] Add harvest exports.
 - [ ] Add sales exports.
@@ -199,4 +199,4 @@ Staging application revision `15f6295` served five successful warm portal reques
 
 ## Next Recommended Goal
 
-Continue Phase 8 with activity exports, followed by the remaining financial exports, queued generation, and backup and recovery checks.
+Continue Phase 8 with budget exports, followed by harvest and remaining financial exports, queued generation, and backup and recovery checks.

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AiSummaryController;
+use App\Http\Controllers\FarmOperations\ActivityExportController;
 use App\Http\Controllers\FarmOperations\CommodityController;
 use App\Http\Controllers\FarmOperations\EvidenceController;
 use App\Http\Controllers\FarmOperations\FarmActivityController;
@@ -49,6 +50,11 @@ Route::prefix('{current_team}')
     ->group(function () {
         Route::get('dashboard', FarmDashboardController::class)->name('dashboard');
         Route::get('farms', FarmOperationsController::class)->name('farms.index');
+        Route::controller(ActivityExportController::class)->prefix('field-diary/exports')->name('activity-exports.')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::post('/', 'store')->name('store');
+            Route::get('{report_artifact}', 'download')->whereNumber('report_artifact')->name('download');
+        });
         Route::get('field-diary', FieldDiaryController::class)->name('field-diary.index');
         Route::get('farm-tasks', FarmTaskCalendarController::class)->name('farm-tasks.index');
         Route::get('whatsapp-intakes', WhatsappIntakeReviewController::class)->name('whatsapp-intakes.index');
