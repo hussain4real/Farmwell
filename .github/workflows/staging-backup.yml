@@ -1,0 +1,67 @@
+name: Farmwell staging backup
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 1 * * *'
+    - cron: '17 13 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: farmwell-staging-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    environment: staging-backups
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@7c071dfe9dc99bdf297fa79cb49ea005b9fcadbc
+        with:
+          php-version: '8.5'
+          extensions: zip, pdo_pgsql, gd, exif
+      - run: composer install --no-dev --no-interaction --prefer-dist
+      - name: Check the age of the latest archive independently of the backup run
+        if: github.event.schedule == '17 13 * * *'
+        env:
+          CACHE_STORE: array
+          FARMWELL_BACKUP_DISK: r2
+          BACKUP_R2_ENDPOINT: ${{ vars.BACKUP_R2_ENDPOINT }}
+          BACKUP_R2_BUCKET: ${{ vars.BACKUP_R2_BUCKET }}
+          BACKUP_R2_ACCESS_KEY_ID: ${{ secrets.BACKUP_R2_ACCESS_KEY_ID }}
+          BACKUP_R2_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_R2_SECRET_ACCESS_KEY }}
+        run: php artisan backup:monitor --no-interaction
+      - name: Install PostgreSQL 18 client
+        if: github.event.schedule != '17 13 * * *'
+        run: |
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y postgresql-client-18
+          echo '/usr/lib/postgresql/18/bin' >> "$GITHUB_PATH"
+      - name: Back up PostgreSQL and private uploads, check health and apply retention
+        if: github.event.schedule != '17 13 * * *'
+        env:
+          CACHE_STORE: array
+          FARMWELL_BACKUP_DISK: r2
+          PGHOST: ${{ vars.PGHOST }}
+          PGDATABASE: ${{ vars.PGDATABASE }}
+          PGUSER: ${{ vars.PGUSER }}
+          PGPASSWORD: ${{ secrets.PGPASSWORD }}
+          PGSSLMODE: verify-full
+          PGSSLROOTCERT: /etc/ssl/certs/ca-certificates.crt
+          AWS_DEFAULT_REGION: auto
+          AWS_ENDPOINT: ${{ vars.MEDIA_R2_ENDPOINT }}
+          AWS_BUCKET: ${{ vars.MEDIA_R2_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.MEDIA_R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.MEDIA_R2_SECRET_ACCESS_KEY }}
+          BACKUP_R2_ENDPOINT: ${{ vars.BACKUP_R2_ENDPOINT }}
+          BACKUP_R2_BUCKET: ${{ vars.BACKUP_R2_BUCKET }}
+          BACKUP_R2_ACCESS_KEY_ID: ${{ secrets.BACKUP_R2_ACCESS_KEY_ID }}
+          BACKUP_R2_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_R2_SECRET_ACCESS_KEY }}
+          BACKUP_ARCHIVE_PASSWORD: ${{ secrets.BACKUP_ARCHIVE_PASSWORD }}
+        run: bash .github/scripts/farmwell-backup.sh
