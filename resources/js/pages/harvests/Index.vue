@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Form, Head, usePage } from '@inertiajs/vue3';
+import { Form, Head, Link, usePage } from '@inertiajs/vue3';
 import { FileUp, HandCoins, ReceiptText, Scale, Sprout } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
 import Heading from '@/components/Heading.vue';
@@ -14,6 +14,7 @@ import {
     index as harvestsIndex,
     store as storeHarvest,
 } from '@/routes/harvests';
+import { index as harvestExports } from '@/routes/harvests/exports';
 import { store as storeSale } from '@/routes/harvests/sales';
 import type {
     DistributionRecord,
@@ -152,6 +153,17 @@ watch(saleHarvestId, () => {
             title="Harvests"
             description="Output records, sales, capital recovery, and investor distribution calculations"
         />
+
+        <Link
+            v-if="
+                (permissions.canManageFarmOperations ||
+                    permissions.canManageFinance) &&
+                currentTeamSlug
+            "
+            :href="harvestExports(currentTeamSlug)"
+            class="self-start text-sm font-medium underline"
+            >Export harvest records</Link
+        >
 
         <section class="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
             <div class="rounded-lg border p-4">

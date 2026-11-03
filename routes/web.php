@@ -27,6 +27,7 @@ use App\Http\Controllers\Finance\FinanceSettingController;
 use App\Http\Controllers\Finance\FundingPhaseController;
 use App\Http\Controllers\Finance\TransferReconciliationController;
 use App\Http\Controllers\Harvests\HarvestDashboardController;
+use App\Http\Controllers\Harvests\HarvestExportController;
 use App\Http\Controllers\Harvests\HarvestRecordController;
 use App\Http\Controllers\Harvests\SaleRecordController;
 use App\Http\Controllers\Investors\InvestorAgreementController;
@@ -70,6 +71,12 @@ Route::prefix('{current_team}')
         Route::get('finance/expenses', [ExpenseController::class, 'index'])->name('finance.expenses.index');
         Route::get('finance/funding-phases', [FundingPhaseController::class, 'index'])->name('finance.funding-phases.index');
         Route::get('finance/external-transfers', [ExternalTransferController::class, 'index'])->name('finance.external-transfers.index');
+        Route::prefix('harvests/exports')->name('harvests.exports.')->middleware('can:manageHarvests,current_team')
+            ->controller(HarvestExportController::class)->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::post('/', 'store')->name('store');
+                Route::get('{report_artifact}', 'download')->whereNumber('report_artifact')->name('download');
+            });
         Route::get('harvests', HarvestDashboardController::class)->name('harvests.index');
         Route::get('ai-summaries', [AiSummaryController::class, 'index'])->name('ai-summaries.index');
         Route::post('ai-summaries', [AiSummaryController::class, 'store'])->name('ai-summaries.store');

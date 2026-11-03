@@ -112,6 +112,11 @@ class TeamPolicy
         return $user->hasTeamPermission($team, TeamPermission::ManageFarmOperations);
     }
 
+    public function manageHarvests(User $user, Team $team): bool
+    {
+        return $user->canAny(['manageFarmOperations', 'manageFinance'], $team);
+    }
+
     /**
      * Determine whether the user can view finance records.
      */
