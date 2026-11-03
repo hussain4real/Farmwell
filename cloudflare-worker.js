@@ -167,12 +167,14 @@ export default {
             } catch (error) {
                 const transient = error?.retryable ||
                     /Container port connection closed unexpectedly|Container exited during startup|Farmwell container did not become ready/.test(error?.message ?? '');
+
                 if (attempt === 2 || error?.overloaded || !transient || (forwarded && !safeRead)) {
                     console.error('Farmwell web request failed', {
                         stage: forwarded ? 'forward' : 'startup',
                         method: request.method,
                         attempt,
                     });
+
                     throw error;
                 }
 

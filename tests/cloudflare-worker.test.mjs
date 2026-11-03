@@ -162,10 +162,13 @@ test('a cold POST retries readiness on a fresh stub before forwarding its body o
 
                 return {
                     async ready() {
-                        if (cold) throw Object.assign(new Error('placement temporarily unavailable'), { retryable: true });
+                        if (cold) {
+throw Object.assign(new Error('placement temporarily unavailable'), { retryable: true });
+}
                     },
                     async fetch(request) {
                         submissions++;
+
                         return request.text();
                     },
                 };
