@@ -45,7 +45,10 @@ test('distribution workbooks preserve recorded splits and total only period move
     $record(['investor_agreement_id' => InvestorAgreement::factory()->create($scope)->id]);
     $filters = [...$this->period, ...$fields];
     $this->post(route('harvests.distributions.exports.store', $this->team), $filters)->assertRedirectToRoute('harvests.distributions.exports.index', $this->team);
+    expect(ReportArtifact::sole()->status)->toBe('queued');
+    $this->artisan('queue:work database --once --no-interaction')->assertExitCode(0);
     $report = ReportArtifact::sole();
+    expect($report->status)->toBe('ready');
     expect($report->filters)->toEqual($filters);
     $first->update(['investor_share_minor' => 0]);
     $agreement->update(['amount_funded_minor' => 99999, 'investor_profit_share_percentage' => 60, 'farm_profit_share_percentage' => 40]);
@@ -79,7 +82,10 @@ test('distribution workbooks preserve recorded splits and total only period move
 test('distribution exports require current finance management access and are private to their generator and team', function () {
     $store = route('harvests.distributions.exports.store', $this->team);
     $this->post($store, $this->period)->assertRedirect();
+    expect(ReportArtifact::sole()->status)->toBe('queued');
+    $this->artisan('queue:work database --once --no-interaction')->assertExitCode(0);
     $report = ReportArtifact::sole();
+    expect($report->status)->toBe('ready');
     $download = route('harvests.distributions.exports.download', [$this->team, $report]);
     $this->get(route('harvests.exports.download', [$this->team, $report]))->assertNotFound();
     $other = User::factory()->create();
@@ -126,6 +132,8 @@ test('oversized distribution exports ask for narrower filters without saving a p
     foreach (SaleRecord::pluck('id')->chunk(100) as $ids) {
         DistributionRecord::insert($ids->map(fn ($id) => [...$distribution, 'sale_record_id' => $id])->values()->all());
     }
-    $this->post(route('harvests.distributions.exports.store', $this->team), $this->period)->assertSessionHasErrors('period_end');
-    expect(ReportArtifact::count())->toBe(0);
+    $this->post(route('harvests.distributions.exports.store', $this->team), $this->period)->assertRedirect();
+    $this->artisan('queue:work database --once --no-interaction')->assertExitCode(0);
+    $report = ReportArtifact::sole();
+    expect($report->status)->toBe('failed')->and($report->document)->toBe('')->and($report->failure_message)->toContain('1000', 'period');
 });

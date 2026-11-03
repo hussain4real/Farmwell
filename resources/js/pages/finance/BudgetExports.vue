@@ -3,14 +3,17 @@ import { Form, Head, Link, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
+import ReportDownload from '@/components/ReportDownload.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useQueuedPolling } from '@/composables/useQueuedPolling';
 import { download, store } from '@/routes/finance/budget-exports';
 import { index as budgets } from '@/routes/finance/budgets';
 import type { Team } from '@/types';
+import type { ReportGeneration } from '@/types/report';
 
-defineProps<{
+const props = defineProps<{
     budget: {
         id: number;
         name: string;
@@ -19,16 +22,19 @@ defineProps<{
         end: string | null;
     };
     exports: {
-        data: {
+        data: (ReportGeneration & {
             id: number;
             period_start: string;
             period_end: string;
             created_at: string;
-        }[];
+        })[];
         prev_page_url: string | null;
         next_page_url: string | null;
     };
 }>();
+useQueuedPolling('exports', () =>
+    props.exports.data.some((item) => item.status === 'queued'),
+);
 const page = usePage();
 const slug = computed(() => (page.props.currentTeam as Team).slug);
 </script>
@@ -99,11 +105,11 @@ const slug = computed(() => (page.props.currentTeam as Team).slug);
                         Export #{{ item.id }}
                     </p>
                 </div>
-                <a
+                <ReportDownload
+                    :report="item"
                     :href="download.url([slug, budget.id, item.id])"
-                    class="text-sm underline"
-                    >Download XLSX</a
-                >
+                    format="XLSX"
+                />
             </div>
             <nav class="flex gap-4 text-sm underline" aria-label="Export pages">
                 <Link v-if="exports.prev_page_url" :href="exports.prev_page_url"

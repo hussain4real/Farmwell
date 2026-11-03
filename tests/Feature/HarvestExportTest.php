@@ -50,7 +50,10 @@ test('the harvest workbook filters recorded output and preserves period end sold
     $sale(['quantity_unit' => 'bags']);
 
     $this->post(route('harvests.exports.store', $this->team), $filters)->assertRedirectToRoute('harvests.exports.index', $this->team);
+    expect(ReportArtifact::sole()->status)->toBe('queued');
+    $this->artisan('queue:work database --once --no-interaction')->assertExitCode(0);
     $artifact = ReportArtifact::sole();
+    expect($artifact->status)->toBe('ready');
     expect($artifact->filters)->toEqual($filters)->and($artifact->production_cycle_id)->toBe($cycle->id);
     $first->update(['quantity' => '999.99', 'quality_notes' => 'Revised']);
     $response = $this->get(route('harvests.exports.download', [$this->team, $artifact]))->assertOk()
@@ -79,7 +82,10 @@ test('the harvest workbook filters recorded output and preserves period end sold
 test('harvest exports require current management access and are private to their generator and team', function () {
     $store = route('harvests.exports.store', $this->team);
     $this->post($store, $this->period)->assertRedirect();
+    expect(ReportArtifact::sole()->status)->toBe('queued');
+    $this->artisan('queue:work database --once --no-interaction')->assertExitCode(0);
     $report = ReportArtifact::sole();
+    expect($report->status)->toBe('ready');
     $download = route('harvests.exports.download', [$this->team, $report]);
     $other = User::factory()->create();
     $this->team->members()->attach($other, ['role' => TeamRole::Admin->value]);
@@ -117,6 +123,8 @@ test('oversized harvest exports ask for narrower filters without saving a partia
     foreach (array_chunk(array_fill(0, HarvestExport::MAX_ROWS + 1, $data), 100) as $chunk) {
         HarvestRecord::insert($chunk);
     }
-    $this->post(route('harvests.exports.store', $this->team), $this->period)->assertSessionHasErrors('period_end');
-    expect(ReportArtifact::count())->toBe(0);
+    $this->post(route('harvests.exports.store', $this->team), $this->period)->assertRedirect();
+    $this->artisan('queue:work database --once --no-interaction')->assertExitCode(0);
+    $report = ReportArtifact::sole();
+    expect($report->status)->toBe('failed')->and($report->document)->toBe('')->and($report->failure_message)->toContain('1000', 'period');
 });

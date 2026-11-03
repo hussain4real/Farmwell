@@ -47,7 +47,10 @@ test('the saved workbook reconciles category variance to its dated expense detai
     $expense(['budget_id' => null, 'budget_line_id' => null]);
 
     $this->post($this->store, $this->period)->assertRedirect($this->index);
+    expect(ReportArtifact::sole()->status)->toBe('queued');
+    $this->artisan('queue:work database --once --no-interaction')->assertExitCode(0);
     $report = ReportArtifact::sole();
+    expect($report->status)->toBe('ready');
     expect($report->filters)->toEqual(['budget_id' => $this->budget->id, 'currency' => 'NGN']);
     $first->update(['amount_minor' => 900000]);
     $this->get($this->index)->assertOk()->assertInertia(fn (Assert $page) => $page->component('finance/BudgetExports')
@@ -73,7 +76,10 @@ test('the saved workbook reconciles category variance to its dated expense detai
 
 test('only the generating finance manager can retrieve a budget workbook in its original budget and team', function () {
     $this->post($this->store, $this->period)->assertRedirect($this->index);
+    expect(ReportArtifact::sole()->status)->toBe('queued');
+    $this->artisan('queue:work database --once --no-interaction')->assertExitCode(0);
     $report = ReportArtifact::sole();
+    expect($report->status)->toBe('ready');
     $route = 'finance.budget-exports.download';
     $url = route($route, [...$this->args, $report]);
     $otherBudget = Budget::factory()->create($this->scope);
@@ -101,6 +107,8 @@ test('invalid or oversized budget exports do not save a partial result', functio
     foreach (array_chunk(array_fill(0, BudgetVarianceExport::MAX_EXPENSES + 1, $row), 100) as $rows) {
         Expense::insert($rows);
     }
-    $this->post($this->store, $this->period)->assertSessionHasErrors('period_end');
-    expect(ReportArtifact::count())->toBe(0);
+    $this->post($this->store, $this->period)->assertRedirect();
+    $this->artisan('queue:work database --once --no-interaction')->assertExitCode(0);
+    $report = ReportArtifact::sole();
+    expect($report->status)->toBe('failed')->and($report->document)->toBe('')->and($report->failure_message)->toContain('1000', 'period');
 });

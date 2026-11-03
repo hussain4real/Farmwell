@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Harvests;
 
-use App\Actions\Harvests\DistributionExport;
 use App\Enums\DistributionStatus;
 use App\Http\Controllers\Controller;
 use App\Models\ReportArtifact;
@@ -14,23 +13,22 @@ use Illuminate\Http\Response as DownloadResponse;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
-use Maatwebsite\Excel\Excel;
 
 class DistributionExportController extends Controller
 {
     public function index(Team $currentTeam): Response
     {
         return Inertia::render('harvests/Exports', [
-            'farms' => $currentTeam->farms()->orderBy('name')->get(['id', 'name']),
-            'agreements' => $currentTeam->investorAgreements()->orderBy('title')->get(['id', 'farm_id', 'title']),
+            'farms' => fn () => $currentTeam->farms()->orderBy('name')->get(['id', 'name']),
+            'agreements' => fn () => $currentTeam->investorAgreements()->orderBy('title')->get(['id', 'farm_id', 'title']),
             'distributionStatuses' => DistributionStatus::options(),
             'report' => 'distributions',
-            'cycles' => $currentTeam->productionCycles()->orderBy('name')->get(['id', 'farm_id', 'name']),
-            'exports' => $this->exports($currentTeam)->latest('id')->paginate(20, ['id', 'farm_id', 'period_start', 'period_end']),
+            'cycles' => fn () => $currentTeam->productionCycles()->orderBy('name')->get(['id', 'farm_id', 'name']),
+            'exports' => $this->exports($currentTeam)->latest('id')->paginate(20, ['status', 'failure_message', 'id', 'farm_id', 'period_start', 'period_end']),
         ]);
     }
 
-    public function store(Request $request, Team $currentTeam, Excel $excel): RedirectResponse
+    public function store(Request $request, Team $currentTeam): RedirectResponse
     {
         $farmId = $request->integer('farm_id');
         $filters = $request->validate([
@@ -41,9 +39,8 @@ class DistributionExportController extends Controller
             'production_cycle_id' => ['nullable', 'integer', Rule::exists('production_cycles', 'id')->where('team_id', $currentTeam->id)->where('farm_id', $farmId)],
             'status' => ['nullable', Rule::enum(DistributionStatus::class)],
         ]);
-        $workbook = new DistributionExport($currentTeam->id, $filters);
 
-        ReportArtifact::query()->create([
+        ReportArtifact::enqueue([
             'type' => 'distribution_log',
             'team_id' => $currentTeam->id,
             'generated_by_id' => auth()->id(),
@@ -52,7 +49,6 @@ class DistributionExportController extends Controller
             'period_start' => $filters['period_start'],
             'period_end' => $filters['period_end'],
             'filters' => $filters,
-            'document' => base64_encode($excel->raw($workbook, Excel::XLSX)),
         ]);
 
         return to_route('harvests.distributions.exports.index', $currentTeam);
@@ -60,7 +56,7 @@ class DistributionExportController extends Controller
 
     public function download(Team $currentTeam, int $reportArtifact): DownloadResponse
     {
-        $report = $this->exports($currentTeam)->findOrFail($reportArtifact);
+        $report = $this->exports($currentTeam)->where('status', 'ready')->findOrFail($reportArtifact);
 
         return response(base64_decode($report->document), 200, [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

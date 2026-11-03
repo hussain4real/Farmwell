@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Harvests;
 
-use App\Actions\Harvests\HarvestExport;
 use App\Http\Controllers\Controller;
 use App\Models\ReportArtifact;
 use App\Models\Team;
@@ -13,7 +12,6 @@ use Illuminate\Http\Response as DownloadResponse;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
-use Maatwebsite\Excel\Excel;
 
 class HarvestExportController extends Controller
 {
@@ -22,15 +20,15 @@ class HarvestExportController extends Controller
 
         return Inertia::render('harvests/Exports', [
             'report' => 'harvests',
-            'farms' => $currentTeam->farms()->orderBy('name')->get(['id', 'name']),
-            'commodities' => $currentTeam->commodities()->orderBy('name')->get(['id', 'name']),
-            'units' => $currentTeam->productionUnits()->orderBy('name')->get(['id', 'farm_id', 'name']),
-            'cycles' => $currentTeam->productionCycles()->orderBy('name')->get(['id', 'farm_id', 'name']),
-            'exports' => $this->exports($currentTeam)->latest('id')->paginate(20, ['id', 'farm_id', 'period_start', 'period_end']),
+            'farms' => fn () => $currentTeam->farms()->orderBy('name')->get(['id', 'name']),
+            'commodities' => fn () => $currentTeam->commodities()->orderBy('name')->get(['id', 'name']),
+            'units' => fn () => $currentTeam->productionUnits()->orderBy('name')->get(['id', 'farm_id', 'name']),
+            'cycles' => fn () => $currentTeam->productionCycles()->orderBy('name')->get(['id', 'farm_id', 'name']),
+            'exports' => $this->exports($currentTeam)->latest('id')->paginate(20, ['status', 'failure_message', 'id', 'farm_id', 'period_start', 'period_end']),
         ]);
     }
 
-    public function store(Request $request, Team $currentTeam, Excel $excel): RedirectResponse
+    public function store(Request $request, Team $currentTeam): RedirectResponse
     {
         $farmId = $request->integer('farm_id');
         $filters = $request->validate([
@@ -41,9 +39,8 @@ class HarvestExportController extends Controller
             'production_cycle_id' => ['nullable', 'integer', Rule::exists('production_cycles', 'id')->where('team_id', $currentTeam->id)->where('farm_id', $farmId)],
             'production_unit_id' => ['nullable', 'integer', Rule::exists('production_units', 'id')->where('team_id', $currentTeam->id)->where('farm_id', $farmId)],
         ]);
-        $workbook = new HarvestExport($currentTeam->id, $filters);
 
-        ReportArtifact::query()->create([
+        ReportArtifact::enqueue([
             'type' => 'harvest_log',
             'team_id' => $currentTeam->id,
             'generated_by_id' => auth()->id(),
@@ -52,7 +49,6 @@ class HarvestExportController extends Controller
             'period_start' => $filters['period_start'],
             'period_end' => $filters['period_end'],
             'filters' => $filters,
-            'document' => base64_encode($excel->raw($workbook, Excel::XLSX)),
         ]);
 
         return to_route('harvests.exports.index', $currentTeam);
@@ -60,7 +56,7 @@ class HarvestExportController extends Controller
 
     public function download(Team $currentTeam, int $reportArtifact): DownloadResponse
     {
-        $report = $this->exports($currentTeam)->findOrFail($reportArtifact);
+        $report = $this->exports($currentTeam)->where('status', 'ready')->findOrFail($reportArtifact);
 
         return response(base64_decode($report->document), 200, [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

@@ -3,26 +3,32 @@ import { Form, Head, Link, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
+import ReportDownload from '@/components/ReportDownload.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useQueuedPolling } from '@/composables/useQueuedPolling';
 import { index as portal } from '@/routes/investor-portal';
 import { download, store } from '@/routes/investor-statements';
 import type { Team } from '@/types';
+import type { ReportGeneration } from '@/types/report';
 
-defineProps<{
+const props = defineProps<{
     agreement: { id: number; title: string; currency: string };
     statements: {
-        data: {
+        data: (ReportGeneration & {
             id: number;
             period_start: string;
             period_end: string;
             created_at: string;
-        }[];
+        })[];
         prev_page_url: string | null;
         next_page_url: string | null;
     };
 }>();
+useQueuedPolling('statements', () =>
+    props.statements.data.some((item) => item.status === 'queued'),
+);
 const page = usePage();
 const slug = computed(() => (page.props.currentTeam as Team).slug);
 </script>
@@ -89,11 +95,11 @@ const slug = computed(() => (page.props.currentTeam as Team).slug);
                         Statement #{{ item.id }}
                     </p>
                 </div>
-                <a
+                <ReportDownload
+                    :report="item"
                     :href="download.url([slug, agreement.id, item.id])"
-                    class="text-sm underline"
-                    >Download PDF</a
-                >
+                    format="PDF"
+                />
             </div>
             <nav
                 class="flex gap-4 text-sm underline"

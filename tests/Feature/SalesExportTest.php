@@ -47,7 +47,10 @@ test('the sales workbook includes dated sales and reconciles proceeds by commodi
     $sale(['farm_id' => Farm::factory()->for($this->team)->create()->id]);
 
     $this->post(route('harvests.sales.exports.store', $this->team), $filters)->assertRedirectToRoute('harvests.sales.exports.index', $this->team);
+    expect(ReportArtifact::sole()->status)->toBe('queued');
+    $this->artisan('queue:work database --once --no-interaction')->assertExitCode(0);
     $report = ReportArtifact::sole();
+    expect($report->status)->toBe('ready');
     expect($report->filters)->toEqual($filters);
     $first->update(['net_amount_minor' => 0, 'buyer_name' => 'Revised']);
     $response = $this->get(route('harvests.sales.exports.download', [$this->team, $report]))->assertOk()
@@ -79,7 +82,10 @@ test('the sales workbook includes dated sales and reconciles proceeds by commodi
 test('sales exports require current finance management access and are private to their generator and team', function () {
     $store = route('harvests.sales.exports.store', $this->team);
     $this->post($store, $this->period)->assertRedirect();
+    expect(ReportArtifact::sole()->status)->toBe('queued');
+    $this->artisan('queue:work database --once --no-interaction')->assertExitCode(0);
     $report = ReportArtifact::sole();
+    expect($report->status)->toBe('ready');
     $download = route('harvests.sales.exports.download', [$this->team, $report]);
     $this->get(route('harvests.exports.download', [$this->team, $report]))->assertNotFound();
     $other = User::factory()->create();
@@ -120,6 +126,8 @@ test('oversized sales exports ask for narrower filters without saving a partial 
     foreach (array_chunk(array_fill(0, SalesExport::MAX_ROWS + 1, $data), 100) as $chunk) {
         SaleRecord::insert($chunk);
     }
-    $this->post(route('harvests.sales.exports.store', $this->team), $this->period)->assertSessionHasErrors('period_end');
-    expect(ReportArtifact::count())->toBe(0);
+    $this->post(route('harvests.sales.exports.store', $this->team), $this->period)->assertRedirect();
+    $this->artisan('queue:work database --once --no-interaction')->assertExitCode(0);
+    $report = ReportArtifact::sole();
+    expect($report->status)->toBe('failed')->and($report->document)->toBe('')->and($report->failure_message)->toContain('1000', 'period');
 });

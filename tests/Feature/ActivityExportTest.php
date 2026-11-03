@@ -46,8 +46,11 @@ test('activity export filters include both period boundaries and count an activi
     }
 
     $this->post(route('activity-exports.store', $this->team), $filters)->assertRedirectToRoute('activity-exports.index', $this->team);
+    expect(ReportArtifact::sole()->status)->toBe('queued');
+    $this->artisan('queue:work database --once --no-interaction')->assertExitCode(0);
     $artifact = ReportArtifact::sole();
-    expect($artifact->filters)->toEqual($filters);
+    expect($artifact->status)->toBe('ready');
+    expect($artifact->filters)->toEqual([...$filters, 'currency' => 'NGN']);
     $first->update(['description' => 'Changed later']);
     $response = $this->get(route('activity-exports.download', [$this->team, $artifact]))->assertOk()
         ->assertDownload('activity-log-'.$artifact->id.'.xlsx');
@@ -76,7 +79,10 @@ test('activity export filters include both period boundaries and count an activi
 test('activity exports require current management access and are private to their generator and team', function () {
     $store = route('activity-exports.store', $this->team);
     $this->post($store, $this->period)->assertRedirect();
+    expect(ReportArtifact::sole()->status)->toBe('queued');
+    $this->artisan('queue:work database --once --no-interaction')->assertExitCode(0);
     $report = ReportArtifact::sole();
+    expect($report->status)->toBe('ready');
     $download = route('activity-exports.download', [$this->team, $report]);
     $other = User::factory()->create();
     $this->team->members()->attach($other, ['role' => TeamRole::Admin->value]);
@@ -114,6 +120,8 @@ test('oversized activity exports ask for narrower filters without saving a parti
     foreach (array_chunk(array_fill(0, ActivityLogExport::MAX_ROWS + 1, $data), 100) as $chunk) {
         FarmActivity::insert($chunk);
     }
-    $this->post(route('activity-exports.store', $this->team), $this->period)->assertSessionHasErrors('period_end');
-    expect(ReportArtifact::count())->toBe(0);
+    $this->post(route('activity-exports.store', $this->team), $this->period)->assertRedirect();
+    $this->artisan('queue:work database --once --no-interaction')->assertExitCode(0);
+    $report = ReportArtifact::sole();
+    expect($report->status)->toBe('failed')->and($report->document)->toBe('')->and($report->failure_message)->toContain('1000', 'period');
 });

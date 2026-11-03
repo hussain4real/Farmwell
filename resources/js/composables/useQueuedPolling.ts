@@ -1,17 +1,17 @@
 import { usePoll } from '@inertiajs/vue3';
 import { watch } from 'vue';
 
-export function useSummaryPolling(hasQueuedSummaries: () => boolean): void {
+export function useQueuedPolling(prop: string, hasQueued: () => boolean): void {
     const { start, stop } = usePoll(
         5000,
-        { only: ['summaries'] },
+        { only: [prop] },
         { autoStart: false, mode: 'rest' },
     );
 
     watch(
-        hasQueuedSummaries,
-        (hasQueued) => {
-            if (hasQueued) {
+        hasQueued,
+        (pending) => {
+            if (pending) {
                 start();
             } else {
                 stop();

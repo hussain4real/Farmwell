@@ -8,7 +8,7 @@ import SummaryText from '@/components/SummaryText.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { useSummaryPolling } from '@/composables/useSummaryPolling';
+import { useQueuedPolling } from '@/composables/useQueuedPolling';
 import { useSummaryReviewText } from '@/composables/useSummaryReviewText';
 import { dashboard } from '@/routes';
 import {
@@ -96,7 +96,7 @@ const page = usePage();
 const currentTeam = computed(() => page.props.currentTeam);
 const currentTeamSlug = computed(() => currentTeam.value?.slug ?? '');
 
-useSummaryPolling(() =>
+useQueuedPolling('summaries', () =>
     props.summaries.some((summary) => summary.status === 'queued'),
 );
 const reviewTexts = useSummaryReviewText(() => props.summaries);

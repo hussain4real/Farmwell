@@ -3,14 +3,17 @@ import { Form, Head, Link, usePage } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
+import ReportDownload from '@/components/ReportDownload.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useQueuedPolling } from '@/composables/useQueuedPolling';
 import { index as harvests } from '@/routes/harvests';
 import * as distributionExports from '@/routes/harvests/distributions/exports';
 import * as harvestExports from '@/routes/harvests/exports';
 import * as salesExports from '@/routes/harvests/sales/exports';
 import type { Team } from '@/types';
+import type { ReportGeneration } from '@/types/report';
 
 type Option = { id: number; name: string };
 const props = defineProps<{
@@ -23,12 +26,12 @@ const props = defineProps<{
     units?: (Option & { farm_id: number })[];
     cycles: (Option & { farm_id: number })[];
     exports: {
-        data: {
+        data: (ReportGeneration & {
             id: number;
             farm_id: number;
             period_start: string;
             period_end: string;
-        }[];
+        })[];
         prev_page_url: string | null;
         next_page_url: string | null;
     };
@@ -54,6 +57,9 @@ const reports = {
     },
 };
 const selected = computed(() => reports[props.report]);
+useQueuedPolling('exports', () =>
+    props.exports.data.some((item) => item.status === 'queued'),
+);
 const page = usePage();
 const slug = computed(() => (page.props.currentTeam as Team).slug);
 const farm = ref(props.farms[0]?.id);
@@ -258,11 +264,11 @@ watch(farm, () => {
                         {{ item.period_start }} through {{ item.period_end }}
                     </p>
                 </div>
-                <a
+                <ReportDownload
+                    :report="item"
                     :href="selected.routes.download.url([slug, item.id])"
-                    class="text-sm underline"
-                    >Download XLSX</a
-                >
+                    format="XLSX"
+                />
             </div>
             <nav aria-label="Export pages" class="flex gap-4 text-sm underline">
                 <Link v-if="exports.prev_page_url" :href="exports.prev_page_url"
