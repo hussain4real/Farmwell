@@ -178,6 +178,12 @@ class InvestorAgreement extends Model implements HasMedia
         return $this->hasMany(InvestorComment::class);
     }
 
+    /** @return HasMany<ReportArtifact, $this> */
+    public function reportArtifacts(): HasMany
+    {
+        return $this->hasMany(ReportArtifact::class);
+    }
+
     public function registerMediaCollections(): void
     {
         $this->addMediaCollection(self::DocumentsCollection)

@@ -26,7 +26,7 @@ The pre-Phase-4 product structure follow-up is complete: Dashboard, Farm Operati
 | 5. Investor Agreements and Approvals | Add private investor transparency safely. | [x] Complete | Investor role, agreements, approval rules, decisions, approved feeds, comments, and scoped investor portal are implemented. |
 | 6. Harvest, Sales, Capital Recovery | Close the farm season financial loop. | [x] Complete | Harvests, sales, capital recovery, investor distribution calculations, acknowledgement approval, and investor portal visibility are implemented. |
 | 7. AI Summaries and Assisted Reporting | Add BRS AI capabilities safely after authoritative data exists. | [x] Complete | Accepted on private staging with the live provider, queue recovery, review-gated publication, and investor isolation verified. |
-| 8. Reports, Exports, Operations Readiness | Make the system shareable and pilot-ready. | [ ] Not started | Ready to begin after Phase 7 closeout. |
+| 8. Reports, Exports, Operations Readiness | Make the system shareable and pilot-ready. | [~] In progress | The first workflow generates saved, agreement-scoped investor statements as PDFs. |
 | 9. Later Enhancements | Start only after MVP sign-off. | [ ] Not started | Deferred until explicitly selected. |
 
 ## Completed Phase Details
@@ -158,11 +158,11 @@ Staging application revision `15f6295` served five successful warm portal reques
 
 ### Phase 8. Reports, Exports, Operations Readiness
 
-- [ ] Install Spatie PDF.
+- [x] Install Spatie PDF with the DOMPDF renderer.
 - [ ] Install Laravel Excel.
 - [ ] Install Spatie Backup.
-- [ ] Add report artifact records.
-- [ ] Add investor statements.
+- [x] Add report artifact records with the team, agreement, generator, period, creation time, and saved output.
+- [x] Add investor-generated PDF statements for a selected period on an active or completed agreement.
 - [ ] Add activity exports.
 - [ ] Add budget exports.
 - [ ] Add harvest exports.
@@ -199,4 +199,4 @@ Staging application revision `15f6295` served five successful warm portal reques
 
 ## Next Recommended Goal
 
-Begin Phase 8 reports, exports, and operations readiness.
+Continue Phase 8 with activity exports, followed by the remaining financial exports, queued generation, and backup and recovery checks.

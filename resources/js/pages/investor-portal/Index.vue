@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Form, Head, usePage } from '@inertiajs/vue3';
+import { Form, Head, Link, usePage } from '@inertiajs/vue3';
 import { Handshake, MessageSquare } from 'lucide-vue-next';
 import { computed } from 'vue';
 import Heading from '@/components/Heading.vue';
@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { formatCurrency } from '@/lib/currency';
 import { store as storeInvestorComment } from '@/routes/investor-comments';
 import { index as investorPortalIndex } from '@/routes/investor-portal';
+import { index as statementsIndex } from '@/routes/investor-statements';
 import { store as storeDecision } from '@/routes/investors/approvals/decisions';
 import type { InvestorPortalAgreement, Team } from '@/types';
 
@@ -75,6 +76,11 @@ const currentTeamSlug = computed(() => currentTeam.value?.slug ?? '');
                         {{ agreement.statusLabel }}
                     </Badge>
                 </div>
+                <Link
+                    :href="statementsIndex([currentTeamSlug, agreement.id])"
+                    class="text-sm font-medium underline underline-offset-4"
+                    >Investor statements</Link
+                >
                 <div
                     v-if="agreement.documents.length"
                     class="flex flex-wrap gap-2 text-sm"

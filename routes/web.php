@@ -36,6 +36,7 @@ use App\Http\Controllers\Investors\InvestorCommentController;
 use App\Http\Controllers\Investors\InvestorController;
 use App\Http\Controllers\Investors\InvestorEvidenceController;
 use App\Http\Controllers\Investors\InvestorPortalController;
+use App\Http\Controllers\Investors\InvestorStatementController;
 use App\Http\Controllers\Teams\TeamInvitationController;
 use App\Http\Middleware\EnsureTeamMembership;
 use Illuminate\Support\Facades\Route;
@@ -65,6 +66,11 @@ Route::prefix('{current_team}')
         Route::get('investors', InvestorController::class)->name('investors.index');
         Route::get('investors/approvals', InvestorApprovalController::class)->name('investors.approvals.index');
         Route::get('investor-portal', InvestorPortalController::class)->name('investor-portal.index');
+        Route::prefix('investor-portal/{investor_agreement}/statements')->name('investor-statements.')->controller(InvestorStatementController::class)->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::post('/', 'store')->name('store');
+            Route::get('{report_artifact}', 'download')->whereNumber('report_artifact')->name('download');
+        });
         Route::post('commodities', [CommodityController::class, 'store'])->name('commodities.store');
         Route::post('farms', [FarmController::class, 'store'])->name('farms.store');
         Route::post('farms/{farm}/production-units', [ProductionUnitController::class, 'store'])->name('farms.production-units.store');
