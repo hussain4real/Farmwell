@@ -67,7 +67,7 @@ export class FarmwellWeb extends DurableObject {
         if (!container.running) {
             container.start({
                 image: container.images.base,
-                instance: 'basic',
+                instance: 'standard-1',
                 enableInternet: true,
                 env: containerEnvironment(this.env),
                 entrypoint: ['sh', '-c', 'exec apache2-foreground >>/tmp/farmwell-apache.log 2>&1'],
@@ -185,6 +185,9 @@ export default {
         }
     },
     async scheduled(_event, env) {
-        await env.FARMWELL_QUEUE.getByName('staging-cloudflare-mail').run();
+        await env.FARMWELL_QUEUE.getByName(
+            `staging-queue-${env.CF_VERSION_METADATA.id}`,
+            { locationHint: 'weur' },
+        ).run();
     },
 };
