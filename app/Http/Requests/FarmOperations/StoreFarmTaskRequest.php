@@ -22,7 +22,7 @@ class StoreFarmTaskRequest extends FormRequest
     {
         $team = $this->route('current_team');
 
-        return $team instanceof Team && $this->user()?->can('manageFarmOperations', $team) === true;
+        return $team instanceof Team && $this->user()?->can('manageFieldWork', $team) === true;
     }
 
     /**

@@ -67,44 +67,54 @@ const workspaceLinks = computed(() => {
         return [];
     }
 
+    const permissions = page.props.currentTeamPermissions;
+
     return [
         {
             title: 'Farm operations',
             href: farmsIndex(currentTeamSlug.value).url,
             description: 'Farms, units, cycles, commodities, and plan changes',
             icon: Tractor,
+            visible: permissions?.canViewFarmOperations,
         },
         {
             title: 'Field diary',
             href: fieldDiaryIndex(currentTeamSlug.value).url,
             description: 'Activities, evidence, costs, and next actions',
             icon: ClipboardList,
+            visible: true,
         },
         {
             title: 'Task calendar',
             href: farmTasksIndex(currentTeamSlug.value).url,
             description: 'Open tasks, delay reasons, and completion flow',
             icon: ListTodo,
+            visible: true,
         },
         {
             title: 'WhatsApp intake',
             href: whatsappIntakesIndex(currentTeamSlug.value).url,
             description: 'Pending review, conversion, and rejection',
             icon: MessageSquare,
+            visible: permissions?.canViewFarmOperations,
         },
         {
             title: 'Finance',
             href: financeIndex(currentTeamSlug.value).url,
             description: 'Budgets, expenses, funding, transfers, and variance',
             icon: Landmark,
+            visible: permissions?.canViewFinance,
         },
         {
             title: 'Harvests',
             href: harvestsIndex(currentTeamSlug.value).url,
             description: 'Output, sales, capital recovery, and distributions',
             icon: Sprout,
+            visible:
+                permissions?.canViewFarmOperations ||
+                permissions?.canViewFinance,
         },
-    ];
+    ].filter((link) => link.visible);
 });
 </script>
 
@@ -113,7 +123,11 @@ const workspaceLinks = computed(() => {
         <Head title="Dashboard" />
         <Heading
             title="Dashboard"
-            description="Farm activity and financial totals in the team’s default currency"
+            :description="
+                page.props.currentTeamPermissions?.canViewFinance
+                    ? 'Farm activity and financial totals in the team’s default currency'
+                    : 'Farm activities and open tasks'
+            "
         />
 
         <div
@@ -417,7 +431,10 @@ const workspaceLinks = computed(() => {
             </div>
         </section>
 
-        <section class="grid gap-6 xl:grid-cols-2">
+        <section
+            v-if="page.props.currentTeamPermissions?.canViewFarmOperations"
+            class="grid gap-6 xl:grid-cols-2"
+        >
             <div class="space-y-4 rounded-lg border p-4">
                 <div class="flex items-center gap-2">
                     <MessageSquare class="size-4" />

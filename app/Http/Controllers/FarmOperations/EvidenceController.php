@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\FarmOperations;
 
 use App\Http\Controllers\Controller;
+use App\Models\FarmActivity;
 use App\Models\Team;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
@@ -16,12 +17,13 @@ class EvidenceController extends Controller
      */
     public function show(Team $currentTeam, Media $media): BinaryFileResponse
     {
-        Gate::authorize('viewFarmOperations', $currentTeam);
+        Gate::authorize('viewFieldWork', $currentTeam);
 
         $subject = $media->model;
 
         abort_if(! $subject instanceof Model, 404);
         abort_unless((int) $subject->getAttribute('team_id') === $currentTeam->id, 404);
+        abort_unless($subject instanceof FarmActivity || Gate::allows('viewFarmOperations', $currentTeam), 403);
 
         return response()->download($media->getPath(), $media->file_name);
     }

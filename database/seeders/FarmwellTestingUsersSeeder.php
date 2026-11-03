@@ -35,6 +35,10 @@ class FarmwellTestingUsersSeeder extends Seeder
             'name' => 'Farmwell Member',
             'email' => 'member@farmwell.test',
         ],
+        'operator' => [
+            'name' => 'Farmwell Operator',
+            'email' => 'operator@farmwell.test',
+        ],
         'investor' => [
             'name' => 'Farmwell Investor',
             'email' => 'investor@farmwell.test',

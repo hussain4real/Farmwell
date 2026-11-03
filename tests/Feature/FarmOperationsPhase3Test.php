@@ -514,3 +514,51 @@ test('phase three validation keeps field records scoped to the current team and 
         ])
         ->assertNotFound();
 });
+
+test('field operators can submit photo evidence without finance or team administration access', function () {
+    Storage::fake('farmwell_private');
+    [$operator, $team, $farm, $unit, $cycle, $commodity] = farmwellPhaseThreeContext(TeamRole::Operator);
+
+    $this->actingAs($operator)->post(farmwellPhaseThreeRoute('farm-activities.store', $team), [
+        'farm_id' => $farm->id,
+        'production_unit_id' => $unit->id,
+        'production_cycle_id' => $cycle->id,
+        'commodity_id' => $commodity->id,
+        'activity_date' => '2026-05-31',
+        'activity_type' => 'Inspection',
+        'description' => 'Field inspection with a photo.',
+        'status' => FarmActivityStatus::Completed->value,
+        'evidence' => [UploadedFile::fake()->image('field.jpg')],
+    ])->assertRedirect(farmwellPhaseThreeRoute('field-diary.index', $team));
+
+    $media = FarmActivity::query()->firstOrFail()->getFirstMedia(FarmActivity::EvidenceCollection);
+    expect($media)->not->toBeNull();
+    Storage::disk('farmwell_private')->assertExists($media->getPathRelativeToRoot());
+    $this->get(farmwellPhaseThreeRoute('farm-evidence.show', $team, ['media' => $media]))->assertDownload();
+    $intake = WhatsappIntake::factory()->create([
+        'team_id' => $team->id,
+        'farm_id' => $farm->id,
+        'imported_by_id' => $operator->id,
+    ]);
+    $intakeEvidence = $intake->addMedia(UploadedFile::fake()->image('intake.jpg'))
+        ->toMediaCollection(WhatsappIntake::EvidenceCollection, 'farmwell_private');
+    $this->get(farmwellPhaseThreeRoute('farm-evidence.show', $team, ['media' => $intakeEvidence]))->assertForbidden();
+    $this->post(farmwellPhaseThreeRoute('farm-tasks.store', $team), [
+        'farm_id' => $farm->id,
+        'title' => 'Check irrigation',
+        'due_on' => '2026-06-02',
+        'status' => FarmTaskStatus::Planned->value,
+    ])->assertRedirect(farmwellPhaseThreeRoute('farm-tasks.index', $team));
+    $task = FarmTask::query()->where('title', 'Check irrigation')->firstOrFail();
+    $this->patch(farmwellPhaseThreeRoute('farm-tasks.status.update', $team, ['farm_task' => $task]), [
+        'status' => FarmTaskStatus::Completed->value,
+    ])->assertRedirect(farmwellPhaseThreeRoute('farm-tasks.index', $team));
+    $this->get(farmwellPhaseThreeRoute('farms.index', $team))->assertForbidden();
+    $this->post(farmwellPhaseThreeRoute('farms.store', $team), [])->assertForbidden();
+    $this->get(farmwellPhaseThreeRoute('whatsapp-intakes.index', $team))->assertForbidden();
+    $this->post(farmwellPhaseThreeRoute('whatsapp-intakes.store', $team), [])->assertForbidden();
+    $this->get(farmwellPhaseThreeRoute('activity-exports.index', $team))->assertForbidden();
+    $this->get(farmwellPhaseThreeRoute('finance.index', $team))->assertForbidden();
+    $this->get(route('teams.edit', $team))->assertForbidden();
+    $this->patch(route('teams.update', $team), ['name' => 'Changed'])->assertForbidden();
+});
