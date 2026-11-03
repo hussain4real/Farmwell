@@ -143,3 +143,29 @@ test('published summaries sharing a snapshot use one freshness query and are hid
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page->has('agreements.0.aiSummaries', 0));
 });
+
+test('two investors on the same team and farm receive only their own agreements', function () {
+    [$team, $investor, $agreement] = publishedSummaryContext();
+    $other = User::factory()->create();
+    $team->members()->attach($other, ['role' => TeamRole::Investor->value]);
+    $other->switchTeam($team);
+    $otherAgreement = InvestorAgreement::factory()->create([
+        'team_id' => $team->id, 'farm_id' => $agreement->farm_id, 'production_cycle_id' => $agreement->production_cycle_id,
+        'investor_id' => $other->id, 'status' => InvestorAgreementStatus::Active,
+    ]);
+
+    foreach ([[$investor, $agreement], [$other, $otherAgreement]] as [$viewer, $own]) {
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        $this->actingAs($viewer)->get(route('investor-portal.index', $team))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->has('agreements', 1)
+                ->where('agreements.0.id', $own->id)
+                ->where('permissions.canViewInvestorPortal', true)
+                ->where('currentTeamPermissions.canViewFinance', false));
+
+        $membershipReads = collect(DB::getQueryLog())->where(fn (array $entry): bool => str_contains($entry['query'], 'from "team_members"'))->count();
+        DB::disableQueryLog();
+        expect($membershipReads)->toBeLessThan(10);
+    }
+});
