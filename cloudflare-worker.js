@@ -38,11 +38,14 @@ function containerEnvironment(env) {
 export class FarmwellWeb extends DurableObject {
     starting;
 
-    async fetch(request) {
+    async ready() {
         this.starting ??= this.startAndWait().finally(() => {
             this.starting = undefined;
         });
         await this.starting;
+    }
+
+    async fetch(request) {
         const original = new URL(request.url);
         const target = new URL(request.url);
         target.protocol = 'http:';
@@ -150,22 +153,33 @@ export class FarmwellQueue extends DurableObject {
 export default {
     async fetch(request, env) {
         const id = env.FARMWELL_WEB.idFromName(`staging-web-${env.CF_VERSION_METADATA.id}`);
-        const web = env.FARMWELL_WEB.get(id, { locationHint: 'weur' });
+        const connect = () => env.FARMWELL_WEB.get(id, { locationHint: 'weur' });
+        const safeRead = ['GET', 'HEAD'].includes(request.method);
+        let web = connect();
+        let forwarded = false;
 
-        try {
-            return await web.fetch(request);
-        } catch (error) {
-            if (
-                !['GET', 'HEAD'].includes(request.method) ||
-                !(error instanceof Error) ||
-                !error.message.includes('Container port connection closed unexpectedly')
-            ) {
-                throw error;
+        for (let attempt = 1; ; attempt++) {
+            try {
+                await web.ready();
+                forwarded = true;
+
+                return await web.fetch(request);
+            } catch (error) {
+                const transient = error?.retryable ||
+                    /Container port connection closed unexpectedly|Container exited during startup|Farmwell container did not become ready/.test(error?.message ?? '');
+                if (attempt === 2 || error?.overloaded || !transient || (forwarded && !safeRead)) {
+                    console.error('Farmwell web request failed', {
+                        stage: forwarded ? 'forward' : 'startup',
+                        method: request.method,
+                        attempt,
+                    });
+                    throw error;
+                }
+
+                await scheduler.wait(250);
+                web = connect();
+                forwarded = false;
             }
-
-            await scheduler.wait(250);
-
-            return web.fetch(request);
         }
     },
     async scheduled(_event, env) {
