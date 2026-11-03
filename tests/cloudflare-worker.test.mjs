@@ -190,6 +190,7 @@ test('each deployed version processes reports with its own queue container', asy
         FARMWELL_QUEUE: {
             getByName(name, options) {
                 assert.equal(options.locationHint, 'weur');
+
                 return { run: async () => runs.push(name) };
             },
         },

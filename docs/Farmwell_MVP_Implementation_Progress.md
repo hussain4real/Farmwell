@@ -1,6 +1,6 @@
 # Farmwell MVP Implementation Progress
 
-Last updated: 2026-11-01
+Last updated: 2026-11-03
 
 ## Status Legend
 
@@ -10,7 +10,7 @@ Last updated: 2026-11-01
 
 ## Current Assessment
 
-Phases 0 through 7 are recorded as complete against the approved MVP plan. Phase 7 includes queued progress, weekly, risk/decision, and intake-cleanup drafts, with separate review and investor publication controls. Phase 6 achieves its stated goal: harvest/output records, sales, capital-first recovery, investor distributions, partial recovery, loss handling, multiple-sale recovery, and investor acknowledgement visibility are implemented with audit, authorization, browser smoke, static analysis, and 100% coverage gates.
+Phase 8 passed private staging acceptance on November 3. Phases 0 through 7 were previously completed against the approved MVP plan. Phase 7 includes queued progress, weekly, risk/decision, and intake-cleanup drafts, with separate review and investor publication controls. Phase 6 achieves its stated goal: harvest/output records, sales, capital-first recovery, investor distributions, partial recovery, loss handling, multiple-sale recovery, and investor acknowledgement visibility are implemented with audit, authorization, browser smoke, static analysis, and 100% coverage gates.
 
 The pre-Phase-4 product structure follow-up is complete: Dashboard, Farm Operations, Field Diary, Task Calendar, and WhatsApp Intake now have separate route-backed page boundaries.
 
@@ -26,7 +26,7 @@ The pre-Phase-4 product structure follow-up is complete: Dashboard, Farm Operati
 | 5. Investor Agreements and Approvals | Add private investor transparency safely. | [x] Complete | Investor role, agreements, approval rules, decisions, approved feeds, comments, and scoped investor portal are implemented. |
 | 6. Harvest, Sales, Capital Recovery | Close the farm season financial loop. | [x] Complete | Harvests, sales, capital recovery, investor distribution calculations, acknowledgement approval, and investor portal visibility are implemented. |
 | 7. AI Summaries and Assisted Reporting | Add BRS AI capabilities safely after authoritative data exists. | [x] Complete | Accepted on private staging with the live provider, queue recovery, review-gated publication, and investor isolation verified. |
-| 8. Reports, Exports, Operations Readiness | Make the system shareable and pilot-ready. | [~] In progress | The first workflow generates saved, agreement-scoped investor statements as PDFs. |
+| 8. Reports, Exports, Operations Readiness | Make the system shareable and pilot-ready. | [x] Accepted on staging | Investors downloaded agreement statements and the owner downloaded all five spreadsheets. The staging backup and restore drill passed. |
 | 9. Later Enhancements | Start only after MVP sign-off. | [ ] Not started | Deferred until explicitly selected. |
 
 ## Completed Phase Details
@@ -170,11 +170,11 @@ Staging application revision `15f6295` served five successful warm portal reques
 - [x] Add distribution XLSX exports with recorded capital recovery, profit splits, payout status, and totals by agreement and currency.
 - [x] Generate investor statements and all five Excel exports on the database queue, with permission checks, bounded retries, and ready-only downloads.
 - [x] Offer an optional reviewed AI progress section on investor PDF statements. Only published, current updates for the agreement and statement period qualify.
-- [ ] Ensure authorized report/export downloads work.
-- [ ] Ensure investor reports exclude private data.
+- [x] Ensure authorized report/export downloads work.
+- [x] Ensure investor reports exclude private data.
 - [x] Test the database queue and restore an encrypted backup into an isolated PostgreSQL cluster.
 - [x] Activate scheduled staging backups and restore an archive retrieved from the private backup bucket.
-- [ ] Maintain 100% coverage and static-analysis pass.
+- [x] Maintain 100% coverage and static-analysis pass.
 
 ### Phase 9. Later Enhancements
 
@@ -200,7 +200,7 @@ Staging application revision `15f6295` served five successful warm portal reques
 
 ## Next Recommended Goal
 
-Continue Phase 8 with the remaining report access and privacy acceptance checks.
+Private staging accepted the Phase 8 reporting workflows on November 3. The scheduled queue generated seven artifacts and their SHA-256 hashes matched the files downloaded through the owner and investor sessions. Only the opted-in statement contained the published AI update. Both PDFs showed the approved spend for the assigned agreement. Direct investor requests for all five owner workbooks returned 403. The unassigned agreement’s statement list and a download URL under that agreement returned 404. [Phase 8 pull request and CI](https://github.com/hussain4real/Farmwell/pull/11)
 
 **Staging recovery evidence, 3 November 2026.** PR #8 merged the backup workflow onto `main` at `839f74b`. Post-merge tests (run `41611716541`) and lint (run `41611716421`) passed. The first live backup (run `41611718354`) wrote `Farmwell/2026-11-03-09-32-17.zip` to the private backup bucket. The downloaded archive restored into an isolated PostgreSQL cluster with 41 migrations, one farm, one agreement and 29 AI summaries, matching staging. Staging had no private media rows. A temporary R2 object matched its original SHA-256 after recovery and was removed from the source bucket. The recovery password is held in macOS Keychain under `Farmwell staging backup archive` for `hussain4real/Farmwell`.
 
