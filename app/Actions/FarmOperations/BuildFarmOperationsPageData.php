@@ -52,8 +52,8 @@ class BuildFarmOperationsPageData
             'stats' => $this->stats($team),
             'latestActivities' => $this->latestActivities($team, 4)->map(fn (FarmActivity $activity) => $this->activityPayload($activity, $team)),
             'upcomingTasks' => $this->upcomingTasks($team, 5)->map(fn (FarmTask $task) => $this->taskPayload($task)),
-            'pendingIntakes' => $this->pendingIntakes($team, 4)->map(fn (WhatsappIntake $intake) => $this->intakePayload($intake, $team)),
-            'latestPlanChanges' => $this->latestPlanChanges($team, 4)->map(fn (ProductionPlanChange $planChange) => $this->planChangePayload($planChange)),
+            'pendingIntakes' => $user->can('viewFarmOperations', $team) ? $this->pendingIntakes($team, 4)->map(fn (WhatsappIntake $intake) => $this->intakePayload($intake, $team)) : collect(),
+            'latestPlanChanges' => $user->can('viewFarmOperations', $team) ? $this->latestPlanChanges($team, 4)->map(fn (ProductionPlanChange $planChange) => $this->planChangePayload($planChange)) : collect(),
             'financeSummary' => $user->can('viewFinance', $team) ? $this->financePageData->dashboardSummary($team) : null,
             'harvestSummary' => $user->can('viewFinance', $team) ? $this->harvestPageData->dashboardSummary($team) : null,
         ];

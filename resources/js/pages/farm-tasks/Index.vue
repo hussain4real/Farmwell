@@ -104,7 +104,7 @@ watch(taskFarmId, () => {
         />
 
         <section
-            v-if="permissions.canManageFarmOperations && currentTeamSlug"
+            v-if="permissions.canManageFieldWork && currentTeamSlug"
             class="space-y-4 rounded-xl border border-[#d6e5dc] bg-card p-5 dark:border-border"
         >
             <div class="flex items-center gap-2">
@@ -274,10 +274,7 @@ watch(taskFarmId, () => {
                     </p>
 
                     <Form
-                        v-if="
-                            permissions.canManageFarmOperations &&
-                            currentTeamSlug
-                        "
+                        v-if="permissions.canManageFieldWork && currentTeamSlug"
                         v-bind="
                             updateFarmTaskStatus.form([
                                 currentTeamSlug,

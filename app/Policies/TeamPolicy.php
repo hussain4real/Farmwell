@@ -112,6 +112,16 @@ class TeamPolicy
         return $user->hasTeamPermission($team, TeamPermission::ManageFarmOperations);
     }
 
+    public function viewFieldWork(User $user, Team $team): bool
+    {
+        return $user->can('viewFarmOperations', $team) || $user->hasTeamPermission($team, TeamPermission::ManageFieldWork);
+    }
+
+    public function manageFieldWork(User $user, Team $team): bool
+    {
+        return $user->can('manageFarmOperations', $team) || $user->hasTeamPermission($team, TeamPermission::ManageFieldWork);
+    }
+
     public function manageHarvests(User $user, Team $team): bool
     {
         return $user->canAny(['manageFarmOperations', 'manageFinance'], $team);

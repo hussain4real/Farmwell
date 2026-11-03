@@ -50,6 +50,7 @@ class TeamController extends Controller
     public function edit(Request $request, Team $team): Response
     {
         $user = $request->user();
+        abort_if($user->teamRole($team) === TeamRole::Operator, 403);
 
         return Inertia::render('teams/Edit', [
             'team' => [

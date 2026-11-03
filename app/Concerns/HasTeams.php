@@ -194,6 +194,7 @@ trait HasTeams
                 canViewAuditEvents: $can(TeamPermission::ViewAuditEvents),
                 canViewFarmOperations: $can(TeamPermission::ViewFarmOperations),
                 canManageFarmOperations: $can(TeamPermission::ManageFarmOperations),
+                canManageFieldWork: $can(TeamPermission::ManageFarmOperations) || $can(TeamPermission::ManageFieldWork),
                 canViewFinance: $can(TeamPermission::ViewFinance),
                 canManageFinance: $can(TeamPermission::ManageFinance),
                 canViewInvestorPortal: $can(TeamPermission::ViewInvestorPortal),

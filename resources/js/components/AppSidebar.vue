@@ -136,20 +136,21 @@ const mainNavItems = computed<NavItem[]>(() => {
                 icon: Tractor,
             },
             {
-                title: 'Field Diary',
-                href: fieldDiaryUrl.value,
-                icon: ClipboardList,
-            },
-            {
-                title: 'Tasks',
-                href: farmTasksUrl.value,
-                icon: ListTodo,
-            },
-            {
                 title: 'WhatsApp Intake',
                 href: whatsappIntakesUrl.value,
                 icon: MessageSquare,
             },
+        );
+    }
+
+    if (permissions?.canViewFarmOperations || permissions?.canManageFieldWork) {
+        items.push(
+            {
+                title: 'Field Diary',
+                href: fieldDiaryUrl.value,
+                icon: ClipboardList,
+            },
+            { title: 'Tasks', href: farmTasksUrl.value, icon: ListTodo },
         );
     }
 
