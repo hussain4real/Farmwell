@@ -16,6 +16,7 @@ import {
 } from '@/routes/harvests';
 import { index as harvestExports } from '@/routes/harvests/exports';
 import { store as storeSale } from '@/routes/harvests/sales';
+import { index as salesExports } from '@/routes/harvests/sales/exports';
 import type {
     DistributionRecord,
     HarvestCommodity,
@@ -154,16 +155,28 @@ watch(saleHarvestId, () => {
             description="Output records, sales, capital recovery, and investor distribution calculations"
         />
 
-        <Link
+        <nav
             v-if="
+                currentTeamSlug &&
                 (permissions.canManageFarmOperations ||
-                    permissions.canManageFinance) &&
-                currentTeamSlug
+                    permissions.canManageFinance)
             "
-            :href="harvestExports(currentTeamSlug)"
-            class="self-start text-sm font-medium underline"
-            >Export harvest records</Link
+            aria-label="Report exports"
+            class="flex flex-wrap gap-4"
         >
+            <Link
+                :href="harvestExports(currentTeamSlug)"
+                class="self-start text-sm font-medium underline"
+                >Export harvest records</Link
+            >
+
+            <Link
+                v-if="permissions.canManageFinance"
+                :href="salesExports(currentTeamSlug)"
+                class="text-sm font-medium underline"
+                >Export sales records</Link
+            >
+        </nav>
 
         <section class="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
             <div class="rounded-lg border p-4">

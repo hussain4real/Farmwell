@@ -7,14 +7,17 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { index as harvests } from '@/routes/harvests';
-import { download, store } from '@/routes/harvests/exports';
+import * as harvestExports from '@/routes/harvests/exports';
+import * as salesExports from '@/routes/harvests/sales/exports';
 import type { Team } from '@/types';
 
 type Option = { id: number; name: string };
 const props = defineProps<{
     farms: Option[];
     commodities: Option[];
-    units: (Option & { farm_id: number })[];
+    report: 'harvests' | 'sales';
+    paymentStatuses?: { value: string; label: string }[];
+    units?: (Option & { farm_id: number })[];
     cycles: (Option & { farm_id: number })[];
     exports: {
         data: {
@@ -27,6 +30,11 @@ const props = defineProps<{
         next_page_url: string | null;
     };
 }>();
+const isSales = computed(() => props.report === 'sales');
+const routes = computed(() => (isSales.value ? salesExports : harvestExports));
+const title = computed(() =>
+    isSales.value ? 'Export sales records' : 'Export harvest records',
+);
 const page = usePage();
 const slug = computed(() => (page.props.currentTeam as Team).slug);
 const farm = ref(props.farms[0]?.id);
@@ -39,19 +47,23 @@ watch(farm, () => {
 </script>
 <template>
     <main class="mx-auto w-full max-w-4xl space-y-8 p-4 md:p-8">
-        <Head title="Harvest exports" />
+        <Head :title="title" />
         <Link :href="harvests(slug)" class="text-sm underline"
             >Back to harvests</Link
         >
         <Heading
-            title="Export harvest records"
-            description="Download up to 1,000 harvest records. Each row shows the recorded quantity, its unit, and how much had sold by the end of the period."
+            :title="title"
+            :description="
+                isSales
+                    ? 'Download up to 1,000 sales by sale date. Totals are grouped by commodity, unit and currency.'
+                    : 'Download up to 1,000 harvest records. Each row shows the recorded quantity, its unit, and how much had sold by the end of the period.'
+            "
         />
         <section class="space-y-4 rounded-xl border bg-card p-5">
-            <p v-if="!farms.length">Add a farm to start exporting harvests.</p>
+            <p v-if="!farms.length">Add a farm to create an export.</p>
             <Form
                 v-else
-                v-bind="store.form(slug)"
+                v-bind="routes.store.form(slug)"
                 v-slot="{ errors, processing }"
                 class="grid gap-4 sm:grid-cols-2"
             >
@@ -91,7 +103,25 @@ watch(farm, () => {
                         required
                     /><InputError :message="errors.period_end" />
                 </div>
-                <div class="grid gap-2">
+                <div v-if="isSales" class="grid gap-2">
+                    <Label for="payment-status">Payment status</Label>
+                    <select
+                        id="payment-status"
+                        name="payment_status"
+                        class="h-9 rounded-md border bg-background px-3"
+                    >
+                        <option value="">All payment statuses</option>
+                        <option
+                            v-for="status in paymentStatuses"
+                            :key="status.value"
+                            :value="status.value"
+                        >
+                            {{ status.label }}
+                        </option>
+                    </select>
+                    <InputError :message="errors.payment_status" />
+                </div>
+                <div v-else class="grid gap-2">
                     <Label for="unit">Production unit</Label
                     ><select
                         id="unit"
@@ -101,7 +131,7 @@ watch(farm, () => {
                     >
                         <option value="">All units</option>
                         <option
-                            v-for="item in units.filter(
+                            v-for="item in units?.filter(
                                 (i) => i.farm_id === farm,
                             )"
                             :key="item.id"
@@ -182,7 +212,7 @@ watch(farm, () => {
                     </p>
                 </div>
                 <a
-                    :href="download.url([slug, item.id])"
+                    :href="routes.download.url([slug, item.id])"
                     class="text-sm underline"
                     >Download XLSX</a
                 >

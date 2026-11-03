@@ -30,6 +30,7 @@ use App\Http\Controllers\Harvests\HarvestDashboardController;
 use App\Http\Controllers\Harvests\HarvestExportController;
 use App\Http\Controllers\Harvests\HarvestRecordController;
 use App\Http\Controllers\Harvests\SaleRecordController;
+use App\Http\Controllers\Harvests\SalesExportController;
 use App\Http\Controllers\Investors\InvestorAgreementController;
 use App\Http\Controllers\Investors\InvestorAgreementDocumentController;
 use App\Http\Controllers\Investors\InvestorApprovalController;
@@ -73,6 +74,12 @@ Route::prefix('{current_team}')
         Route::get('finance/external-transfers', [ExternalTransferController::class, 'index'])->name('finance.external-transfers.index');
         Route::prefix('harvests/exports')->name('harvests.exports.')->middleware('can:manageHarvests,current_team')
             ->controller(HarvestExportController::class)->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::post('/', 'store')->name('store');
+                Route::get('{report_artifact}', 'download')->whereNumber('report_artifact')->name('download');
+            });
+        Route::prefix('harvests/sales/exports')->name('harvests.sales.exports.')->middleware('can:manageFinance,current_team')
+            ->controller(SalesExportController::class)->group(function () {
                 Route::get('/', 'index')->name('index');
                 Route::post('/', 'store')->name('store');
                 Route::get('{report_artifact}', 'download')->whereNumber('report_artifact')->name('download');

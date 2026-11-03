@@ -166,7 +166,7 @@ Staging application revision `15f6295` served five successful warm portal reques
 - [x] Add downloadable field diary XLSX snapshots with period, farm, unit, commodity, funding phase, and activity type filters.
 - [x] Add budget variance XLSX exports with category totals, expense notes, and linked field activities.
 - [x] Add harvest XLSX exports with farm and period filters, quantities sold through period end, and recorded labour costs.
-- [ ] Add sales exports.
+- [x] Add sales XLSX exports with buyer, quantity, price, deductions, payment status, and revenue totals by commodity, unit, and currency.
 - [ ] Add distribution exports.
 - [ ] Add queued report generation.
 - [ ] Add optional AI-generated summary sections for reviewable reports.
@@ -199,4 +199,4 @@ Staging application revision `15f6295` served five successful warm portal reques
 
 ## Next Recommended Goal
 
-Continue Phase 8 with sales and distribution exports, queued generation, and backup and recovery checks.
+Continue Phase 8 with distribution exports, queued generation, and backup and recovery checks.

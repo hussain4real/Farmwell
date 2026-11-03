@@ -21,6 +21,7 @@ class HarvestExportController extends Controller
     {
 
         return Inertia::render('harvests/Exports', [
+            'report' => 'harvests',
             'farms' => $currentTeam->farms()->orderBy('name')->get(['id', 'name']),
             'commodities' => $currentTeam->commodities()->orderBy('name')->get(['id', 'name']),
             'units' => $currentTeam->productionUnits()->orderBy('name')->get(['id', 'farm_id', 'name']),
