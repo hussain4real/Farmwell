@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { index as harvests } from '@/routes/harvests';
+import * as distributionExports from '@/routes/harvests/distributions/exports';
 import * as harvestExports from '@/routes/harvests/exports';
 import * as salesExports from '@/routes/harvests/sales/exports';
 import type { Team } from '@/types';
@@ -14,8 +15,10 @@ import type { Team } from '@/types';
 type Option = { id: number; name: string };
 const props = defineProps<{
     farms: Option[];
-    commodities: Option[];
-    report: 'harvests' | 'sales';
+    commodities?: Option[];
+    agreements?: { id: number; farm_id: number; title: string }[];
+    distributionStatuses?: { value: string; label: string }[];
+    report: 'harvests' | 'sales' | 'distributions';
     paymentStatuses?: { value: string; label: string }[];
     units?: (Option & { farm_id: number })[];
     cycles: (Option & { farm_id: number })[];
@@ -30,40 +33,51 @@ const props = defineProps<{
         next_page_url: string | null;
     };
 }>();
-const isSales = computed(() => props.report === 'sales');
-const routes = computed(() => (isSales.value ? salesExports : harvestExports));
-const title = computed(() =>
-    isSales.value ? 'Export sales records' : 'Export harvest records',
-);
+const reports = {
+    harvests: {
+        routes: harvestExports,
+        title: 'Export harvest records',
+        description:
+            'Download up to 1,000 harvest records. Each row shows the recorded quantity, its unit, and how much had sold by the end of the period.',
+    },
+    sales: {
+        routes: salesExports,
+        title: 'Export sales records',
+        description:
+            'Download up to 1,000 sales by sale date. Totals are grouped by commodity, unit and currency.',
+    },
+    distributions: {
+        routes: distributionExports,
+        title: 'Export distributions',
+        description:
+            'Download up to 1,000 distributions by calculation date. Compare recovered capital and profit shares by agreement and currency.',
+    },
+};
+const selected = computed(() => reports[props.report]);
 const page = usePage();
 const slug = computed(() => (page.props.currentTeam as Team).slug);
 const farm = ref(props.farms[0]?.id);
 const unit = ref('');
 const cycle = ref('');
+const agreement = ref('');
 watch(farm, () => {
     unit.value = '';
     cycle.value = '';
+    agreement.value = '';
 });
 </script>
 <template>
     <main class="mx-auto w-full max-w-4xl space-y-8 p-4 md:p-8">
-        <Head :title="title" />
+        <Head :title="selected.title" />
         <Link :href="harvests(slug)" class="text-sm underline"
             >Back to harvests</Link
         >
-        <Heading
-            :title="title"
-            :description="
-                isSales
-                    ? 'Download up to 1,000 sales by sale date. Totals are grouped by commodity, unit and currency.'
-                    : 'Download up to 1,000 harvest records. Each row shows the recorded quantity, its unit, and how much had sold by the end of the period.'
-            "
-        />
+        <Heading :title="selected.title" :description="selected.description" />
         <section class="space-y-4 rounded-xl border bg-card p-5">
             <p v-if="!farms.length">Add a farm to create an export.</p>
             <Form
                 v-else
-                v-bind="routes.store.form(slug)"
+                v-bind="selected.routes.store.form(slug)"
                 v-slot="{ errors, processing }"
                 class="grid gap-4 sm:grid-cols-2"
             >
@@ -103,23 +117,35 @@ watch(farm, () => {
                         required
                     /><InputError :message="errors.period_end" />
                 </div>
-                <div v-if="isSales" class="grid gap-2">
-                    <Label for="payment-status">Payment status</Label>
+                <div v-if="report !== 'harvests'" class="grid gap-2">
+                    <Label for="report-status">{{
+                        report === 'sales'
+                            ? 'Payment status'
+                            : 'Distribution status'
+                    }}</Label>
                     <select
-                        id="payment-status"
-                        name="payment_status"
+                        id="report-status"
+                        :name="report === 'sales' ? 'payment_status' : 'status'"
                         class="h-9 rounded-md border bg-background px-3"
                     >
-                        <option value="">All payment statuses</option>
+                        <option value="">All statuses</option>
                         <option
-                            v-for="status in paymentStatuses"
+                            v-for="status in report === 'sales'
+                                ? paymentStatuses
+                                : distributionStatuses"
                             :key="status.value"
                             :value="status.value"
                         >
                             {{ status.label }}
                         </option>
                     </select>
-                    <InputError :message="errors.payment_status" />
+                    <InputError
+                        :message="
+                            report === 'sales'
+                                ? errors.payment_status
+                                : errors.status
+                        "
+                    />
                 </div>
                 <div v-else class="grid gap-2">
                     <Label for="unit">Production unit</Label
@@ -141,7 +167,28 @@ watch(farm, () => {
                         </option></select
                     ><InputError :message="errors.production_unit_id" />
                 </div>
-                <div class="grid gap-2">
+                <div v-if="report === 'distributions'" class="grid gap-2">
+                    <Label for="agreement">Investor agreement</Label>
+                    <select
+                        id="agreement"
+                        v-model="agreement"
+                        name="investor_agreement_id"
+                        class="h-9 rounded-md border bg-background px-3"
+                    >
+                        <option value="">All agreements</option>
+                        <option
+                            v-for="item in agreements?.filter(
+                                (item) => item.farm_id === farm,
+                            )"
+                            :key="item.id"
+                            :value="item.id"
+                        >
+                            {{ item.title }}
+                        </option>
+                    </select>
+                    <InputError :message="errors.investor_agreement_id" />
+                </div>
+                <div v-else class="grid gap-2">
                     <Label for="commodity">Commodity</Label
                     ><select
                         id="commodity"
@@ -212,7 +259,7 @@ watch(farm, () => {
                     </p>
                 </div>
                 <a
-                    :href="routes.download.url([slug, item.id])"
+                    :href="selected.routes.download.url([slug, item.id])"
                     class="text-sm underline"
                     >Download XLSX</a
                 >

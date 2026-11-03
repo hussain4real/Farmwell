@@ -26,6 +26,7 @@ use App\Http\Controllers\Finance\FinanceEvidenceController;
 use App\Http\Controllers\Finance\FinanceSettingController;
 use App\Http\Controllers\Finance\FundingPhaseController;
 use App\Http\Controllers\Finance\TransferReconciliationController;
+use App\Http\Controllers\Harvests\DistributionExportController;
 use App\Http\Controllers\Harvests\HarvestDashboardController;
 use App\Http\Controllers\Harvests\HarvestExportController;
 use App\Http\Controllers\Harvests\HarvestRecordController;
@@ -80,6 +81,12 @@ Route::prefix('{current_team}')
             });
         Route::prefix('harvests/sales/exports')->name('harvests.sales.exports.')->middleware('can:manageFinance,current_team')
             ->controller(SalesExportController::class)->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::post('/', 'store')->name('store');
+                Route::get('{report_artifact}', 'download')->whereNumber('report_artifact')->name('download');
+            });
+        Route::prefix('harvests/distributions/exports')->name('harvests.distributions.exports.')->middleware('can:manageFinance,current_team')
+            ->controller(DistributionExportController::class)->group(function () {
                 Route::get('/', 'index')->name('index');
                 Route::post('/', 'store')->name('store');
                 Route::get('{report_artifact}', 'download')->whereNumber('report_artifact')->name('download');

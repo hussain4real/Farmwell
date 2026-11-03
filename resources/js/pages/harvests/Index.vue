@@ -14,6 +14,7 @@ import {
     index as harvestsIndex,
     store as storeHarvest,
 } from '@/routes/harvests';
+import { index as distributionExports } from '@/routes/harvests/distributions/exports';
 import { index as harvestExports } from '@/routes/harvests/exports';
 import { store as storeSale } from '@/routes/harvests/sales';
 import { index as salesExports } from '@/routes/harvests/sales/exports';
@@ -175,6 +176,12 @@ watch(saleHarvestId, () => {
                 :href="salesExports(currentTeamSlug)"
                 class="text-sm font-medium underline"
                 >Export sales records</Link
+            >
+            <Link
+                v-if="permissions.canManageFinance"
+                :href="distributionExports(currentTeamSlug)"
+                class="text-sm font-medium underline"
+                >Export distributions</Link
             >
         </nav>
 
