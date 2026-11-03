@@ -173,7 +173,7 @@ Staging application revision `15f6295` served five successful warm portal reques
 - [ ] Ensure authorized report/export downloads work.
 - [ ] Ensure investor reports exclude private data.
 - [x] Test the database queue and restore an encrypted backup into an isolated PostgreSQL cluster.
-- [ ] Activate scheduled staging backups and restore an archive retrieved from the private backup bucket.
+- [x] Activate scheduled staging backups and restore an archive retrieved from the private backup bucket.
 - [ ] Maintain 100% coverage and static-analysis pass.
 
 ### Phase 9. Later Enhancements
@@ -200,7 +200,9 @@ Staging application revision `15f6295` served five successful warm portal reques
 
 ## Next Recommended Goal
 
-Activate the staging backup workflow and restore an archive downloaded from R2 before signing off operations readiness.
+Continue Phase 8 with optional AI-generated report sections and the remaining report access and privacy acceptance checks.
+
+**Staging recovery evidence, 3 November 2026.** PR #8 merged the backup workflow onto `main` at `839f74b`. Post-merge tests (run `41611716541`) and lint (run `41611716421`) passed. The first live backup (run `41611718354`) wrote `Farmwell/2026-11-03-09-32-17.zip` to the private backup bucket. The downloaded archive restored into an isolated PostgreSQL cluster with 41 migrations, one farm, one agreement and 29 AI summaries, matching staging. Staging had no private media rows. A temporary R2 object matched its original SHA-256 after recovery and was removed from the source bucket. The recovery password is held in macOS Keychain under `Farmwell staging backup archive` for `hussain4real/Farmwell`.
 
 **Backup operations.** The staging workflow runs daily at 01:17 UTC on the default branch. Configure the `staging-backups` GitHub environment with the variables and secrets named in `.github/workflows/staging-backup.yml`. Use a direct Neon endpoint with a read-only login that can dump every Farmwell table and sequence, a read-only media bucket credential, and a separate read/write credential for a dedicated private backup bucket. Store the archive password in an operator password manager for recovery. Grant access to this environment only to trusted deployment branches. Workflow failures require operator attention. An independent 13:17 UTC check flags an empty destination or a latest backup older than two days. Retention keeps every archive for seven days, then one per week for four weeks.
 
