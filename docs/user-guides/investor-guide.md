@@ -1,7 +1,7 @@
 # Investor Guide
 
-Applies through: Phase 7 - AI Summaries and Assisted Reporting
-Last reviewed: 2026-11-01
+Applies through: Phase 8 - Reports, Exports, and Operations Readiness
+Last reviewed: 2026-11-03
 Audience: Investors with Farmwell portal access  
 Related app areas: Investor Portal
 
@@ -138,6 +138,8 @@ You can:
 
 Approval decisions may apply to funding releases, threshold-triggered expenses, investor-required categories, material budget overruns, major plan changes, or distribution acknowledgements.
 
+For a funding request, review the milestone and any attached evidence. You can enter an approved amount below the requested amount; leave it blank to approve the full request. The finance team records the external release separately after your approval and cannot record more than you approved.
+
 Distribution acknowledgement means you have reviewed the sale recovery and distribution calculation for your agreement. Approving the acknowledgement makes the distribution visible as approved in your portal. Rejecting or requesting clarification means the distribution should not be treated as approved.
 
 If you request clarification, the record should not be treated as approved until the question is resolved and a later decision is recorded.
@@ -157,4 +159,12 @@ Do not use comments for legal, tax, or investment advice requests. Farmwell is a
 
 ## Current Limits
 
-The investor portal can show reviewed and explicitly published progress summaries for your agreement. A summary disappears if its agreement audience or source activities change, or if it is withdrawn. The portal does not currently provide formal reports, export workflows, wallet balances, escrow balances, or in-platform payout processing.
+The investor portal can show reviewed and explicitly published progress summaries for your agreement. A summary disappears if its agreement audience or source activities change, or if it is withdrawn.
+
+## Download an investor statement
+
+1. Open Investor Portal and select **Investor statements** on your agreement.
+2. Choose the start and end dates. Optionally select the reviewed AI progress update, then select **Generate statement**.
+3. Wait for the statement to finish and select **Download PDF**. The saved statement includes approved records for your agreement and period.
+
+If an included update is withdrawn or its source or audience changes, its saved statement may no longer be downloadable. Generate a new statement to use the current information.

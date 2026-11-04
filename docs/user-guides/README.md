@@ -1,13 +1,13 @@
 # Farmwell User Guides
 
-Applies through: Phase 7 - AI Summaries and Assisted Reporting
-Last reviewed: 2026-11-01
+Applies through: Phase 8 - Reports, Exports, and Operations Readiness
+Last reviewed: 2026-11-03
 Audience: All Farmwell users, support users, and implementation maintainers  
 Related app areas: Dashboard, Farms, Field Diary, Tasks, WhatsApp Intake, Finance, Harvests, Investors, Approvals, Investor Portal, Team Settings
 
-Farmwell is currently documented through Phase 7: tenant setup, farm operations, diary/tasks/intake, finance tracking, investor agreements, investor approvals, agreement-scoped investor transparency, harvest/output tracking, sales records, capital-first recovery, and investor distribution acknowledgement.
+Farmwell is documented through Phase 8: tenant setup, farm operations, diary/tasks/intake, finance tracking, investor agreements, investor approvals, agreement-scoped investor transparency, harvest/output tracking, sales records, capital-first recovery, and investor distribution acknowledgement.
 
-AI summaries include internal drafts and reviewed investor progress publication. Formal reports, exports, backups, marketplace workflows, and public investment workflows are not current workflows.
+AI summaries include internal drafts and reviewed investor progress publication. Investors can generate PDF statements, and authorized staff can generate Excel exports. Encrypted staging backups are configured.
 
 ## Guide Map
 
@@ -15,8 +15,8 @@ AI summaries include internal drafts and reviewed investor progress publication.
 | --- | --- | --- |
 | Farm owner | Owner | [Owner and Admin Guide](owner-admin-guide.md) |
 | Farm organization admin | Admin | [Owner and Admin Guide](owner-admin-guide.md) |
-| Farm manager / farmer | Member or Admin | [Farm Operations Guide](farm-operations-guide.md) |
-| Operations / log keeper | Member or Admin | [Farm Operations Guide](farm-operations-guide.md) |
+| Farm manager / farmer | Operator or Admin | [Farm Operations Guide](farm-operations-guide.md) |
+| Operations / log keeper | Operator or Admin | [Farm Operations Guide](farm-operations-guide.md) |
 | Finance / admin user | Owner or Admin | [Finance Guide](finance-guide.md) |
 | Investor | Investor | [Investor Guide](investor-guide.md) |
 | Support / implementation maintainer | Owner, Admin, or support context | [Permissions and Visibility](permissions-and-visibility.md) |
@@ -64,7 +64,6 @@ Small teams may give one person more than one responsibility. Use the permission
 
 The following are planned in later phases and should not be described to users as available now:
 
-- Formal PDF reports, Excel exports, backup operations, and investor statements.
 - WhatsApp Business API automation.
 - Platform administrator, agronomist/advisor, buyer/customer, marketplace, and public investment workflows.
 
@@ -79,4 +78,4 @@ Use this checklist after every implementation phase:
 - Cross-check workspace names against route-backed app pages.
 - Confirm finance language remains external-tracking only.
 - Confirm investor language excludes internal notes, unapproved records, unrelated teams, unrelated investors, sensitive bank details, and private records.
-- Add Phase 8 content after report, export, and backup workflows ship.
+- Check report and export instructions when reporting behavior changes.
