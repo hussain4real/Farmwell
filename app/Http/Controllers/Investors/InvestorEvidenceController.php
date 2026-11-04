@@ -21,11 +21,11 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class InvestorEvidenceController extends Controller
 {
-    public function show(Request $request, Team $currentTeam, Media $media): BinaryFileResponse
+    public function show(Request $request, Team $currentTeam, Media $media): StreamedResponse
     {
         $user = $request->user();
         assert($user instanceof User);
@@ -36,13 +36,13 @@ class InvestorEvidenceController extends Controller
         abort_unless((int) $subject->getAttribute('team_id') === $currentTeam->id, 404);
 
         if ($user->can('viewInvestorAgreements', $currentTeam) || $user->can('viewFinance', $currentTeam)) {
-            return response()->download($media->getPath(), $media->file_name);
+            return $media->toResponse($request);
         }
 
         abort_unless($user->can('viewInvestorPortal', $currentTeam), 403);
         abort_unless($this->isInvestorVisible($currentTeam, $user, $media, $subject), 404);
 
-        return response()->download($media->getPath(), $media->file_name);
+        return $media->toResponse($request);
     }
 
     private function isInvestorVisible(Team $team, User $user, Media $media, Model $subject): bool
