@@ -56,8 +56,8 @@ Route::prefix('{current_team}')
         Route::get('farms', FarmOperationsController::class)->name('farms.index');
         Route::controller(ActivityExportController::class)->prefix('field-diary/exports')->name('activity-exports.')->group(function () {
             Route::get('/', 'index')->name('index');
-            Route::post('/', 'store')->name('store');
-            Route::get('{report_artifact}', 'download')->whereNumber('report_artifact')->name('download');
+            Route::post('/', 'store')->middleware('throttle:report-generation')->name('store');
+            Route::get('{report_artifact}', 'download')->middleware('throttle:report-downloads')->whereNumber('report_artifact')->name('download');
         });
         Route::get('field-diary', FieldDiaryController::class)->name('field-diary.index');
         Route::get('farm-tasks', FarmTaskCalendarController::class)->name('farm-tasks.index');
@@ -67,8 +67,8 @@ Route::prefix('{current_team}')
         Route::prefix('finance/budgets/{budget}/exports')->name('finance.budget-exports.')
             ->middleware('can:manageFinance,current_team')->controller(BudgetExportController::class)->group(function () {
                 Route::get('/', 'index')->name('index');
-                Route::post('/', 'store')->name('store');
-                Route::get('{report_artifact}', 'download')->whereNumber('report_artifact')->name('download');
+                Route::post('/', 'store')->middleware('throttle:report-generation')->name('store');
+                Route::get('{report_artifact}', 'download')->middleware('throttle:report-downloads')->whereNumber('report_artifact')->name('download');
             });
         Route::get('finance/expenses', [ExpenseController::class, 'index'])->name('finance.expenses.index');
         Route::get('finance/funding-phases', [FundingPhaseController::class, 'index'])->name('finance.funding-phases.index');
@@ -76,24 +76,24 @@ Route::prefix('{current_team}')
         Route::prefix('harvests/exports')->name('harvests.exports.')->middleware('can:manageHarvests,current_team')
             ->controller(HarvestExportController::class)->group(function () {
                 Route::get('/', 'index')->name('index');
-                Route::post('/', 'store')->name('store');
-                Route::get('{report_artifact}', 'download')->whereNumber('report_artifact')->name('download');
+                Route::post('/', 'store')->middleware('throttle:report-generation')->name('store');
+                Route::get('{report_artifact}', 'download')->middleware('throttle:report-downloads')->whereNumber('report_artifact')->name('download');
             });
         Route::prefix('harvests/sales/exports')->name('harvests.sales.exports.')->middleware('can:manageFinance,current_team')
             ->controller(SalesExportController::class)->group(function () {
                 Route::get('/', 'index')->name('index');
-                Route::post('/', 'store')->name('store');
-                Route::get('{report_artifact}', 'download')->whereNumber('report_artifact')->name('download');
+                Route::post('/', 'store')->middleware('throttle:report-generation')->name('store');
+                Route::get('{report_artifact}', 'download')->middleware('throttle:report-downloads')->whereNumber('report_artifact')->name('download');
             });
         Route::prefix('harvests/distributions/exports')->name('harvests.distributions.exports.')->middleware('can:manageFinance,current_team')
             ->controller(DistributionExportController::class)->group(function () {
                 Route::get('/', 'index')->name('index');
-                Route::post('/', 'store')->name('store');
-                Route::get('{report_artifact}', 'download')->whereNumber('report_artifact')->name('download');
+                Route::post('/', 'store')->middleware('throttle:report-generation')->name('store');
+                Route::get('{report_artifact}', 'download')->middleware('throttle:report-downloads')->whereNumber('report_artifact')->name('download');
             });
         Route::get('harvests', HarvestDashboardController::class)->name('harvests.index');
         Route::get('ai-summaries', [AiSummaryController::class, 'index'])->name('ai-summaries.index');
-        Route::post('ai-summaries', [AiSummaryController::class, 'store'])->name('ai-summaries.store');
+        Route::post('ai-summaries', [AiSummaryController::class, 'store'])->middleware('throttle:ai-generation')->name('ai-summaries.store');
         Route::patch('ai-summaries/{ai_summary}', [AiSummaryController::class, 'review'])->name('ai-summaries.review');
         Route::patch('ai-summaries/{ai_summary}/publish', [AiSummaryController::class, 'publish'])->name('ai-summaries.publish');
         Route::patch('ai-summaries/{ai_summary}/withdraw', [AiSummaryController::class, 'withdraw'])->name('ai-summaries.withdraw');
@@ -102,8 +102,8 @@ Route::prefix('{current_team}')
         Route::get('investor-portal', InvestorPortalController::class)->name('investor-portal.index');
         Route::prefix('investor-portal/{investor_agreement}/statements')->name('investor-statements.')->controller(InvestorStatementController::class)->group(function () {
             Route::get('/', 'index')->name('index');
-            Route::post('/', 'store')->name('store');
-            Route::get('{report_artifact}', 'download')->whereNumber('report_artifact')->name('download');
+            Route::post('/', 'store')->middleware('throttle:report-generation')->name('store');
+            Route::get('{report_artifact}', 'download')->middleware('throttle:report-downloads')->whereNumber('report_artifact')->name('download');
         });
         Route::post('commodities', [CommodityController::class, 'store'])->name('commodities.store');
         Route::post('farms', [FarmController::class, 'store'])->name('farms.store');
@@ -132,7 +132,7 @@ Route::prefix('{current_team}')
         Route::post('investors/agreements', [InvestorAgreementController::class, 'store'])->name('investors.agreements.store');
         Route::post('investors/agreements/{investor_agreement}/documents', [InvestorAgreementDocumentController::class, 'store'])->name('investors.agreements.documents.store');
         Route::patch('investors/approval-settings', [InvestorApprovalSettingController::class, 'update'])->name('investors.approval-settings.update');
-        Route::post('investors/approvals/{approval_request}/decisions', [InvestorApprovalDecisionController::class, 'store'])->name('investors.approvals.decisions.store');
+        Route::post('investors/approvals/{approval_request}/decisions', [InvestorApprovalDecisionController::class, 'store'])->middleware('throttle:approval-decisions')->name('investors.approvals.decisions.store');
         Route::post('investor-agreements/{investor_agreement}/comments', [InvestorCommentController::class, 'store'])->name('investor-comments.store');
         Route::get('evidence/{media}', [EvidenceController::class, 'show'])
             ->withoutScopedBindings()

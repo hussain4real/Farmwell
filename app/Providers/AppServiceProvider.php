@@ -4,9 +4,12 @@ namespace App\Providers;
 
 use Aws\CommandInterface;
 use Carbon\CarbonImmutable;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Filesystem\AwsS3V3Adapter;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
@@ -28,6 +31,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        foreach (['invitations' => 10, 'approval-decisions' => 20, 'report-generation' => 10, 'report-downloads' => 60, 'ai-generation' => 10] as $name => $attempts) {
+            RateLimiter::for($name, fn (Request $request) => Limit::perMinute($attempts)->by((string) $request->user()->getAuthIdentifier()));
+        }
+
         Storage::extend('r2', function ($app, array $config) {
             $disk = Storage::build([...$config, 'driver' => 's3']);
             if (! $disk instanceof AwsS3V3Adapter) {
