@@ -565,6 +565,22 @@ const currentTeamSlug = computed(() => currentTeam.value?.slug ?? '');
                                         {{ request.requesterComment }}
                                     </p>
                                 </div>
+                                <p v-if="request.milestone" class="mt-2">
+                                    Milestone: {{ request.milestone }}
+                                </p>
+                                <div
+                                    v-if="request.milestoneEvidence.length"
+                                    class="mt-2"
+                                >
+                                    <p>Milestone evidence</p>
+                                    <a
+                                        v-for="file in request.milestoneEvidence"
+                                        :key="file.id"
+                                        :href="file.downloadUrl"
+                                        class="underline"
+                                        >{{ file.fileName }}</a
+                                    >
+                                </div>
                                 <p v-if="request.decisionComment" class="mt-2">
                                     {{ request.decisionComment }}
                                 </p>

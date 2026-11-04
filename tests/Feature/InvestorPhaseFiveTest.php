@@ -304,15 +304,15 @@ test('finance and plan-change writes create investor approval requests and decis
             'budget_id' => $budget->id,
             'investor_agreement_id' => $agreement->id,
             'name' => 'Phase one',
-            'status' => 'released_externally',
-            'externally_released_amount' => '600000.00',
+            'status' => 'requested',
+            'requested_amount' => '600000.00',
         ])
         ->assertRedirect(farmwellInvestorRoute('finance.funding-phases.index', $team));
 
     $phase = FundingPhase::query()->firstOrFail();
 
     expect($phase->investor_agreement_id)->toBe($agreement->id)
-        ->and($phase->externally_released_amount_minor)->toBe(60_000_000);
+        ->and($phase->externally_released_amount_minor)->toBe(0);
 
     $this
         ->actingAs($owner)
@@ -408,12 +408,12 @@ test('finance and plan-change writes create investor approval requests and decis
         ->firstOrFail();
 
     $this
-        ->actingAs($owner)
+        ->actingAs($investor)
         ->post(farmwellInvestorRoute('investors.approvals.decisions.store', $team, ['approval_request' => $fundingReleaseApproval]), [
             'status' => ApprovalRequestStatus::Rejected->value,
             'decision_comment' => 'Needs a revised budget.',
         ])
-        ->assertRedirect(farmwellInvestorRoute('investors.approvals.index', $team));
+        ->assertRedirect(farmwellInvestorRoute('investor-portal.index', $team));
 
     $planChangeApproval = ApprovalRequest::query()
         ->where('request_type', ApprovalRequestType::PlanChange)
@@ -795,4 +795,64 @@ test('cross-team investor references and private evidence downloads are denied',
         ->assertDownload($media?->file_name);
 
     expect($otherOwner->belongsToTeam($otherTeam))->toBeTrue();
+});
+
+test('investor funding requests require approval before a recorded release and protect milestone evidence', function () {
+    Storage::fake('farmwell_private');
+    [$owner, $investor, $team, $farm, $cycle] = farmwellInvestorContext();
+    $agreement = InvestorAgreement::factory()->create([
+        'team_id' => $team->id, 'investor_id' => $investor->id, 'farm_id' => $farm->id,
+        'production_cycle_id' => $cycle->id, 'status' => InvestorAgreementStatus::Active,
+    ]);
+    $this->actingAs($owner)->post(farmwellInvestorRoute('finance.funding-phases.store', $team), [
+        'farm_id' => $farm->id, 'production_cycle_id' => $cycle->id,
+        'investor_agreement_id' => $agreement->id, 'name' => 'Unapproved release',
+        'status' => 'released_externally', 'requested_amount' => '100000.00',
+        'externally_released_amount' => '100000.00',
+    ])->assertSessionHasErrors('status');
+    $this->actingAs($owner)->post(farmwellInvestorRoute('finance.funding-phases.store', $team), [
+        'farm_id' => $farm->id, 'production_cycle_id' => $cycle->id,
+        'investor_agreement_id' => $agreement->id, 'name' => 'Irrigation request',
+        'status' => 'requested', 'requested_amount' => '100000.00',
+        'milestone' => 'Field ready', 'milestone_evidence' => [UploadedFile::fake()->image('milestone.jpg')],
+    ])->assertRedirect(farmwellInvestorRoute('finance.funding-phases.index', $team));
+    $phase = FundingPhase::query()->firstOrFail();
+    $approval = ApprovalRequest::query()->where('subject_id', $phase->id)->firstOrFail();
+    $media = $phase->getFirstMedia(FundingPhase::EvidenceCollection);
+    expect($media)->not->toBeNull();
+    $release = farmwellInvestorRoute('finance.funding-phases.release', $team, ['funding_phase' => $phase]);
+    $this->post($release, ['amount' => '100000', 'released_on' => '2026-11-03'])->assertSessionHasErrors('amount');
+    $this->post(farmwellInvestorRoute('investors.approvals.decisions.store', $team, ['approval_request' => $approval]), ['status' => 'approved'])->assertForbidden();
+    $this->actingAs($investor)->get(farmwellInvestorRoute('investor-evidence.show', $team, ['media' => $media]))->assertDownload();
+    $otherInvestor = User::factory()->create();
+    $team->members()->attach($otherInvestor, ['role' => TeamRole::Investor->value]);
+    $otherInvestor->switchTeam($team);
+    $this->actingAs($otherInvestor)->get(farmwellInvestorRoute('investor-evidence.show', $team, ['media' => $media]))->assertNotFound();
+    $this->actingAs($investor);
+    $this->post(farmwellInvestorRoute('investors.approvals.decisions.store', $team, ['approval_request' => $approval]), ['status' => 'approved', 'approved_amount' => '100001'])->assertSessionHasErrors('approved_amount');
+    $this->post(farmwellInvestorRoute('investors.approvals.decisions.store', $team, ['approval_request' => $approval]), ['status' => 'approved', 'approved_amount' => '80000'])->assertRedirect();
+    $this->actingAs($owner)->post($release, ['amount' => '80001', 'released_on' => '2026-11-03'])->assertSessionHasErrors('amount');
+    $this->post($release, ['amount' => '80000', 'released_on' => '2026-11-03'])->assertRedirect();
+    expect($phase->fresh()->externally_released_amount_minor)->toBe(8_000_000);
+    $this->post($release, ['amount' => '80000', 'released_on' => '2026-11-03'])->assertSessionHasErrors('amount');
+});
+
+test('an existing requested phase can be submitted once for investor approval', function () {
+    Storage::fake('farmwell_private');
+    [$owner, $investor, $team, $farm, $cycle] = farmwellInvestorContext();
+    $agreement = InvestorAgreement::factory()->create([
+        'team_id' => $team->id, 'investor_id' => $investor->id, 'farm_id' => $farm->id,
+        'production_cycle_id' => $cycle->id, 'status' => InvestorAgreementStatus::Active,
+    ]);
+    $phase = FundingPhase::factory()->create([
+        'team_id' => $team->id, 'farm_id' => $farm->id, 'production_cycle_id' => $cycle->id,
+        'investor_agreement_id' => $agreement->id, 'status' => 'requested',
+        'requested_amount_minor' => 10_000, 'externally_released_amount_minor' => 0,
+    ]);
+    $url = farmwellInvestorRoute('finance.funding-phases.submit', $team, ['funding_phase' => $phase]);
+    $this->actingAs($investor)->post($url)->assertForbidden();
+    $this->actingAs($owner)->post($url, ['milestone_evidence' => [UploadedFile::fake()->image('legacy.jpg')]])->assertRedirect();
+    expect($phase->getMedia(FundingPhase::EvidenceCollection))->toHaveCount(1);
+    $this->post($url)->assertSessionHasErrors('milestone_evidence');
+    expect(ApprovalRequest::query()->where('subject_id', $phase->id)->count())->toBe(1);
 });

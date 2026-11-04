@@ -88,6 +88,7 @@ class BuildInvestorPageData
                 'team', 'investor', 'farm', 'productionCycle', 'approvalRequests.investorAgreement.investor', 'investorComments.author',
                 'approvalRequests.subject' => fn (MorphTo $subject) => $subject->morphWith([
                     Expense::class => ['expenseCategory'],
+                    FundingPhase::class => ['media'],
                     DistributionRecord::class => ['saleRecord'],
                     HarvestRecord::class => ['commodity'],
                 ]),
@@ -425,6 +426,11 @@ class BuildInvestorPageData
                 && $subject->team_id === $approvalRequest->team_id
                 && $subject->investor_agreement_id === $approvalRequest->investor_agreement_id
                 ? $subject->description : null,
+            'milestone' => $subject instanceof FundingPhase && $subject->team_id === $approvalRequest->team_id
+                && $subject->investor_agreement_id === $approvalRequest->investor_agreement_id ? $subject->milestone : null,
+            'milestoneEvidence' => $subject instanceof FundingPhase && $subject->team_id === $approvalRequest->team_id
+                && $subject->investor_agreement_id === $approvalRequest->investor_agreement_id
+                ? $subject->getMedia(FundingPhase::EvidenceCollection)->map(fn (Media $media) => $this->mediaPayload($media, $approvalRequest->investorAgreement->team))->values() : collect(),
             'requesterComment' => $approvalRequest->requester_comment,
             'decisionComment' => $approvalRequest->decision_comment,
             'requestedAt' => $approvalRequest->requested_at->toISOString(),

@@ -221,7 +221,8 @@ class BuildFinancePageData
     private function fundingPhasesQuery(Team $team): Collection
     {
         return $team->fundingPhases()
-            ->with(['farm', 'productionCycle', 'budget', 'investorAgreement.investor'])
+            ->with(['team', 'farm', 'productionCycle', 'budget', 'investorAgreement.investor', 'media'])
+            ->withExists(['approvalRequests as funding_approval_exists' => fn ($query) => $query->where('request_type', 'funding_release')])
             ->orderBy('expected_on')
             ->latest()
             ->get();
@@ -362,6 +363,8 @@ class BuildFinancePageData
         return [
             ...$this->fundingPhaseSummaryPayload($phase),
             'milestone' => $phase->milestone,
+            'fundingApprovalExists' => (bool) $phase->getAttribute('funding_approval_exists'),
+            'milestoneEvidence' => $phase->getMedia(FundingPhase::EvidenceCollection)->map(fn (Media $media) => $this->mediaPayload($media, $phase->team))->values(),
             'plannedAmountMinor' => $phase->planned_amount_minor,
             'requestedAmountMinor' => $phase->requested_amount_minor,
             'approvedAmountMinor' => $phase->approved_amount_minor,

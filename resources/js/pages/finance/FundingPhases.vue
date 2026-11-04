@@ -14,6 +14,8 @@ import { index as financeIndex } from '@/routes/finance';
 import {
     index as fundingPhasesIndex,
     store as storeFundingPhase,
+    release as releaseFundingPhase,
+    submit as submitFundingPhase,
 } from '@/routes/finance/funding-phases';
 import type {
     Budget,
@@ -77,6 +79,11 @@ const phaseInvestorAgreementId = ref('');
 const phaseStatus = ref('draft');
 const phaseInvestorVisibilityStatus = ref('private');
 const formKey = ref(0);
+watch(phaseInvestorAgreementId, (id) => {
+    if (id) {
+        phaseStatus.value = 'requested';
+    }
+});
 
 const selectedFarm = computed(() =>
     props.farms.find((farm) => String(farm.id) === phaseFarmId.value),
@@ -229,7 +236,11 @@ watch(phaseCycleId, () => {
                         class="h-9 rounded-md border bg-background px-3 text-sm"
                     >
                         <option
-                            v-for="option in options.fundingPhaseStatuses"
+                            v-for="option in options.fundingPhaseStatuses.filter(
+                                (item) =>
+                                    !phaseInvestorAgreementId ||
+                                    item.value === 'requested',
+                            )"
                             :key="option.value"
                             :value="option.value"
                         >
@@ -290,6 +301,16 @@ watch(phaseCycleId, () => {
                     <InputError :message="errors.milestone" />
                 </div>
                 <div class="grid gap-2">
+                    <Label for="milestone-evidence">Milestone evidence</Label>
+                    <Input
+                        id="milestone-evidence"
+                        name="milestone_evidence[]"
+                        type="file"
+                        multiple
+                    />
+                    <InputError :message="errors.milestone_evidence" />
+                </div>
+                <div class="grid gap-2">
                     <Label for="phase-planned">
                         Planned amount ({{ currency }})
                     </Label>
@@ -303,14 +324,14 @@ watch(phaseCycleId, () => {
                     <Input id="phase-requested" name="requested_amount" />
                     <InputError :message="errors.requested_amount" />
                 </div>
-                <div class="grid gap-2">
+                <div v-if="!phaseInvestorAgreementId" class="grid gap-2">
                     <Label for="phase-approved">
                         Approved amount ({{ currency }})
                     </Label>
                     <Input id="phase-approved" name="approved_amount" />
                     <InputError :message="errors.approved_amount" />
                 </div>
-                <div class="grid gap-2">
+                <div v-if="!phaseInvestorAgreementId" class="grid gap-2">
                     <Label for="phase-released">
                         Recorded release ({{ currency }})
                     </Label>
@@ -325,7 +346,7 @@ watch(phaseCycleId, () => {
                     <Input id="phase-expected" name="expected_on" type="date" />
                     <InputError :message="errors.expected_on" />
                 </div>
-                <div class="grid gap-2">
+                <div v-if="!phaseInvestorAgreementId" class="grid gap-2">
                     <Label for="phase-released-on">Released on</Label>
                     <Input
                         id="phase-released-on"
@@ -419,6 +440,82 @@ watch(phaseCycleId, () => {
                             }}
                         </p>
                     </div>
+                    <div
+                        v-if="phase.milestoneEvidence?.length"
+                        class="grid gap-1"
+                    >
+                        <p>Milestone evidence</p>
+                        <a
+                            v-for="file in phase.milestoneEvidence"
+                            :key="file.id"
+                            :href="file.downloadUrl"
+                            class="underline"
+                            >{{ file.fileName }}</a
+                        >
+                    </div>
+                    <Form
+                        v-if="
+                            permissions.canManageFinance &&
+                            phase.status === 'requested' &&
+                            phase.investorAgreementId &&
+                            !phase.fundingApprovalExists
+                        "
+                        v-bind="
+                            submitFundingPhase.form([currentTeamSlug, phase.id])
+                        "
+                        class="grid gap-2"
+                        v-slot="{ errors, processing }"
+                    >
+                        <Label :for="`phase-evidence-${phase.id}`"
+                            >Milestone evidence</Label
+                        >
+                        <Input
+                            :id="`phase-evidence-${phase.id}`"
+                            name="milestone_evidence[]"
+                            type="file"
+                            multiple
+                        />
+                        <InputError :message="errors.milestone_evidence" />
+                        <Button :disabled="processing"
+                            >Submit for investor approval</Button
+                        >
+                    </Form>
+                    <Form
+                        v-if="
+                            permissions.canManageFinance &&
+                            phase.status === 'approved' &&
+                            phase.investorAgreementId
+                        "
+                        v-bind="
+                            releaseFundingPhase.form([
+                                currentTeamSlug,
+                                phase.id,
+                            ])
+                        "
+                        class="grid gap-2"
+                        v-slot="{ errors, processing }"
+                    >
+                        <Label :for="`release-amount-${phase.id}`"
+                            >Recorded release ({{ phase.currency }})</Label
+                        >
+                        <Input
+                            :id="`release-amount-${phase.id}`"
+                            name="amount"
+                            required
+                        />
+                        <InputError :message="errors.amount" />
+                        <Label :for="`release-date-${phase.id}`"
+                            >Released on</Label
+                        >
+                        <Input
+                            :id="`release-date-${phase.id}`"
+                            name="released_on"
+                            type="date"
+                            required
+                        />
+                        <InputError :message="errors.released_on" />
+                        <Button :disabled="processing">Record release</Button>
+                    </Form>
                 </article>
             </div>
             <p v-else class="text-sm text-muted-foreground">

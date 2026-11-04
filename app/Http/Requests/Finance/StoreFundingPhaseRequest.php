@@ -9,6 +9,8 @@ use App\Support\Money;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\File;
+use Illuminate\Validation\Validator;
 
 class StoreFundingPhaseRequest extends FormRequest
 {
@@ -33,6 +35,8 @@ class StoreFundingPhaseRequest extends FormRequest
             'investor_agreement_id' => ['nullable', 'integer', $this->investorAgreementRule($farmId)],
             'name' => ['required', 'string', 'max:255'],
             'milestone' => ['nullable', 'string', 'max:255'],
+            'milestone_evidence' => ['nullable', 'array', 'max:5'],
+            'milestone_evidence.*' => ['file', File::types(['jpg', 'jpeg', 'png', 'webp', 'pdf', 'doc', 'docx'])->max(10 * 1024)],
             'status' => ['sometimes', 'filled', Rule::enum(FundingPhaseStatus::class)],
             'investor_visibility_status' => ['sometimes', 'filled', Rule::enum(InvestorVisibilityStatus::class)],
             'planned_amount' => ['nullable', 'numeric', 'min:0', 'regex:/^\d+(\.\d{1,2})?$/'],
@@ -43,6 +47,22 @@ class StoreFundingPhaseRequest extends FormRequest
             'released_on' => ['nullable', 'date'],
             'notes' => ['nullable', 'string', 'max:4000'],
         ];
+    }
+
+    public function after(): array
+    {
+        return [function (Validator $validator): void {
+            if (! $this->filled('investor_agreement_id')) {
+                return;
+            }
+
+            if ($this->input('status', 'draft') !== FundingPhaseStatus::Requested->value
+                || (float) $this->input('requested_amount', 0) <= 0
+                || (float) $this->input('approved_amount', 0) > 0
+                || (float) $this->input('externally_released_amount', 0) > 0) {
+                $validator->errors()->add('status', __('Create an investor funding request before recording approval or release.'));
+            }
+        }];
     }
 
     /**

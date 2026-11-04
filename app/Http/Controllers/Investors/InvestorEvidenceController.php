@@ -2,13 +2,17 @@
 
 namespace App\Http\Controllers\Investors;
 
+use App\Enums\ApprovalRequestStatus;
+use App\Enums\ApprovalRequestType;
 use App\Enums\InvestorAgreementStatus;
 use App\Enums\InvestorVisibilityStatus;
 use App\Http\Controllers\Controller;
+use App\Models\ApprovalRequest;
 use App\Models\DistributionRecord;
 use App\Models\Expense;
 use App\Models\ExternalTransfer;
 use App\Models\FarmActivity;
+use App\Models\FundingPhase;
 use App\Models\HarvestRecord;
 use App\Models\InvestorAgreement;
 use App\Models\SaleRecord;
@@ -46,6 +50,17 @@ class InvestorEvidenceController extends Controller
         if ($subject instanceof InvestorAgreement) {
             return $subject->investor_id === $user->id
                 && in_array($subject->status, [InvestorAgreementStatus::Active, InvestorAgreementStatus::Completed], true);
+        }
+
+        if ($subject instanceof FundingPhase) {
+            return $media->collection_name === FundingPhase::EvidenceCollection
+                && $this->hasVisibleAgreement($team, $user, $subject)
+                && ApprovalRequest::query()->where('team_id', $team->id)
+                    ->where('investor_agreement_id', $subject->investor_agreement_id)
+                    ->where('subject_type', $subject->getMorphClass())->where('subject_id', $subject->id)
+                    ->where('request_type', ApprovalRequestType::FundingRelease->value)
+                    ->whereIn('status', [ApprovalRequestStatus::Pending->value, ApprovalRequestStatus::Approved->value, ApprovalRequestStatus::ClarificationRequested->value])
+                    ->exists();
         }
 
         if ($subject instanceof Expense || $subject instanceof ExternalTransfer || $subject instanceof HarvestRecord) {
