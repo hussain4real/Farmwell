@@ -9,7 +9,10 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Support\Carbon;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
 
 /**
  * @property int $id
@@ -35,10 +38,14 @@ use Illuminate\Support\Carbon;
  * @property-read Farm $farm
  * @property-read Budget|null $budget
  */
-class FundingPhase extends Model
+class FundingPhase extends Model implements HasMedia
 {
     /** @use HasFactory<FundingPhaseFactory> */
     use HasFactory;
+
+    use InteractsWithMedia;
+
+    public const string EvidenceCollection = 'milestone-evidence';
 
     /**
      * @var list<string>
@@ -110,6 +117,12 @@ class FundingPhase extends Model
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by_id');
+    }
+
+    /** @return MorphMany<ApprovalRequest, $this> */
+    public function approvalRequests(): MorphMany
+    {
+        return $this->morphMany(ApprovalRequest::class, 'subject');
     }
 
     /**

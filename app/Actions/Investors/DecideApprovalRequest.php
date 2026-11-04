@@ -4,10 +4,13 @@ namespace App\Actions\Investors;
 
 use App\Actions\Audit\RecordAuditEvent;
 use App\Enums\ApprovalRequestStatus;
+use App\Enums\ApprovalRequestType;
 use App\Enums\DistributionStatus;
+use App\Enums\FundingPhaseStatus;
 use App\Enums\InvestorVisibilityStatus;
 use App\Models\ApprovalRequest;
 use App\Models\DistributionRecord;
+use App\Models\FundingPhase;
 use App\Models\Team;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
@@ -30,6 +33,11 @@ class DecideApprovalRequest
                 ->findOrFail($approvalRequest->id);
 
             $this->validateStatusTransition($approvalRequest->status, $status);
+
+            if ($approvalRequest->request_type === ApprovalRequestType::FundingRelease && $status === ApprovalRequestStatus::Approved
+                && ($approvedAmountMinor !== null && ($approvedAmountMinor <= 0 || $approvedAmountMinor > $approvalRequest->requested_amount_minor))) {
+                throw ValidationException::withMessages(['approved_amount' => 'The approved amount must be positive and no greater than the requested amount.']);
+            }
 
             $oldValues = [
                 'status' => $approvalRequest->status->value,
@@ -55,6 +63,14 @@ class DecideApprovalRequest
                         ApprovalRequestStatus::ClarificationRequested => InvestorVisibilityStatus::ClarificationRequested,
                         default => InvestorVisibilityStatus::PendingApproval,
                     },
+                ])->save();
+            }
+
+            if ($subject instanceof FundingPhase && $approvalRequest->request_type === ApprovalRequestType::FundingRelease
+                && $subject->status === FundingPhaseStatus::Requested && $status === ApprovalRequestStatus::Approved) {
+                $subject->forceFill([
+                    'status' => FundingPhaseStatus::Approved,
+                    'approved_amount_minor' => $approvalRequest->approved_amount_minor,
                 ])->save();
             }
 

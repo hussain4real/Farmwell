@@ -93,6 +93,8 @@ export type InvestorApprovalRequest = {
     currency: string;
     subjectLabel: string;
     expenseDescription: string | null;
+    milestone: string | null;
+    milestoneEvidence: { id: number; fileName: string; downloadUrl: string }[];
     requesterComment: string | null;
     decisionComment: string | null;
     requestedAt: string;

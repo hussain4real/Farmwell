@@ -130,6 +130,8 @@ export type FundingPhase = {
     statusLabel: string;
     currency: string;
     milestone?: string | null;
+    fundingApprovalExists?: boolean;
+    milestoneEvidence?: { id: number; fileName: string; downloadUrl: string }[];
     plannedAmountMinor?: number;
     requestedAmountMinor?: number;
     approvedAmountMinor?: number;

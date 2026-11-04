@@ -565,6 +565,22 @@ const currentTeamSlug = computed(() => currentTeam.value?.slug ?? '');
                                         {{ request.requesterComment }}
                                     </p>
                                 </div>
+                                <p v-if="request.milestone" class="mt-2">
+                                    Milestone: {{ request.milestone }}
+                                </p>
+                                <div
+                                    v-if="request.milestoneEvidence.length"
+                                    class="mt-2"
+                                >
+                                    <p>Milestone evidence</p>
+                                    <a
+                                        v-for="file in request.milestoneEvidence"
+                                        :key="file.id"
+                                        :href="file.downloadUrl"
+                                        class="underline"
+                                        >{{ file.fileName }}</a
+                                    >
+                                </div>
                                 <p v-if="request.decisionComment" class="mt-2">
                                     {{ request.decisionComment }}
                                 </p>
@@ -606,6 +622,38 @@ const currentTeamSlug = computed(() => currentTeam.value?.slug ?? '');
                                             </option>
                                         </select>
                                         <InputError :message="errors.status" />
+                                    </div>
+                                    <div
+                                        v-if="
+                                            request.requestType ===
+                                            'funding_release'
+                                        "
+                                        class="grid gap-2"
+                                    >
+                                        <Label
+                                            :for="`portal-approved-amount-${request.id}`"
+                                        >
+                                            Approved amount ({{
+                                                request.currency
+                                            }})
+                                        </Label>
+                                        <Input
+                                            :id="`portal-approved-amount-${request.id}`"
+                                            name="approved_amount"
+                                            inputmode="decimal"
+                                            :placeholder="
+                                                request.requestedAmount
+                                            "
+                                        />
+                                        <p
+                                            class="text-xs text-muted-foreground"
+                                        >
+                                            Leave blank to approve the full
+                                            requested amount.
+                                        </p>
+                                        <InputError
+                                            :message="errors.approved_amount"
+                                        />
                                     </div>
                                     <div class="grid gap-2">
                                         <Label

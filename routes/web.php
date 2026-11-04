@@ -121,6 +121,8 @@ Route::prefix('{current_team}')
         Route::post('finance/budgets', [BudgetController::class, 'store'])->name('finance.budgets.store');
         Route::post('finance/budgets/{budget}/lines', [BudgetLineController::class, 'store'])->name('finance.budget-lines.store');
         Route::post('finance/funding-phases', [FundingPhaseController::class, 'store'])->name('finance.funding-phases.store');
+        Route::post('finance/funding-phases/{funding_phase}/submit', [FundingPhaseController::class, 'submit'])->name('finance.funding-phases.submit');
+        Route::post('finance/funding-phases/{funding_phase}/release', [FundingPhaseController::class, 'release'])->name('finance.funding-phases.release');
         Route::post('finance/expenses', [ExpenseController::class, 'store'])->name('finance.expenses.store');
         Route::post('finance/external-transfers', [ExternalTransferController::class, 'store'])->name('finance.external-transfers.store');
         Route::post('finance/external-transfers/{external_transfer}/reconciliations', [TransferReconciliationController::class, 'store'])
