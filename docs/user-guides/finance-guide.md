@@ -54,10 +54,11 @@ Budget variance compares planned budget lines against recorded expenses.
 
 Use Funding Phases to track staged funding.
 
-- Record requested, approved, expected, and externally released amounts.
 - Link a funding phase to a farm and production cycle when available.
-- Link it to an investor agreement when the funding phase belongs to that agreement.
-- Funding releases linked to agreements can create approval requests.
+- For investor funding, select the agreement, enter the requested amount and milestone, and attach milestone evidence when available. Creating the requested phase sends it to the assigned investor for a decision.
+- For an existing requested phase without an approval request, attach any evidence and select **Submit for investor approval**.
+- After the investor approves, record the externally released amount and date. The amount cannot exceed the investor's approval, which may be lower than the request. A rejection or clarification is not approval to record a release.
+- Phases without an investor agreement can record their funding amounts directly.
 
 Carry-forward balances compare released funds against spending across funding phases.
 

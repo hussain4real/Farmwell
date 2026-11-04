@@ -138,6 +138,8 @@ You can:
 
 Approval decisions may apply to funding releases, threshold-triggered expenses, investor-required categories, material budget overruns, major plan changes, or distribution acknowledgements.
 
+For a funding request, review the milestone and any attached evidence. You can enter an approved amount below the requested amount; leave it blank to approve the full request. The finance team records the external release separately after your approval and cannot record more than you approved.
+
 Distribution acknowledgement means you have reviewed the sale recovery and distribution calculation for your agreement. Approving the acknowledgement makes the distribution visible as approved in your portal. Rejecting or requesting clarification means the distribution should not be treated as approved.
 
 If you request clarification, the record should not be treated as approved until the question is resolved and a later decision is recorded.
