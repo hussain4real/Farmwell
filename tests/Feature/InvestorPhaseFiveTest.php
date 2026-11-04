@@ -820,10 +820,16 @@ test('investor funding requests require approval before a recorded release and p
     $approval = ApprovalRequest::query()->where('subject_id', $phase->id)->firstOrFail();
     $media = $phase->getFirstMedia(FundingPhase::EvidenceCollection);
     expect($media)->not->toBeNull();
+    $disk = Storage::disk('farmwell_private');
+    $evidenceContents = $disk->get($media->getPathRelativeToRoot());
+    $remoteLikeDisk = Mockery::mock($disk)->makePartial();
+    $remoteLikeDisk->shouldReceive('path')->andReturn('/no-local-evidence-path/');
+    Storage::set('farmwell_private', $remoteLikeDisk);
     $release = farmwellInvestorRoute('finance.funding-phases.release', $team, ['funding_phase' => $phase]);
     $this->post($release, ['amount' => '100000', 'released_on' => '2026-11-03'])->assertSessionHasErrors('amount');
     $this->post(farmwellInvestorRoute('investors.approvals.decisions.store', $team, ['approval_request' => $approval]), ['status' => 'approved'])->assertForbidden();
-    $this->actingAs($investor)->get(farmwellInvestorRoute('investor-evidence.show', $team, ['media' => $media]))->assertDownload();
+    $download = $this->actingAs($investor)->get(farmwellInvestorRoute('investor-evidence.show', $team, ['media' => $media]))->assertDownload();
+    expect($download->streamedContent())->toBe($evidenceContents);
     $otherInvestor = User::factory()->create();
     $team->members()->attach($otherInvestor, ['role' => TeamRole::Investor->value]);
     $otherInvestor->switchTeam($team);
