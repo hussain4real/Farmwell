@@ -1,0 +1,20 @@
+{
+    "name": "farmwell-staging-alerts",
+    "main": "cloudflare-alerts.js",
+    "compatibility_date": "2026-11-01",
+    "workers_dev": false,
+    "preview_urls": false,
+    "observability": { "enabled": true },
+    "triggers": { "crons": ["*/10 * * * *"] },
+    "services": [{ "binding": "APP", "service": "farmwell-staging" }],
+    "send_email": [{ "name": "MAIL", "allowed_sender_addresses": ["noreply@staging-mail.farmwell.app"] }],
+    "durable_objects": {
+        "bindings": [
+            { "name": "STATE", "class_name": "AlertState" },
+            { "name": "QUEUE", "class_name": "FarmwellQueue", "script_name": "farmwell-staging" }
+        ]
+    },
+    "migrations": [{ "tag": "v1", "new_sqlite_classes": ["AlertState"] }],
+    // Highest pre-existing failed job when monitoring was enabled. ALERT_TO is a Worker secret.
+    "vars": { "INITIAL_FAILED_JOB_ID": "1" }
+}

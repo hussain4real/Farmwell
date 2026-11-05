@@ -116,6 +116,45 @@ export class FarmwellWeb extends DurableObject {
 export class FarmwellQueue extends DurableObject {
     currentRun;
 
+    async failedJobWatermark() {
+        const connection = new URL(this.env.DB_URL);
+
+        if (!['pgsql:', 'postgresql:', 'postgres:'].includes(connection.protocol) || !connection.hostname.endsWith('.neon.tech')) {
+            console.error('Unsupported staging database host or scheme');
+
+            throw new Error('Unsupported staging database host');
+        }
+
+        connection.protocol = 'postgresql:';
+        connection.search = '';
+        const apiHost = connection.hostname.replace(/^[^.]+\./, 'api.');
+        const result = await fetch(`https://${apiHost}/sql`, {
+            method: 'POST',
+            redirect: 'manual',
+            signal: AbortSignal.timeout(15000),
+            headers: { 'Content-Type': 'application/json', 'Neon-Connection-String': connection.toString() },
+            body: JSON.stringify({ query: 'SELECT COALESCE(MAX(id), 0)::text AS latest FROM failed_jobs', params: [] }),
+        });
+
+        if (!result.ok) {
+            const problem = await result.json().catch(() => ({}));
+            const code = /^[0-9A-Z]{5}$/.test(problem?.code) ? problem.code : 'unknown';
+            console.error('Failed-job SQL endpoint returned', result.status, code);
+
+            throw new Error(`Failed-job check unavailable HTTP ${result.status}`);
+        }
+
+        const latest = (await result.json()).rows?.[0]?.latest;
+
+        if (!/^\d+$/.test(latest)) {
+            console.error('Invalid failed-job watermark');
+
+            throw new Error('Invalid failed-job watermark');
+        }
+
+        return String(latest);
+    }
+
     run() {
         this.currentRun ??= this.runOnce().finally(() => {
             this.currentRun = undefined;

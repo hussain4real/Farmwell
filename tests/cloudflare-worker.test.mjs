@@ -202,3 +202,25 @@ test('each deployed version processes reports with its own queue container', asy
 
     assert.deepEqual(runs, ['staging-queue-first', 'staging-queue-second']);
 });
+
+test('failed-job probe returns only the newest ID and refuses unexpected database hosts', async () => {
+    let calls = 0;
+    const Queue = vm.runInNewContext(source + '\nFarmwellQueue;', {
+        URL, AbortSignal, DurableObject: class {},
+        fetch: async (url, options) => {
+            calls++;
+            assert.equal(url, 'https://api.us-east-1.aws.neon.tech/sql');
+            assert.equal(options.redirect, 'manual');
+            assert.equal(options.headers['Neon-Connection-String'], 'postgresql://ep-staging.us-east-1.aws.neon.tech/staging');
+            assert.match(JSON.parse(options.body).query, /MAX\(id\).*FROM failed_jobs/);
+
+            return Response.json({rows: [{latest: '42'}]});
+        },
+    });
+    const queue = new Queue();
+    queue.env = {DB_URL: 'pgsql://ep-staging.us-east-1.aws.neon.tech/staging?sslmode=require'};
+    assert.equal(await queue.failedJobWatermark(), '42');
+    queue.env.DB_URL = 'postgresql://untrusted.example/staging';
+    await assert.rejects(queue.failedJobWatermark(), /Unsupported staging database host/);
+    assert.equal(calls, 1);
+});
