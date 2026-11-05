@@ -200,6 +200,29 @@ Staging application revision `15f6295` served five successful warm portal reques
 
 ## Next Recommended Goal
 
+### Private staging pilot rehearsal, 5 November 2026
+
+**Run `PILOT-20261105-01` reconciled on private staging.** Operator Test recorded the milestone on Staging test farm (farm 1). Aminu Hussain acted for Finance, and Staging Test Investor reviewed it under Staging test agreement (agreement 1). Each used a separate signed-in session. All amounts and evidence were synthetic.
+
+| Step | Verified result |
+| --- | --- |
+| Mobile field diary | In Chrome Incognito at a 390 × 844 viewport, Operator Test saved diary entry #2 with private JPEG evidence #3. The operator’s direct visits to Finance and team administration both returned 403. |
+| Funding and evidence | Finance attached the same image to funding phase #3 and requested ₦120.00. The investor downloaded the approval evidence. Its SHA-256 matched the uploaded file, as did the owner’s download from diary entry #2. |
+| Approval and recorded release | On approval request #3, the investor approved ₦90.00. Finance showed ₦90.00 approved and ₦0.00 released before the owner recorded the ₦90.00 simulated external release. Expense #4 recorded ₦30.00 against the phase, budget #1 and diary entry #2. |
+| Investor statement | The investor downloaded PDF #8 for 5 November. Opening ₦77.66 + released ₦90.00 − approved spend ₦30.00 = closing ₦137.66. The investor portal also showed ₦137.66. |
+| Finance workbook | The owner downloaded budget variance export #9 for the same day. The approved ₦30.00 expense row contained the rehearsal reference and linked activity “#2 Milestone inspection.” Against the ₦1,000.00 full budget, the workbook showed ₦30.00 period spend and ₦970.00 variance. |
+
+**The staging rehearsal passed. Pilot sign-off is pending.** The operator reopened the diary image on the intended phone after desktop Chrome Incognito returned `ERR_BLOCKED_BY_CLIENT`. Launch awaits confirmation of the participants and sponsor, followed by the sponsor’s approval.
+
+| Acceptance item | Result or next action |
+| --- | --- |
+| Operator on the intended phone | Passed on 5 November 2026. The user confirmed that Chrome on their Redmi phone downloaded `PILOT-20261105-01.jpg` from diary entry #2 and that the opened image displayed “Synthetic field inspection.” |
+| Pilot farms | On 5 November 2026 the user confirmed MDSxclusive Farms and Muhammed Sanni’s fish farm, identified in the fish farming investment agreement dated 1 November 2026. |
+| Participants and sponsor | Awaiting the user’s confirmation of the field operator, finance lead, investor representative and sponsor. |
+| Launch decision | Record the sponsor’s explicit decision, date and any conditions after checking the device result and participant roster. |
+
+### Phase 8 staging acceptance and recovery
+
 Private staging accepted the Phase 8 reporting workflows on November 3. The scheduled queue generated seven artifacts and their SHA-256 hashes matched the files downloaded through the owner and investor sessions. Only the opted-in statement contained the published AI update. Both PDFs showed the approved spend for the assigned agreement. Direct investor requests for all five owner workbooks returned 403. The unassigned agreement’s statement list and a download URL under that agreement returned 404. [Phase 8 pull request and CI](https://github.com/hussain4real/Farmwell/pull/11)
 
 **Staging recovery evidence, 3 November 2026.** PR #8 merged the backup workflow onto `main` at `839f74b`. Post-merge tests (run `41611716541`) and lint (run `41611716421`) passed. The first live backup (run `41611718354`) wrote `Farmwell/2026-11-03-09-32-17.zip` to the private backup bucket. The downloaded archive restored into an isolated PostgreSQL cluster with 41 migrations, one farm, one agreement and 29 AI summaries, matching staging. Staging had no private media rows. A temporary R2 object matched its original SHA-256 after recovery and was removed from the source bucket. The recovery password is held in macOS Keychain under `Farmwell staging backup archive` for `hussain4real/Farmwell`.
