@@ -73,6 +73,40 @@ test('users can not authenticate with invalid password', function () {
     $this->assertGuest();
 });
 
+test('login rejects a non-string email with a field validation error', function () {
+    $this->postJson(route('login.store'), [
+        'email' => ['drill@example.test'],
+        'password' => 'password',
+    ])->assertUnprocessable()->assertOnlyInvalid(['email']);
+
+    $this->assertGuest();
+});
+
+test('a malformed login form redirects back with the email error', function () {
+    $this->from(route('login'))->post(route('login.store'), [
+        'email' => ['drill@example.test'],
+        'password' => 'password',
+    ])->assertRedirect(route('login'))->assertSessionHasErrors('email');
+
+    $this->assertGuest();
+});
+
+test('changing a malformed email does not bypass the login rate limit', function () {
+    for ($attempt = 1; $attempt <= 5; $attempt++) {
+        $this->postJson(route('login.store'), [
+            'email' => ["user{$attempt}@example.test"],
+            'password' => 'password',
+        ])->assertUnprocessable();
+    }
+
+    $this->postJson(route('login.store'), [
+        'email' => ['another@example.test'],
+        'password' => 'password',
+    ])->assertTooManyRequests();
+
+    $this->assertGuest();
+});
+
 test('users can logout', function () {
     $user = User::factory()->create();
 
