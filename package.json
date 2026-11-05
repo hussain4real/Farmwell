@@ -10,7 +10,7 @@
         "format:check": "prettier --check resources/",
         "lint": "eslint . --fix",
         "lint:check": "eslint .",
-        "test:client": "node --experimental-strip-types --test tests/sidebar-hydration.test.mjs tests/cloudflare-worker.test.mjs tests/currency.test.mjs",
+        "test:client": "node --experimental-strip-types --test tests/sidebar-hydration.test.mjs tests/cloudflare-worker.test.mjs tests/currency.test.mjs tests/staging-alerts.test.mjs",
         "types:check": "vue-tsc --noEmit"
     },
     "devDependencies": {

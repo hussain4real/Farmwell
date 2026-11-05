@@ -13,6 +13,7 @@
         "AWS_BUCKET": "farmwell-staging-private",
     },
     "observability": { "enabled": true },
+    "tail_consumers": [{ "service": "farmwell-staging-alerts" }],
     "triggers": { "crons": ["* * * * *"] },
     "containers": [
         {
