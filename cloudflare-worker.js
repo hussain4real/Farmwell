@@ -69,7 +69,15 @@ export class FarmwellWeb extends DurableObject {
                 image: container.images.base,
                 instance: 'standard-1',
                 enableInternet: true,
-                env: containerEnvironment(this.env),
+                env: {
+                    ...containerEnvironment(this.env),
+                    PHONE_LOGIN_ENABLED: this.env.PHONE_LOGIN_ENABLED ?? 'false',
+                    PHONE_OTP_ALLOWED_NUMBER: this.env.PHONE_OTP_ALLOWED_NUMBER ?? '',
+                    INFOBIP_BASE_URL: this.env.INFOBIP_BASE_URL ?? '',
+                    INFOBIP_API_KEY: this.env.INFOBIP_API_KEY ?? '',
+                    INFOBIP_2FA_APP_ID: this.env.INFOBIP_2FA_APP_ID ?? '',
+                    INFOBIP_2FA_MESSAGE_ID: this.env.INFOBIP_2FA_MESSAGE_ID ?? '',
+                },
                 entrypoint: ['sh', '-c', 'exec apache2-foreground >>/tmp/farmwell-apache.log 2>&1'],
             });
         }

@@ -1,6 +1,17 @@
 <?php
 
 return [
+    'phone_login' => [
+        'enabled' => env('PHONE_LOGIN_ENABLED', false),
+        'provider' => env('PHONE_OTP_PROVIDER', 'infobip'),
+        'allowed_number' => env('PHONE_OTP_ALLOWED_NUMBER'),
+    ],
+    'infobip' => [
+        'base_url' => env('INFOBIP_BASE_URL'),
+        'key' => env('INFOBIP_API_KEY'),
+        'application_id' => env('INFOBIP_2FA_APP_ID'),
+        'message_id' => env('INFOBIP_2FA_MESSAGE_ID'),
+    ],
 
     /*
     |--------------------------------------------------------------------------

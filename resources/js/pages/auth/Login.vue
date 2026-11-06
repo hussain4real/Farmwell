@@ -12,6 +12,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { register } from '@/routes';
 import { store } from '@/routes/login';
 import { request } from '@/routes/password';
+import { show as phoneLogin } from '@/routes/phone-login';
 
 defineOptions({
     layout: {
@@ -23,6 +24,7 @@ defineOptions({
 defineProps<{
     status?: string;
     canResetPassword: boolean;
+    phoneLoginEnabled: boolean;
 }>();
 </script>
 
@@ -36,6 +38,13 @@ defineProps<{
         {{ status }}
     </div>
 
+    <Button
+        v-if="phoneLoginEnabled"
+        as-child
+        variant="outline"
+        class="mb-4 w-full"
+        ><TextLink :href="phoneLogin()">Sign in with phone</TextLink></Button
+    >
     <PasskeyVerify />
 
     <Form

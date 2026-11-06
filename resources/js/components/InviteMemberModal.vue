@@ -2,6 +2,7 @@
 import { Form } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import InputError from '@/components/InputError.vue';
+import NationalPhoneInput from '@/components/NationalPhoneInput.vue';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -28,6 +29,8 @@ type Props = {
     team: Team;
     availableRoles: RoleOption[];
     open: boolean;
+    phoneLoginEnabled: boolean;
+    callingCode: string | null;
 };
 
 const props = defineProps<Props>();
@@ -37,12 +40,14 @@ const emit = defineEmits<{
 
 const inviteRole = ref('member');
 const formKey = ref(0);
+const channel = ref('email');
 
 function handleOpenChange(value: boolean) {
     emit('update:open', value);
 
     if (!value) {
         inviteRole.value = 'member';
+        channel.value = 'email';
         formKey.value++;
     }
 }
@@ -66,7 +71,33 @@ function handleOpenChange(value: boolean) {
                 </DialogHeader>
 
                 <div class="grid gap-4">
-                    <div class="grid gap-2">
+                    <div v-if="phoneLoginEnabled" class="grid gap-2">
+                        <Label for="channel">Invite by</Label>
+                        <Select v-model="channel">
+                            <SelectTrigger id="channel"
+                                ><SelectValue
+                            /></SelectTrigger>
+                            <SelectContent
+                                ><SelectItem value="email">Email</SelectItem
+                                ><SelectItem value="phone"
+                                    >Phone</SelectItem
+                                ></SelectContent
+                            >
+                        </Select>
+                    </div>
+                    <div v-if="channel === 'phone'" class="grid gap-2">
+                        <NationalPhoneInput
+                            v-if="callingCode"
+                            id="invite-phone"
+                            :calling-code="callingCode"
+                        />
+                        <InputError :message="errors.phone" />
+                        <p class="text-sm text-muted-foreground">
+                            Share the invitation link after saving. The
+                            recipient confirms their number by SMS.
+                        </p>
+                    </div>
+                    <div v-else class="grid gap-2">
                         <Label for="email">Email address</Label>
                         <Input
                             id="email"
@@ -113,7 +144,11 @@ function handleOpenChange(value: boolean) {
                         data-test="invite-submit"
                         :disabled="processing"
                     >
-                        Send invitation
+                        {{
+                            channel === 'phone'
+                                ? 'Create phone invitation'
+                                : 'Send invitation'
+                        }}
                     </Button>
                 </DialogFooter>
             </Form>

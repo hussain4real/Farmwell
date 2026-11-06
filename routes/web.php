@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AiSummaryController;
+use App\Http\Controllers\Auth\PhoneLoginController;
 use App\Http\Controllers\FarmOperations\ActivityExportController;
 use App\Http\Controllers\FarmOperations\CommodityController;
 use App\Http\Controllers\FarmOperations\EvidenceController;
@@ -43,13 +44,20 @@ use App\Http\Controllers\Investors\InvestorEvidenceController;
 use App\Http\Controllers\Investors\InvestorPortalController;
 use App\Http\Controllers\Investors\InvestorStatementController;
 use App\Http\Controllers\Teams\TeamInvitationController;
+use App\Http\Middleware\EnsureContactIsVerified;
 use App\Http\Middleware\EnsureTeamMembership;
 use Illuminate\Support\Facades\Route;
 
 Route::inertia('/', 'Welcome')->name('home');
 
+Route::middleware('guest')->controller(PhoneLoginController::class)->prefix('login/phone')->name('phone-login.')->group(function () {
+    Route::get('/', 'show')->name('show');
+    Route::post('/code', 'send')->middleware('throttle:phone-send')->block()->name('send');
+    Route::post('/verify', 'verify')->middleware('throttle:phone-verify')->block()->name('verify');
+});
+
 Route::prefix('{current_team}')
-    ->middleware(['auth', 'verified', EnsureTeamMembership::class])
+    ->middleware(['auth', EnsureContactIsVerified::class, EnsureTeamMembership::class])
     ->scopeBindings()
     ->group(function () {
         Route::get('dashboard', FarmDashboardController::class)->name('dashboard');

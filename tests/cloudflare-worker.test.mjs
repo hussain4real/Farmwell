@@ -224,3 +224,19 @@ test('failed-job probe returns only the newest ID and refuses unexpected databas
     await assert.rejects(queue.failedJobWatermark(), /Unsupported staging database host/);
     assert.equal(calls, 1);
 });
+
+test('only the web container receives trial verification credentials', async () => {
+    const webStarts = [];
+    const env = { DB_URL: 'postgres://staging.example/test', PHONE_LOGIN_ENABLED: 'true', INFOBIP_API_KEY: 'example-key' };
+    const container = {
+        images: { base: 'test' }, running: false,
+        start: ({ env }) => webStarts.push(env),
+        setInactivityTimeout: async () => {}, monitor: () => new Promise(() => {}),
+        getTcpPort: () => ({ fetch: async () => ({ ok: true }) }),
+    };
+    await new FarmwellWeb({ container, waitUntil() {} }, env).startAndWait();
+    assert.equal(webStarts[0].PHONE_LOGIN_ENABLED, 'true');
+    assert.equal(webStarts[0].INFOBIP_API_KEY, 'example-key');
+    const sharedEnvironment = vm.runInNewContext(source + '\ncontainerEnvironment;', { DurableObject: class {}, URL });
+    assert.equal(sharedEnvironment(env).INFOBIP_API_KEY, undefined);
+});

@@ -13,15 +13,17 @@ export type Team = {
 export type TeamMember = {
     id: number;
     name: string;
-    email: string;
+    email: string | null;
     avatar?: string | null;
     role: TeamRole;
     role_label: string;
 };
 
 export type TeamInvitation = {
+    phone: string | null;
+    phone_url: string | null;
     code: string;
-    email: string;
+    email: string | null;
     role: TeamRole;
     role_label: string;
     created_at: string;
