@@ -78,6 +78,18 @@ test('phone login fails closed when the trial is disabled or the phone is unknow
     Http::assertNothingSent();
 });
 
+test('only six ASCII digits may be submitted for SMS verification', function (string $code) {
+    Http::fake(['*/pin?*' => Http::response(['smsStatus' => 'MESSAGE_SENT', 'pinId' => 'pin'])]);
+    $this->post(route('phone-login.send'), ['phone' => $this->phone, 'invite' => $this->invite->code])
+        ->assertSessionHasNoErrors();
+
+    $this->post(route('phone-login.verify'), ['name' => 'Tester', 'otp' => $code])
+        ->assertSessionHasErrors('otp');
+
+    Http::assertSentCount(1);
+    $this->assertGuest();
+})->with(['12345', '1234567', '12a456']);
+
 test('a challenge cannot outlive its code, invitation or provider approval', function (string $reason) {
     Http::fake(['*/pin?*' => Http::response(['smsStatus' => 'MESSAGE_SENT', 'pinId' => 'pin']), '*/verify' => Http::response(['verified' => $reason !== 'wrong'])]);
     $this->post(route('phone-login.send'), ['phone' => $this->phone, 'invite' => $this->invite->code]);

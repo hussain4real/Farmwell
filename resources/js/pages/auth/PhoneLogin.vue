@@ -6,6 +6,11 @@ import NationalPhoneInput from '@/components/NationalPhoneInput.vue';
 import TextLink from '@/components/TextLink.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+    InputOTP,
+    InputOTPGroup,
+    InputOTPSlot,
+} from '@/components/ui/input-otp';
 import { Label } from '@/components/ui/label';
 import { login } from '@/routes';
 import { send, show, verify } from '@/routes/phone-login';
@@ -20,6 +25,8 @@ defineProps<{
     countries: Record<string, string>;
 }>();
 const requestAnother = ref(false);
+const otp = ref('');
+const codeLength = 6;
 </script>
 
 <template>
@@ -34,7 +41,10 @@ const requestAnother = ref(false);
             v-bind="send.form()"
             v-slot="{ errors, processing }"
             class="grid gap-3"
-            @success="requestAnother = false"
+            @success="
+                requestAnother = false;
+                otp = '';
+            "
         >
             <input v-if="invite" type="hidden" name="invite" :value="invite" />
             <NationalPhoneInput
@@ -54,9 +64,9 @@ const requestAnother = ref(false);
             </p>
             <Form
                 v-bind="verify.form()"
-                :reset-on-error="['otp']"
                 v-slot="{ errors, processing }"
                 class="grid gap-3"
+                @error="otp = ''"
             >
                 <template v-if="invite">
                     <Label for="name">Your name</Label>
@@ -70,19 +80,42 @@ const requestAnother = ref(false);
                     <InputError :message="errors.name" />
                 </template>
                 <Label for="otp">SMS code</Label>
-                <Input
+                <InputOTP
                     id="otp"
+                    v-model="otp"
                     name="otp"
                     inputmode="numeric"
                     autocomplete="one-time-code"
-                    pattern="[0-9]{6}"
-                    maxlength="6"
+                    pattern="^[0-9]*$"
+                    :minlength="codeLength"
+                    :maxlength="codeLength"
+                    :paste-transformer="
+                        (text) => (text ?? '').replace(/\D/g, '')
+                    "
+                    :aria-invalid="Boolean(errors.otp)"
+                    aria-describedby="otp-error"
                     required
+                >
+                    <InputOTPGroup>
+                        <InputOTPSlot
+                            v-for="digit in codeLength"
+                            :key="digit"
+                            :index="digit - 1"
+                            class="size-11 text-lg tabular-nums"
+                        />
+                    </InputOTPGroup>
+                </InputOTP>
+                <InputError
+                    id="otp-error"
+                    :message="errors.otp || errors.service"
                 />
-                <InputError :message="errors.otp || errors.service" />
-                <Button type="submit" :disabled="processing">{{
-                    invite ? 'Verify and join farm' : 'Verify and sign in'
-                }}</Button>
+                <Button
+                    type="submit"
+                    :disabled="processing || otp.length !== codeLength"
+                    >{{
+                        invite ? 'Verify and join farm' : 'Verify and sign in'
+                    }}</Button
+                >
             </Form>
             <Button variant="outline" @click="requestAnother = true"
                 >Request another code</Button
