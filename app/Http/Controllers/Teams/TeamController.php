@@ -53,6 +53,8 @@ class TeamController extends Controller
         $user = $request->user();
         abort_if($user->teamRole($team) === TeamRole::Operator, 403);
 
+        $permissions = $user->toTeamPermissions($team);
+
         return Inertia::render('teams/Edit', [
             'team' => [
                 'id' => $team->id,
@@ -70,6 +72,7 @@ class TeamController extends Controller
             ]),
             'invitations' => $team->invitations()
                 ->whereNull('accepted_at')
+                ->when(! $permissions->canCreateInvitation && ! $permissions->canCancelInvitation, fn ($query) => $query->whereNull('phone'))
                 ->get()
                 ->map(fn (TeamInvitation $invitation) => [
                     'code' => $invitation->code,
@@ -80,7 +83,7 @@ class TeamController extends Controller
                     'role_label' => $invitation->role->label(),
                     'created_at' => $invitation->created_at->toISOString(),
                 ]),
-            'permissions' => $user->toTeamPermissions($team),
+            'permissions' => $permissions,
             'phoneLoginEnabled' => InfobipVerification::enabled(),
             'availableRoles' => TeamRole::assignable(),
         ]);

@@ -143,3 +143,10 @@ test('membership is granted only after the invited user completes their second f
     $this->post(route('two-factor.login.store'), ['recovery_code' => 'recovery-code-1'])->assertRedirect(route('dashboard', $this->invite->team));
     expect($user->fresh()->belongsToTeam($this->invite->team))->toBeTrue();
 });
+
+test('ordinary members cannot see a pending phone number or its invite link in team settings', function () {
+    $member = User::factory()->create();
+    $team = $this->invite->team;
+    $team->members()->attach($member, ['role' => 'member']);
+    $this->actingAs($member)->get(route('teams.edit', $team))->assertInertia(fn (AssertableInertia $page) => $page->has('invitations', 0));
+});
