@@ -82,6 +82,8 @@ const requestAnother = ref(false);
                 >Request another code</Button
             >
         </template>
-        <TextLink :href="login()">Sign in with email</TextLink>
+        <TextLink :href="login({ query: { method: 'email' } })"
+            >Sign in with email</TextLink
+        >
     </div>
 </template>
