@@ -11,6 +11,7 @@ use App\Models\Membership;
 use App\Models\Team;
 use App\Models\TeamInvitation;
 use App\Models\User;
+use App\Services\InfobipVerification;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -73,11 +74,14 @@ class TeamController extends Controller
                 ->map(fn (TeamInvitation $invitation) => [
                     'code' => $invitation->code,
                     'email' => $invitation->email,
+                    'phone' => $invitation->phone,
+                    'phone_url' => $invitation->phone ? route('phone-login.show', ['invite' => $invitation->code]) : null,
                     'role' => $invitation->role->value,
                     'role_label' => $invitation->role->label(),
                     'created_at' => $invitation->created_at->toISOString(),
                 ]),
             'permissions' => $user->toTeamPermissions($team),
+            'phoneLoginEnabled' => InfobipVerification::enabled(),
             'availableRoles' => TeamRole::assignable(),
         ]);
     }
@@ -127,7 +131,7 @@ class TeamController extends Controller
         DB::transaction(function () use ($user, $team) {
             User::where('current_team_id', $team->id)
                 ->where('id', '!=', $user->id)
-                ->each(fn (User $affectedUser) => $affectedUser->switchTeam($affectedUser->personalTeam()));
+                ->each(fn (User $affectedUser) => $affectedUser->switchAfterLeaving($team));
 
             $team->invitations()->delete();
             $team->memberships()->delete();

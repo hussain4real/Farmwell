@@ -209,6 +209,18 @@ trait HasTeams
         return $permissions;
     }
 
+    public function switchAfterLeaving(Team $team): void
+    {
+        $personal = $this->personalTeam();
+        $next = $personal && ! $personal->is($team) ? $personal : $this->fallbackTeam($team);
+        if ($next) {
+            $this->switchTeam($next);
+        } else {
+            $this->update(['current_team_id' => null]);
+            $this->unsetRelation('currentTeam');
+        }
+    }
+
     public function fallbackTeam(?Team $excluding = null): ?Team
     {
         return $this->teams()

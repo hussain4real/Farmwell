@@ -17,6 +17,11 @@ class ProfileUpdateRequest extends FormRequest
      */
     public function rules(): array
     {
-        return $this->profileRules($this->user()->id);
+        $rules = $this->profileRules($this->user()->id);
+        if ($this->user()->email === null && $this->user()->phone_verified_at !== null) {
+            $rules['email'] = ['prohibited'];
+        }
+
+        return $rules;
     }
 }

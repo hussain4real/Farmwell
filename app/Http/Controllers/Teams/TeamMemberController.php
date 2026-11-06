@@ -84,7 +84,7 @@ class TeamMemberController extends Controller
             ->delete();
 
         if ($user->isCurrentTeam($team)) {
-            $user->switchTeam($user->personalTeam());
+            $user->switchAfterLeaving($team);
         }
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Member removed.')]);

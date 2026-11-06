@@ -42,6 +42,7 @@ type Props = {
     invitations: TeamInvitation[];
     permissions: TeamPermissions;
     availableRoles: RoleOption[];
+    phoneLoginEnabled: boolean;
 };
 
 const props = defineProps<Props>();
@@ -277,7 +278,7 @@ const confirmCancelInvitation = (invitation: TeamInvitation) => {
                         </div>
                         <div>
                             <div class="font-medium">
-                                {{ invitation.email }}
+                                {{ invitation.email ?? invitation.phone }}
                             </div>
                             <div class="text-sm text-muted-foreground">
                                 {{ invitation.role_label }}
@@ -285,6 +286,26 @@ const confirmCancelInvitation = (invitation: TeamInvitation) => {
                         </div>
                     </div>
 
+                    <div
+                        v-if="
+                            invitation.phone &&
+                            phoneLoginEnabled &&
+                            permissions.canCreateInvitation
+                        "
+                        class="grid gap-1"
+                    >
+                        <Label :for="'share-' + invitation.code"
+                            >Invitation link</Label
+                        >
+                        <Input
+                            :id="'share-' + invitation.code"
+                            readonly
+                            :value="invitation.phone_url ?? undefined"
+                            @focus="
+                                ($event.target as HTMLInputElement).select()
+                            "
+                        />
+                    </div>
                     <TooltipProvider v-if="permissions.canCancelInvitation">
                         <Tooltip>
                             <TooltipTrigger as-child>
@@ -341,6 +362,7 @@ const confirmCancelInvitation = (invitation: TeamInvitation) => {
         v-if="permissions.canCreateInvitation"
         :team="team"
         :available-roles="availableRoles"
+        :phone-login-enabled="phoneLoginEnabled"
         :open="inviteDialogOpen"
         @update:open="inviteDialogOpen = $event"
     />
