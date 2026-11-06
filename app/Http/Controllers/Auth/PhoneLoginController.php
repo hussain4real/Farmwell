@@ -48,8 +48,9 @@ class PhoneLoginController extends Controller
     public function send(Request $request, InfobipVerification $provider): RedirectResponse
     {
         abort_unless(InfobipVerification::enabled(), 404);
+        $pilot = PilotPhone::isPilot($request);
         $data = $request->validate([
-            'phone' => ['required', 'string', 'regex:/^\+[1-9][0-9]{7,14}$/D'],
+            'phone' => ['required', 'string', 'regex:'.($pilot ? PilotPhone::NumberPattern : '/^\+[1-9][0-9]{7,14}$/D')],
             'invite' => ['nullable', 'string', 'size:64'],
         ]);
         $phone = $data['phone'];
@@ -59,12 +60,11 @@ class PhoneLoginController extends Controller
         }
         $request->session()->forget('phone_challenge');
         $user = User::where('phone', $phone)->whereNotNull('phone_verified_at')->first();
-        $pilot = PilotPhone::isPilot($request);
         $eligible = $invite ? $invite->phone === $phone : $user?->teams()->exists();
         if ($pilot && ! $invite) {
             $eligible = $user?->phoneInvitedTeams()->exists();
         }
-        $allowed = $pilot ? preg_match(PilotPhone::NumberPattern, $phone) : $phone === config('services.phone_login.allowed_number');
+        $allowed = $pilot || $phone === config('services.phone_login.allowed_number');
         $pinId = null;
         if ($eligible && $allowed) {
             $pinId = $pilot

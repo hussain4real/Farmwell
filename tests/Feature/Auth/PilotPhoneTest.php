@@ -56,6 +56,12 @@ test('pilot exposes only the phone entry and resolves a locked country prefix', 
     $this->withHeader('CF-IPCountry', 'QA')->get($this->origin.'/login/phone')->assertInertia(fn (AssertableInertia $p) => $p->where('callingCode', '+974'));
 });
 
+test('pilot rejects malformed national numbers before creating an SMS challenge', function (string $number) {
+    $this->post($this->origin.'/login/phone/code', ['phone' => $number])
+        ->assertSessionHasErrors('phone')->assertSessionMissing('phone_challenge');
+    Http::assertNothingSent();
+})->with(['+9741234567', '+974123456789', '+9741234a678', '+234123456789', '+23412345678901']);
+
 test('pilot refuses unsolicited SMS and rechecks membership after sending', function () {
     $user = User::factory()->create(['phone' => $this->phone, 'phone_verified_at' => now()]);
     $team = Team::factory()->create();

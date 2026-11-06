@@ -25,6 +25,7 @@ defineProps<{
     countries: Record<string, string>;
 }>();
 const requestAnother = ref(false);
+const phoneComplete = ref(false);
 const otp = ref('');
 const codeLength = 6;
 </script>
@@ -51,9 +52,10 @@ const codeLength = 6;
                 :key="callingCode"
                 id="phone"
                 :calling-code="callingCode"
+                @validity="phoneComplete = $event"
             />
             <InputError :message="errors.phone || errors.service" />
-            <Button type="submit" :disabled="processing"
+            <Button type="submit" :disabled="processing || !phoneComplete"
                 >Send sign-in code</Button
             >
         </Form>
