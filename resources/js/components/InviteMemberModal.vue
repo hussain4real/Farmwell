@@ -31,6 +31,7 @@ type Props = {
     open: boolean;
     phoneLoginEnabled: boolean;
     callingCode: string | null;
+    phoneCountries: Record<string, string> | null;
 };
 
 const props = defineProps<Props>();
@@ -38,6 +39,7 @@ const emit = defineEmits<{
     'update:open': [value: boolean];
 }>();
 
+const country = ref('NG');
 const inviteRole = ref('member');
 const formKey = ref(0);
 const channel = ref('email');
@@ -86,10 +88,27 @@ function handleOpenChange(value: boolean) {
                         </Select>
                     </div>
                     <div v-if="channel === 'phone'" class="grid gap-2">
+                        <template v-if="phoneCountries">
+                            <Label for="invite-country"
+                                >Recipient’s country</Label
+                            >
+                            <select id="invite-country" v-model="country">
+                                <option
+                                    v-for="(prefix, region) in phoneCountries"
+                                    :key="region"
+                                    :value="region"
+                                >
+                                    {{ region }} ({{ prefix }})
+                                </option>
+                            </select>
+                        </template>
                         <NationalPhoneInput
-                            v-if="callingCode"
+                            v-if="phoneCountries || callingCode"
+                            :key="country"
                             id="invite-phone"
-                            :calling-code="callingCode"
+                            :calling-code="
+                                phoneCountries?.[country] ?? callingCode ?? ''
+                            "
                         />
                         <InputError :message="errors.phone" />
                         <p class="text-sm text-muted-foreground">

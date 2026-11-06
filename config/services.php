@@ -5,6 +5,7 @@ return [
         'enabled' => env('PHONE_LOGIN_ENABLED', false),
         'provider' => env('PHONE_OTP_PROVIDER', 'infobip'),
         'allowed_number' => env('PHONE_OTP_ALLOWED_NUMBER'),
+        'pilot_host' => env('PHONE_PILOT_HOST'),
     ],
     'infobip' => [
         'base_url' => env('INFOBIP_BASE_URL'),

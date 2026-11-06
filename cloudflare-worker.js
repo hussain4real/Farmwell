@@ -57,6 +57,11 @@ export class FarmwellWeb extends DurableObject {
             original.protocol.slice(0, -1),
         );
         forwarded.headers.delete('x-forwarded-port');
+        forwarded.headers.delete('x-forwarded-for');
+
+        if (request.headers.has('cf-connecting-ip')) {
+            forwarded.headers.set('x-forwarded-for', request.headers.get('cf-connecting-ip'));
+        }
 
         return this.ctx.container.getTcpPort(80).fetch(forwarded);
     }
@@ -71,6 +76,7 @@ export class FarmwellWeb extends DurableObject {
                 enableInternet: true,
                 env: {
                     ...containerEnvironment(this.env),
+                    PHONE_PILOT_HOST: this.env.PHONE_PILOT_HOST ?? '',
                     PHONE_LOGIN_ENABLED: this.env.PHONE_LOGIN_ENABLED ?? 'false',
                     PHONE_OTP_ALLOWED_NUMBER: this.env.PHONE_OTP_ALLOWED_NUMBER ?? '',
                     INFOBIP_BASE_URL: this.env.INFOBIP_BASE_URL ?? '',
@@ -199,6 +205,20 @@ export class FarmwellQueue extends DurableObject {
 
 export default {
     async fetch(request, env) {
+        if (env.APP_URL) {
+            const url = new URL(request.url);
+
+            if (url.hostname !== new URL(env.APP_URL).hostname) {
+                const publicPage = /^\/(?:|login(?:\/phone(?:\/(?:code|verify))?)?|logout|two-factor-challenge|favicon\.(?:ico|svg)|apple-touch-icon\.png)$/;
+                const asset = /^\/build\/(?:assets|fonts)\/[a-zA-Z0-9_.-]+$/;
+                const farmPage = /^\/[a-zA-Z0-9_-]+\/(?:dashboard|field-diary|farm-activities|farm-tasks|evidence|farms|finance|harvests|investors|investor-portal|investor-evidence|investor-agreements|ai-summaries|whatsapp-intakes|commodities)(?:\/[a-zA-Z0-9_-]+)*$/;
+
+                if (url.hostname !== env.PHONE_PILOT_HOST || !(publicPage.test(url.pathname) || asset.test(url.pathname) || farmPage.test(url.pathname))) {
+                    return new Response('Not found', {status: 404});
+                }
+            }
+        }
+
         const id = env.FARMWELL_WEB.idFromName(`staging-web-${env.CF_VERSION_METADATA.id}`);
         const connect = () => env.FARMWELL_WEB.get(id, { locationHint: 'weur' });
         const safeRead = ['GET', 'HEAD'].includes(request.method);

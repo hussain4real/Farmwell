@@ -4,10 +4,14 @@
     "compatibility_date": "2026-11-01",
     "workers_dev": false,
     "preview_urls": false,
-    "routes": [{ "pattern": "staging.farmwell.app", "custom_domain": true }],
+    "routes": [
+        { "pattern": "staging.farmwell.app", "custom_domain": true },
+        { "pattern": "pilot.farmwell.app", "custom_domain": true }
+    ],
     "version_metadata": { "binding": "CF_VERSION_METADATA" },
     "vars": {
         "CLOUDFLARE_ACCOUNT_ID": "40344948b73fa9da3008958fdc3faf12",
+        "PHONE_PILOT_HOST": "pilot.farmwell.app",
         "APP_URL": "https://staging.farmwell.app",
         "AWS_ENDPOINT": "https://40344948b73fa9da3008958fdc3faf12.r2.cloudflarestorage.com",
         "AWS_BUCKET": "farmwell-staging-private",

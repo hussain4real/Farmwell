@@ -13,6 +13,7 @@ use App\Models\TeamInvitation;
 use App\Models\User;
 use App\Services\InfobipVerification;
 use App\Support\PhoneCallingCode;
+use App\Support\PilotPhone;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -79,13 +80,14 @@ class TeamController extends Controller
                     'code' => $invitation->code,
                     'email' => $invitation->email,
                     'phone' => $invitation->phone,
-                    'phone_url' => $invitation->phone ? route('phone-login.show', ['invite' => $invitation->code]) : null,
+                    'phone_url' => $invitation->phone ? PilotPhone::invitationUrl($invitation) : null,
                     'role' => $invitation->role->value,
                     'role_label' => $invitation->role->label(),
                     'created_at' => $invitation->created_at->toISOString(),
                 ]),
             'permissions' => $permissions,
             'callingCode' => PhoneCallingCode::forRecipient(),
+            'phoneCountries' => config('services.phone_login.pilot_host') ? PilotPhone::Countries : null,
             'phoneLoginEnabled' => InfobipVerification::enabled(),
             'availableRoles' => TeamRole::assignable(),
         ]);

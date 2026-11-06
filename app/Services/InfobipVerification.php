@@ -12,7 +12,7 @@ class InfobipVerification
     public static function enabled(): bool
     {
         return config('services.phone_login.enabled') && config('services.phone_login.provider') === 'infobip'
-            && PhoneCallingCode::forRecipient() !== null;
+            && (config('services.phone_login.pilot_host') || PhoneCallingCode::forRecipient() !== null);
     }
 
     public function send(string $phone): string
