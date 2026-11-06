@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Support\PhoneCallingCode;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\ValidationException;
@@ -11,7 +12,7 @@ class InfobipVerification
     public static function enabled(): bool
     {
         return config('services.phone_login.enabled') && config('services.phone_login.provider') === 'infobip'
-            && filled(config('services.phone_login.allowed_number'));
+            && PhoneCallingCode::forRecipient() !== null;
     }
 
     public function send(string $phone): string

@@ -2,6 +2,7 @@
 import { Form } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import InputError from '@/components/InputError.vue';
+import NationalPhoneInput from '@/components/NationalPhoneInput.vue';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -29,6 +30,7 @@ type Props = {
     availableRoles: RoleOption[];
     open: boolean;
     phoneLoginEnabled: boolean;
+    callingCode: string | null;
 };
 
 const props = defineProps<Props>();
@@ -84,15 +86,10 @@ function handleOpenChange(value: boolean) {
                         </Select>
                     </div>
                     <div v-if="channel === 'phone'" class="grid gap-2">
-                        <Label for="invite-phone"
-                            >Mobile number with country code</Label
-                        >
-                        <Input
+                        <NationalPhoneInput
+                            v-if="callingCode"
                             id="invite-phone"
-                            name="phone"
-                            type="tel"
-                            placeholder="+974…"
-                            required
+                            :calling-code="callingCode"
                         />
                         <InputError :message="errors.phone" />
                         <p class="text-sm text-muted-foreground">

@@ -12,6 +12,7 @@ use App\Models\Team;
 use App\Models\TeamInvitation;
 use App\Models\User;
 use App\Services\InfobipVerification;
+use App\Support\PhoneCallingCode;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -84,6 +85,7 @@ class TeamController extends Controller
                     'created_at' => $invitation->created_at->toISOString(),
                 ]),
             'permissions' => $permissions,
+            'callingCode' => PhoneCallingCode::forRecipient(),
             'phoneLoginEnabled' => InfobipVerification::enabled(),
             'availableRoles' => TeamRole::assignable(),
         ]);

@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\TeamInvitation;
 use App\Models\User;
 use App\Services\InfobipVerification;
+use App\Support\PhoneCallingCode;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -28,6 +29,7 @@ class PhoneLoginController extends Controller
 
         return Inertia::render('auth/PhoneLogin', [
             'invite' => $invite?->code,
+            'callingCode' => PhoneCallingCode::forRecipient($invite?->phone),
             'teamName' => $invite?->team->name,
             'awaitingCode' => $request->session()->has('phone_challenge')
                 && $request->session()->get('phone_challenge.invite') === $invite?->code,

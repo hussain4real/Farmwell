@@ -4,6 +4,7 @@ use App\Enums\TeamRole;
 use App\Models\Team;
 use App\Models\TeamInvitation;
 use App\Models\User;
+use App\Support\PhoneCallingCode;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Inertia\Testing\AssertableInertia;
@@ -149,4 +150,15 @@ test('ordinary members cannot see a pending phone number or its invite link in t
     $team = $this->invite->team;
     $team->members()->attach($member, ['role' => 'member']);
     $this->actingAs($member)->get(route('teams.edit', $team))->assertInertia(fn (AssertableInertia $page) => $page->has('invitations', 0));
+});
+
+test('the locked calling code uses the recipient number regardless of visitor location', function () {
+    $this->withHeader('CF-IPCountry', 'NG')->get(route('phone-login.show'))
+        ->assertInertia(fn (AssertableInertia $page) => $page->where('callingCode', '+974'));
+    $this->invite->update(['phone' => '+2348012345678']);
+    $this->withHeader('CF-IPCountry', 'QA')->get(route('phone-login.show', ['invite' => $this->invite->code]))
+        ->assertInertia(fn (AssertableInertia $page) => $page->where('callingCode', '+234'));
+    expect(PhoneCallingCode::forRecipient('+15555550101'))->toBe('+1')
+        ->and(PhoneCallingCode::forRecipient('+447700900123'))->toBe('+44')
+        ->and(PhoneCallingCode::forRecipient('invalid'))->toBeNull();
 });

@@ -2,6 +2,7 @@
 import { Form, Head } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import InputError from '@/components/InputError.vue';
+import NationalPhoneInput from '@/components/NationalPhoneInput.vue';
 import TextLink from '@/components/TextLink.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,9 +15,9 @@ defineProps<{
     invite: string | null;
     teamName: string | null;
     awaitingCode: boolean;
+    callingCode: string;
 }>();
 const requestAnother = ref(false);
-const phone = ref('');
 </script>
 
 <template>
@@ -34,16 +35,7 @@ const phone = ref('');
             @success="requestAnother = false"
         >
             <input v-if="invite" type="hidden" name="invite" :value="invite" />
-            <Label for="phone">Mobile number with country code</Label>
-            <Input
-                v-model="phone"
-                id="phone"
-                name="phone"
-                type="tel"
-                autocomplete="tel"
-                placeholder="+974…"
-                required
-            />
+            <NationalPhoneInput id="phone" :calling-code="callingCode" />
             <InputError :message="errors.phone || errors.service" />
             <Button type="submit" :disabled="processing"
                 >Send sign-in code</Button
