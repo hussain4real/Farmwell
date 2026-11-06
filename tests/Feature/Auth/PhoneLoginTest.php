@@ -24,6 +24,19 @@ beforeEach(function () {
     $this->invite = TeamInvitation::factory()->create(['phone' => $this->phone, 'email' => null, 'role' => TeamRole::Operator]);
 });
 
+test('login opens the phone form by default with email available as an alternative', function () {
+    $this->get(route('login'))->assertRedirectToRoute('phone-login.show');
+    $this->get(route('phone-login.show'))->assertInertia(fn (AssertableInertia $page) => $page
+        ->component('auth/PhoneLogin')->where('callingCode', '+974')->where('awaitingCode', false));
+    $this->get(route('login', ['method' => 'email']))->assertInertia(fn (AssertableInertia $page) => $page
+        ->component('auth/Login')->where('phoneLoginEnabled', true));
+    Http::assertNothingSent();
+
+    config(['services.phone_login.enabled' => false]);
+    $this->get(route('login'))->assertInertia(fn (AssertableInertia $page) => $page
+        ->component('auth/Login')->where('phoneLoginEnabled', false));
+});
+
 test('an owner can invite a trial phone to join once and sign back into its farm without email', function () {
     $team = $this->invite->team;
     $this->invite->delete();
