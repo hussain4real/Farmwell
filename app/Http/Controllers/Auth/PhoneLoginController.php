@@ -8,11 +8,14 @@ use App\Models\TeamInvitation;
 use App\Models\User;
 use App\Services\InfobipVerification;
 use App\Support\PhoneCallingCode;
+use App\Support\PilotPhone;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -27,12 +30,18 @@ class PhoneLoginController extends Controller
         abort_unless(InfobipVerification::enabled(), 404);
         $invite = $this->invitation($request->query('invite'));
 
+        $pilot = PilotPhone::isPilot($request);
+        $callingCode = $pilot ? PilotPhone::callingCode($request) : PhoneCallingCode::forRecipient();
+        $awaitingCode = $request->session()->has('phone_challenge') && $request->session()->get('phone_challenge.invite') === $invite?->code;
+        $recipient = $invite?->phone ?? ($awaitingCode ? $request->session()->get('phone_challenge.phone') : null);
+
         return Inertia::render('auth/PhoneLogin', [
             'invite' => $invite?->code,
-            'callingCode' => PhoneCallingCode::forRecipient($invite?->phone),
+            'callingCode' => ($recipient ? PhoneCallingCode::forRecipient($recipient) : $callingCode) ?? PilotPhone::callingCode($request),
+            'pilot' => $pilot,
+            'countries' => PilotPhone::Countries,
             'teamName' => $invite?->team->name,
-            'awaitingCode' => $request->session()->has('phone_challenge')
-                && $request->session()->get('phone_challenge.invite') === $invite?->code,
+            'awaitingCode' => $awaitingCode,
         ]);
     }
 
@@ -50,14 +59,21 @@ class PhoneLoginController extends Controller
         }
         $request->session()->forget('phone_challenge');
         $user = User::where('phone', $phone)->whereNotNull('phone_verified_at')->first();
+        $pilot = PilotPhone::isPilot($request);
         $eligible = $invite ? $invite->phone === $phone : $user?->teams()->exists();
+        if ($pilot && ! $invite) {
+            $eligible = $user?->phoneInvitedTeams()->exists();
+        }
+        $allowed = $pilot ? preg_match(PilotPhone::NumberPattern, $phone) : $phone === config('services.phone_login.allowed_number');
         $pinId = null;
-        if ($phone === config('services.phone_login.allowed_number') && $eligible) {
-            $pinId = $provider->send($phone);
+        if ($eligible && $allowed) {
+            $pinId = $pilot
+                ? RateLimiter::attempt('pilot-sms:'.hash('sha256', $phone), 5, fn () => $provider->send($phone), 86400)
+                : $provider->send($phone);
         }
         $request->session()->put('phone_challenge', [
             'phone' => $phone, 'pin' => $pinId, 'user' => $user?->id, 'invite' => $invite?->code,
-            'expires' => now()->addMinutes(5)->timestamp,
+            'pilot' => $pilot, 'expires' => now()->addMinutes(5)->timestamp,
         ]);
 
         return to_route('phone-login.show', array_filter(['invite' => $invite?->code]));
@@ -72,7 +88,8 @@ class PhoneLoginController extends Controller
             'name' => [($challenge['invite'] ?? null) ? 'required' : 'nullable', 'string', 'max:255'],
         ]);
         if (! $challenge || ! $challenge['pin'] || $challenge['expires'] <= now()->timestamp
-            || $challenge['phone'] !== config('services.phone_login.allowed_number')
+            || ($challenge['pilot'] ?? false) !== PilotPhone::isPilot($request)
+            || (! ($challenge['pilot'] ?? false) && $challenge['phone'] !== config('services.phone_login.allowed_number'))
             || ! $provider->verify($challenge['pin'], $data['otp'])) {
             throw ValidationException::withMessages(['otp' => __('The code is incorrect or expired. You can request a new one.')]);
         }
@@ -97,9 +114,20 @@ class PhoneLoginController extends Controller
                 }
             }
             abort_unless($user && $user->teams()->exists(), 403);
+            if (($challenge['pilot'] ?? false) && ! $invite) {
+                $teams = $user->phoneInvitedTeams();
+                $team = $teams->orderByRaw('case when teams.id = ? then 0 else 1 end', [$user->current_team_id])->orderBy('teams.id')->first();
+                abort_unless($team, 403);
+                $user->switchTeam($team);
+            }
 
             return $user;
         });
+        if ($challenge['pilot'] ?? false) {
+            $request->session()->put('pilot_phone_user', $user->id);
+            $country = array_search(PhoneCallingCode::forRecipient($challenge['phone']), PilotPhone::Countries, true);
+            Cookie::queue('phone_country', (string) $country, 60 * 24 * 90);
+        }
         if ($user->hasEnabledTwoFactorAuthentication()) {
             $request->session()->put(['login.id' => $user->id, 'login.remember' => false]);
             TwoFactorAuthenticationChallenged::dispatch($user);

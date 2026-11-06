@@ -240,3 +240,23 @@ test('only the web container receives trial verification credentials', async () 
     const sharedEnvironment = vm.runInNewContext(source + '\ncontainerEnvironment;', { DurableObject: class {}, URL });
     assert.equal(sharedEnvironment(env).INFOBIP_API_KEY, undefined);
 });
+
+test('the pilot hostname only forwards SMS, assets and farm paths', async () => {
+    const worker = vm.runInNewContext(source + '\nworker;', { DurableObject: class {}, URL, Response });
+    const env = {
+        APP_URL: 'https://staging.example', PHONE_PILOT_HOST: 'pilot.example',
+        CF_VERSION_METADATA: { id: 'test' },
+        FARMWELL_WEB: { idFromName: name => name, get: () => ({ ready: async () => {}, fetch: async () => new Response('forwarded') }) },
+    };
+
+    for (const path of ['/login/phone', '/login/phone/code', '/login/phone/verify', '/build/assets/login-A123.js', '/my-team/field-diary']) {
+        assert.equal(await (await worker.fetch(new Request('https://pilot.example' + path), env)).text(), 'forwarded');
+    }
+
+    for (const path of ['/register', '/forgot-password', '/server-status', '/up', '/index.php/register', '/build/assets/other/file.php']) {
+        assert.equal((await worker.fetch(new Request('https://pilot.example' + path), env)).status, 404);
+    }
+
+    assert.equal((await worker.fetch(new Request('https://other.example/login/phone'), env)).status, 404);
+    assert.equal(await (await worker.fetch(new Request('https://staging.example/register'), env)).text(), 'forwarded');
+});

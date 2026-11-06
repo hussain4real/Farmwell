@@ -8,6 +8,7 @@ use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -24,6 +25,15 @@ class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
     use HasFactory, HasRoles, HasTeams, Notifiable, PasskeyAuthenticatable, TwoFactorAuthenticatable {
         HasRoles::teams as permissionTeams;
         HasTeams::teams insteadof HasRoles;
+    }
+
+    /**
+     * @return BelongsToMany<Team, $this>
+     */
+    public function phoneInvitedTeams(): BelongsToMany
+    {
+        return $this->teams()->whereIn('teams.id', TeamInvitation::query()
+            ->select('team_id')->whereNotNull('phone')->where('phone', $this->phone)->whereNotNull('accepted_at'));
     }
 
     /**

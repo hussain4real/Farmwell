@@ -44,6 +44,7 @@ type Props = {
     availableRoles: RoleOption[];
     phoneLoginEnabled: boolean;
     callingCode: string | null;
+    phoneCountries: Record<string, string> | null;
 };
 
 const props = defineProps<Props>();
@@ -365,6 +366,7 @@ const confirmCancelInvitation = (invitation: TeamInvitation) => {
         :available-roles="availableRoles"
         :phone-login-enabled="phoneLoginEnabled"
         :calling-code="callingCode"
+        :phone-countries="phoneCountries"
         :open="inviteDialogOpen"
         @update:open="inviteDialogOpen = $event"
     />

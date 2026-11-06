@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { login } from '@/routes';
-import { send, verify } from '@/routes/phone-login';
+import { send, show, verify } from '@/routes/phone-login';
 
 defineOptions({ layout: { title: 'Sign in with your phone' } });
 defineProps<{
@@ -16,6 +16,8 @@ defineProps<{
     teamName: string | null;
     awaitingCode: boolean;
     callingCode: string;
+    pilot: boolean;
+    countries: Record<string, string>;
 }>();
 const requestAnother = ref(false);
 </script>
@@ -35,7 +37,11 @@ const requestAnother = ref(false);
             @success="requestAnother = false"
         >
             <input v-if="invite" type="hidden" name="invite" :value="invite" />
-            <NationalPhoneInput id="phone" :calling-code="callingCode" />
+            <NationalPhoneInput
+                :key="callingCode"
+                id="phone"
+                :calling-code="callingCode"
+            />
             <InputError :message="errors.phone || errors.service" />
             <Button type="submit" :disabled="processing"
                 >Send sign-in code</Button
@@ -82,7 +88,17 @@ const requestAnother = ref(false);
                 >Request another code</Button
             >
         </template>
-        <TextLink :href="login({ query: { method: 'email' } })"
+        <template v-if="pilot && !invite && !awaitingCode">
+            <template v-for="(prefix, region) in countries" :key="region">
+                <TextLink
+                    v-if="prefix !== callingCode"
+                    :href="show({ query: { country: region } })"
+                    >Use a {{ region === 'QA' ? 'Qatari' : 'Nigerian' }} number
+                    ({{ prefix }})</TextLink
+                >
+            </template>
+        </template>
+        <TextLink v-if="!pilot" :href="login({ query: { method: 'email' } })"
             >Sign in with email</TextLink
         >
     </div>
