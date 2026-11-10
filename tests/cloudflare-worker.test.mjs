@@ -260,11 +260,11 @@ test('the pilot hostname only forwards SMS, assets and farm paths', async () => 
         FARMWELL_WEB: { idFromName: name => name, get: () => ({ ready: async () => {}, fetch: async () => new Response('forwarded') }) },
     };
 
-    for (const path of ['/login/phone', '/login/phone/code', '/login/phone/verify', '/build/assets/login-A123.js', '/my-team/field-diary']) {
+    for (const path of ['/login/phone', '/login/phone/code', '/login/phone/verify', '/manifest.webmanifest', '/farmwell-192.png', '/farmwell-512.png', '/build/assets/login-A123.js', '/my-team/field-diary']) {
         assert.equal(await (await worker.fetch(new Request('https://pilot.example' + path), env)).text(), 'forwarded');
     }
 
-    for (const path of ['/register', '/forgot-password', '/server-status', '/up', '/index.php/register', '/build/assets/other/file.php']) {
+    for (const path of ['/register', '/forgot-password', '/server-status', '/up', '/index.php/register', '/farmwell-128.png', '/build/assets/other/file.php']) {
         assert.equal((await worker.fetch(new Request('https://pilot.example' + path), env)).status, 404);
     }
 
