@@ -2,7 +2,7 @@
 
 namespace App\Providers;
 
-use App\Support\PilotDatabaseSessionHandler;
+use App\Support\AuthenticatedDatabaseSessionHandler;
 use Aws\CommandInterface;
 use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -33,7 +33,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        Session::extend('database', fn ($app) => new PilotDatabaseSessionHandler(
+        Session::extend('database', fn ($app) => new AuthenticatedDatabaseSessionHandler(
             DB::connection(config('session.connection')),
             (string) config('session.table'),
             (int) config('session.lifetime'),

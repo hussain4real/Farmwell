@@ -28,12 +28,8 @@ class StartFarmwellSession extends StartSession
 
     protected function getCookieExpirationDate(): DateTimeInterface|int
     {
-        $request = request();
-        $pilotUser = $request->session()->get('pilot_phone_user');
-
-        if (PilotPhone::isPilot($request) && $pilotUser !== null && $pilotUser === $request->user()?->id
-            && ! config('session.expire_on_close')) {
-            return Date::now()->addMinutes(PilotPhone::SessionLifetimeMinutes);
+        if (config('session.driver') === 'database' && ! config('session.expire_on_close') && request()->user() !== null) {
+            return Date::now()->addMinutes((int) config('session.authenticated_lifetime'));
         }
 
         return parent::getCookieExpirationDate();

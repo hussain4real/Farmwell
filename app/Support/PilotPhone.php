@@ -7,8 +7,6 @@ use Illuminate\Http\Request;
 
 class PilotPhone
 {
-    public const SessionLifetimeMinutes = 14 * 24 * 60;
-
     public const Countries = ['NG' => '+234', 'QA' => '+974'];
 
     public const NumberPattern = '/^\+(?:234[1-9][0-9]{9}|974[1-9][0-9]{7})$/D';

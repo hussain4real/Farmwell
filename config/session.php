@@ -29,10 +29,13 @@ return [
     | to be allowed to remain idle before it expires. If you want them
     | to expire immediately when the browser is closed then you may
     | indicate that via the expire_on_close configuration option.
+    | Signed-in users can have a separate lifetime with database sessions.
     |
     */
 
     'lifetime' => (int) env('SESSION_LIFETIME', 120),
+
+    'authenticated_lifetime' => 14 * 24 * 60,
 
     'expire_on_close' => env('SESSION_EXPIRE_ON_CLOSE', false),
 

@@ -97,7 +97,7 @@ test('a farmer accepts a phone invitation then returns to the same farm without 
     'Qatar with Infobip' => ['+97450123456', 'infobip'],
 ]);
 
-test('an authenticated pilot session survives normal session cleanup and expires after fourteen idle days', function () {
+test('pilot and regular web sessions both expire after fourteen idle days', function () {
     config(['session.driver' => 'database', 'session.lifetime' => 120, 'session.lottery' => [1, 1]]);
     $this->freezeTime();
 
@@ -134,18 +134,25 @@ test('an authenticated pilot session survives normal session cleanup and expires
     $webSignIn = $this->post($webOrigin.'/login', ['email' => $owner->email, 'password' => 'password'])
         ->assertSessionHasNoErrors()->assertCookieMissing($pilotCookie);
     $this->assertAuthenticatedAs($owner);
-    expect($webSignIn->getCookie($webCookie)->getExpiresTime())->toBe(now()->addHours(2)->timestamp);
+    expect($webSignIn->getCookie($webCookie)->getExpiresTime())->toBe(now()->addDays(14)->timestamp);
 
     $this->travel(13)->days();
     $freshRequest();
-    $this->withCookie($webCookie, $webSignIn->getCookie($webCookie)->getValue())
-        ->get($webOrigin.'/'.$owner->personalTeam()->slug.'/dashboard')->assertRedirect($webOrigin.'/login');
+    $webDashboard = $webOrigin.'/'.$owner->personalTeam()->slug.'/dashboard';
+    $webResumed = $this->withCookie($webCookie, $webSignIn->getCookie($webCookie)->getValue())
+        ->get($webDashboard)->assertOk()->assertCookieMissing($pilotCookie);
+    $this->assertAuthenticatedAs($owner);
+    expect($webResumed->getCookie($webCookie)->getExpiresTime())->toBe(now()->addDays(14)->timestamp);
     $freshRequest();
     $resumed = $this->get($pilotDashboard)->assertOk()->assertCookieMissing($webCookie);
     $this->assertAuthenticatedAs($farmer);
     expect($resumed->getCookie($pilotCookie)->getExpiresTime())->toBe(now()->addDays(14)->timestamp);
 
     $this->travelTo(now()->addDays(14)->addSecond());
+    $freshRequest();
+    $this->withCookie($webCookie, $webResumed->getCookie($webCookie)->getValue())
+        ->get($webDashboard)->assertRedirect($webOrigin.'/login');
+    $this->assertGuest();
     $freshRequest();
     $this->withCookie($pilotCookie, $resumed->getCookie($pilotCookie)->getValue())
         ->followingRedirects()->get($pilotDashboard)->assertInertia(fn (AssertableInertia $page) => $page->component('auth/PhoneLogin'));
