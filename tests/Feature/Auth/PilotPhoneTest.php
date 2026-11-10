@@ -97,6 +97,62 @@ test('a farmer accepts a phone invitation then returns to the same farm without 
     'Qatar with Infobip' => ['+97450123456', 'infobip'],
 ]);
 
+test('an authenticated pilot session survives normal session cleanup and expires after fourteen idle days', function () {
+    config(['session.driver' => 'database', 'session.lifetime' => 120, 'session.lottery' => [1, 1]]);
+    $this->freezeTime();
+
+    $farmer = User::factory()->create(['phone' => $this->phone, 'phone_verified_at' => now()]);
+    $team = Team::factory()->create();
+    $team->members()->attach($farmer, ['role' => 'operator']);
+    TeamInvitation::factory()->create([
+        'team_id' => $team->id,
+        'phone' => $this->phone,
+        'email' => null,
+        'accepted_at' => now(),
+    ]);
+    $owner = User::factory()->create();
+    $webOrigin = 'https://farmwell.test';
+    $webCookie = config('session.cookie');
+    $pilotCookie = $webCookie.'_pilot';
+    $freshRequest = function () {
+        $this->app['session']->forgetDrivers();
+        $this->app->forgetInstance('session.store');
+        $this->app['auth']->forgetGuards();
+        $this->app->forgetInstance('auth.driver');
+    };
+
+    $challenge = $this->post($this->origin.'/login/phone/code', ['phone' => $this->phone])->assertSessionHasNoErrors();
+    expect($challenge->getCookie($pilotCookie)->getExpiresTime())->toBe(now()->addHours(2)->timestamp);
+    $freshRequest();
+    $pilotDashboard = $this->origin.'/'.$team->slug.'/dashboard';
+    $signIn = $this->withCookie($pilotCookie, $challenge->getCookie($pilotCookie)->getValue())
+        ->post($this->origin.'/login/phone/verify', ['otp' => '123456'])->assertRedirect($pilotDashboard);
+    expect($signIn->getCookie($pilotCookie)->getExpiresTime())->toBe(now()->addDays(14)->timestamp);
+    $this->withCookie($pilotCookie, $signIn->getCookie($pilotCookie)->getValue());
+
+    $freshRequest();
+    $webSignIn = $this->post($webOrigin.'/login', ['email' => $owner->email, 'password' => 'password'])
+        ->assertSessionHasNoErrors()->assertCookieMissing($pilotCookie);
+    $this->assertAuthenticatedAs($owner);
+    expect($webSignIn->getCookie($webCookie)->getExpiresTime())->toBe(now()->addHours(2)->timestamp);
+
+    $this->travel(13)->days();
+    $freshRequest();
+    $this->withCookie($webCookie, $webSignIn->getCookie($webCookie)->getValue())
+        ->get($webOrigin.'/'.$owner->personalTeam()->slug.'/dashboard')->assertRedirect($webOrigin.'/login');
+    $freshRequest();
+    $resumed = $this->get($pilotDashboard)->assertOk()->assertCookieMissing($webCookie);
+    $this->assertAuthenticatedAs($farmer);
+    expect($resumed->getCookie($pilotCookie)->getExpiresTime())->toBe(now()->addDays(14)->timestamp);
+
+    $this->travelTo(now()->addDays(14)->addSecond());
+    $freshRequest();
+    $this->withCookie($pilotCookie, $resumed->getCookie($pilotCookie)->getValue())
+        ->followingRedirects()->get($pilotDashboard)->assertInertia(fn (AssertableInertia $page) => $page->component('auth/PhoneLogin'));
+    $this->assertGuest();
+    Http::assertSentCount(2);
+});
+
 test('pilot exposes only the phone entry and resolves a locked country prefix', function () {
     $this->get($this->origin.'/')->assertRedirect($this->origin.'/login/phone');
     $this->get($this->origin.'/login?method=email')->assertRedirect($this->origin.'/login/phone');
