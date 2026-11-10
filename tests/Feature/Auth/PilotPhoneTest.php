@@ -122,19 +122,22 @@ test('pilot and regular web sessions both expire after fourteen idle days', func
     };
 
     $challenge = $this->post($this->origin.'/login/phone/code', ['phone' => $this->phone])->assertSessionHasNoErrors();
-    expect($challenge->getCookie($pilotCookie)->getExpiresTime())->toBe(now()->addHours(2)->timestamp);
+    expect($challenge->getCookie($pilotCookie)->getExpiresTime())->toBe(now()->addHours(2)->timestamp)
+        ->and($challenge->getCookie('XSRF-TOKEN')->getExpiresTime())->toBe(now()->addHours(2)->timestamp);
     $freshRequest();
     $pilotDashboard = $this->origin.'/'.$team->slug.'/dashboard';
     $signIn = $this->withCookie($pilotCookie, $challenge->getCookie($pilotCookie)->getValue())
         ->post($this->origin.'/login/phone/verify', ['otp' => '123456'])->assertRedirect($pilotDashboard);
-    expect($signIn->getCookie($pilotCookie)->getExpiresTime())->toBe(now()->addDays(14)->timestamp);
+    expect($signIn->getCookie($pilotCookie)->getExpiresTime())->toBe(now()->addDays(14)->timestamp)
+        ->and($signIn->getCookie('XSRF-TOKEN')->getExpiresTime())->toBe(now()->addDays(14)->timestamp);
     $this->withCookie($pilotCookie, $signIn->getCookie($pilotCookie)->getValue());
 
     $freshRequest();
     $webSignIn = $this->post($webOrigin.'/login', ['email' => $owner->email, 'password' => 'password'])
         ->assertSessionHasNoErrors()->assertCookieMissing($pilotCookie);
     $this->assertAuthenticatedAs($owner);
-    expect($webSignIn->getCookie($webCookie)->getExpiresTime())->toBe(now()->addDays(14)->timestamp);
+    expect($webSignIn->getCookie($webCookie)->getExpiresTime())->toBe(now()->addDays(14)->timestamp)
+        ->and($webSignIn->getCookie('XSRF-TOKEN')->getExpiresTime())->toBe(now()->addDays(14)->timestamp);
 
     $this->travel(13)->days();
     $freshRequest();
