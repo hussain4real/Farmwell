@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\TeamInvitation;
 use App\Models\User;
 use App\Services\InfobipVerification;
+use App\Services\KudiSmsVerification;
 use App\Support\PhoneCallingCode;
 use App\Support\PilotPhone;
 use Illuminate\Http\RedirectResponse;
@@ -25,6 +26,8 @@ use Laravel\Fortify\Events\TwoFactorAuthenticationChallenged;
 
 class PhoneLoginController extends Controller
 {
+    private const DefaultCodeLifetimeMinutes = 5;
+
     public function show(Request $request): Response
     {
         abort_unless(InfobipVerification::enabled(), 404);
@@ -42,10 +45,12 @@ class PhoneLoginController extends Controller
             'countries' => PilotPhone::Countries,
             'teamName' => $invite?->team->name,
             'awaitingCode' => $awaitingCode,
+            'codeLifetimeMinutes' => $request->session()->get('phone_challenge.provider') === 'kudisms'
+                ? KudiSmsVerification::LifetimeMinutes : self::DefaultCodeLifetimeMinutes,
         ]);
     }
 
-    public function send(Request $request, InfobipVerification $provider): RedirectResponse
+    public function send(Request $request, InfobipVerification $infobip, KudiSmsVerification $kudisms): RedirectResponse
     {
         abort_unless(InfobipVerification::enabled(), 404);
         $pilot = PilotPhone::isPilot($request);
@@ -65,6 +70,9 @@ class PhoneLoginController extends Controller
             $eligible = $user?->phoneInvitedTeams()->exists();
         }
         $allowed = $pilot || $phone === config('services.phone_login.allowed_number');
+        $usesKudiSms = $pilot && str_starts_with($phone, PilotPhone::Countries['NG'])
+            && config('services.phone_login.nigerian_pilot_provider') === 'kudisms';
+        $provider = $usesKudiSms ? $kudisms : $infobip;
         $pinId = null;
         if ($eligible && $allowed) {
             $pinId = $pilot
@@ -73,16 +81,18 @@ class PhoneLoginController extends Controller
         }
         $request->session()->put('phone_challenge', [
             'phone' => $phone, 'pin' => $pinId, 'user' => $user?->id, 'invite' => $invite?->code,
-            'pilot' => $pilot, 'expires' => now()->addMinutes(5)->timestamp,
+            'pilot' => $pilot, 'provider' => $usesKudiSms ? 'kudisms' : 'infobip',
+            'expires' => now()->addMinutes($usesKudiSms ? KudiSmsVerification::LifetimeMinutes : self::DefaultCodeLifetimeMinutes)->timestamp,
         ]);
 
         return to_route('phone-login.show', array_filter(['invite' => $invite?->code]));
     }
 
-    public function verify(Request $request, InfobipVerification $provider, AcceptTeamInvitation $accept): LoginResponse|RedirectResponse
+    public function verify(Request $request, InfobipVerification $infobip, KudiSmsVerification $kudisms, AcceptTeamInvitation $accept): LoginResponse|RedirectResponse
     {
         abort_unless(InfobipVerification::enabled(), 404);
         $challenge = $request->session()->get('phone_challenge');
+        $provider = ($challenge['provider'] ?? null) === 'kudisms' ? $kudisms : $infobip;
         $data = $request->validate([
             'otp' => ['required', 'string', 'regex:/^[0-9]{6}$/D'],
             'name' => [($challenge['invite'] ?? null) ? 'required' : 'nullable', 'string', 'max:255'],

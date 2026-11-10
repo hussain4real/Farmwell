@@ -225,9 +225,18 @@ test('failed-job probe returns only the newest ID and refuses unexpected databas
     assert.equal(calls, 1);
 });
 
-test('only the web container receives trial verification credentials', async () => {
+test('only the web container receives phone verification credentials', async () => {
     const webStarts = [];
-    const env = { DB_URL: 'postgres://staging.example/test', PHONE_LOGIN_ENABLED: 'true', INFOBIP_API_KEY: 'example-key' };
+    const phoneBindings = {
+        PHONE_LOGIN_ENABLED: 'true',
+        INFOBIP_API_KEY: 'example-key',
+        PHONE_PILOT_NIGERIA_OTP_PROVIDER: 'kudisms',
+        KUDISMS_API_KEY: 'test-token',
+        KUDISMS_SENDER_ID: 'Farmwell',
+        KUDISMS_OTP_APP_CODE: 'test-app',
+        KUDISMS_OTP_TEMPLATE_CODE: 'test-template',
+    };
+    const env = { DB_URL: 'postgres://staging.example/test', ...phoneBindings };
     const container = {
         images: { base: 'test' }, running: false,
         start: ({ env }) => webStarts.push(env),
@@ -235,10 +244,12 @@ test('only the web container receives trial verification credentials', async () 
         getTcpPort: () => ({ fetch: async () => ({ ok: true }) }),
     };
     await new FarmwellWeb({ container, waitUntil() {} }, env).startAndWait();
-    assert.equal(webStarts[0].PHONE_LOGIN_ENABLED, 'true');
-    assert.equal(webStarts[0].INFOBIP_API_KEY, 'example-key');
     const sharedEnvironment = vm.runInNewContext(source + '\ncontainerEnvironment;', { DurableObject: class {}, URL });
-    assert.equal(sharedEnvironment(env).INFOBIP_API_KEY, undefined);
+
+    for (const [key, value] of Object.entries(phoneBindings)) {
+        assert.equal(webStarts[0][key], value);
+        assert.equal(sharedEnvironment(env)[key], undefined);
+    }
 });
 
 test('the pilot hostname only forwards SMS, assets and farm paths', async () => {

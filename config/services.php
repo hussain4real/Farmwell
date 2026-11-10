@@ -6,12 +6,19 @@ return [
         'provider' => env('PHONE_OTP_PROVIDER', 'infobip'),
         'allowed_number' => env('PHONE_OTP_ALLOWED_NUMBER'),
         'pilot_host' => env('PHONE_PILOT_HOST'),
+        'nigerian_pilot_provider' => env('PHONE_PILOT_NIGERIA_OTP_PROVIDER', 'infobip'),
     ],
     'infobip' => [
         'base_url' => env('INFOBIP_BASE_URL'),
         'key' => env('INFOBIP_API_KEY'),
         'application_id' => env('INFOBIP_2FA_APP_ID'),
         'message_id' => env('INFOBIP_2FA_MESSAGE_ID'),
+    ],
+    'kudisms' => [
+        'key' => env('KUDISMS_API_KEY'),
+        'sender' => env('KUDISMS_SENDER_ID', 'Farmwell'),
+        'application_code' => env('KUDISMS_OTP_APP_CODE'),
+        'template_code' => env('KUDISMS_OTP_TEMPLATE_CODE'),
     ],
 
     /*

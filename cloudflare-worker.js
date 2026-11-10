@@ -83,6 +83,11 @@ export class FarmwellWeb extends DurableObject {
                     INFOBIP_API_KEY: this.env.INFOBIP_API_KEY ?? '',
                     INFOBIP_2FA_APP_ID: this.env.INFOBIP_2FA_APP_ID ?? '',
                     INFOBIP_2FA_MESSAGE_ID: this.env.INFOBIP_2FA_MESSAGE_ID ?? '',
+                    PHONE_PILOT_NIGERIA_OTP_PROVIDER: this.env.PHONE_PILOT_NIGERIA_OTP_PROVIDER ?? 'infobip',
+                    KUDISMS_API_KEY: this.env.KUDISMS_API_KEY ?? '',
+                    KUDISMS_SENDER_ID: this.env.KUDISMS_SENDER_ID ?? 'Farmwell',
+                    KUDISMS_OTP_APP_CODE: this.env.KUDISMS_OTP_APP_CODE ?? '',
+                    KUDISMS_OTP_TEMPLATE_CODE: this.env.KUDISMS_OTP_TEMPLATE_CODE ?? '',
                 },
                 entrypoint: ['sh', '-c', 'exec apache2-foreground >>/tmp/farmwell-apache.log 2>&1'],
             });
