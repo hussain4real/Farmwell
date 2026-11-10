@@ -66,6 +66,8 @@ test('a farmer accepts a phone invitation then returns to the same farm without 
     $this->post($this->origin.'/login/phone/code', ['phone' => $phone])->assertSessionHasNoErrors();
     $this->post($this->origin.'/login/phone/verify', ['otp' => '123456'])->assertRedirect($this->origin.'/'.$team->slug.'/dashboard');
     $this->assertAuthenticatedAs($farmer);
+    $this->followingRedirects()->get($this->origin.'/')
+        ->assertInertia(fn (AssertableInertia $page) => $page->component('Dashboard'));
     $this->get($this->origin.'/'.$team->slug.'/finance')->assertOk();
     $other = Team::factory()->create();
     $other->members()->attach($farmer, ['role' => 'operator']);
