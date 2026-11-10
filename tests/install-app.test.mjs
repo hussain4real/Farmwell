@@ -31,6 +31,10 @@ function setup(standalone = false) {
     return { browser, banner, install, dismiss, offerInstall };
 }
 
+test('server rendering can initialize the entry without a browser', () => {
+    assert.doesNotThrow(initializeInstallPrompt);
+});
+
 test('an eligible browser can open its native installation prompt once', () => {
     const { banner, install, offerInstall } = setup();
     let calls = 0;

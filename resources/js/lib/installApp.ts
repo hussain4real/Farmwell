@@ -8,6 +8,10 @@ export function isStandaloneApp(): boolean {
 }
 
 export function initializeInstallPrompt(): void {
+    if (typeof window === 'undefined') {
+        return;
+    }
+
     const banner = document.getElementById('farmwell-install');
     const install = banner?.querySelector('[data-install]');
     const dismiss = banner?.querySelector('[data-dismiss]');
