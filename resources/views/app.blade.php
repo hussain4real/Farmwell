@@ -45,5 +45,27 @@
     </head>
     <body class="font-sans antialiased">
         <x-inertia::app />
+        <aside
+            id="farmwell-install"
+            aria-label="Install Farmwell"
+            hidden
+            class="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-40 mx-auto max-w-sm rounded-xl border bg-background p-4 text-foreground shadow-lg"
+        >
+            <div class="flex items-center gap-3">
+                <img src="/farmwell-192.png" alt="" width="40" height="40" class="rounded-lg">
+                <div>
+                    <p class="font-semibold">Install Farmwell</p>
+                    <p class="text-sm text-muted-foreground">Open it from your home screen.</p>
+                </div>
+            </div>
+            <div class="mt-3 flex justify-end gap-2">
+                <button type="button" data-dismiss class="rounded-md px-3 py-2 text-sm font-medium hover:bg-muted">
+                    Not now
+                </button>
+                <button type="button" data-install class="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+                    Install
+                </button>
+            </div>
+        </aside>
     </body>
 </html>

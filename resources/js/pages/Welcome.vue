@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { Head, Link, usePage } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { ClipboardList, Handshake, Sprout } from 'lucide-vue-next';
-import { computed } from 'vue';
+import { computed, onMounted } from 'vue';
+import { isStandaloneApp } from '@/lib/installApp';
 import { dashboard, login, register } from '@/routes';
 import { index as investorPortal } from '@/routes/investor-portal';
 
@@ -21,6 +22,12 @@ const homeUrl = computed(() => {
         !permissions.canViewInvestorAgreements
         ? investorPortal(team.slug).url
         : dashboard(team.slug).url;
+});
+
+onMounted(() => {
+    if (page.props.auth.user && page.props.currentTeam && isStandaloneApp()) {
+        router.visit(homeUrl.value, { replace: true });
+    }
 });
 </script>
 
