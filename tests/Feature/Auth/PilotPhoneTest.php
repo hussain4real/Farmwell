@@ -101,7 +101,9 @@ test('pilot exposes only the phone entry and resolves a locked country prefix', 
     $this->get($this->origin.'/register')->assertNotFound();
     $this->post($this->origin.'/login', ['email' => 'a@example.test', 'password' => 'guess'])->assertNotFound();
     $this->get($this->origin.'/two-factor-challenge')->assertForbidden();
-    $this->get($this->origin.'/login/phone')->assertInertia(fn (AssertableInertia $p) => $p->where('callingCode', '+234'));
+    $this->get($this->origin.'/login/phone')
+        ->assertSee('<link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials">', false)
+        ->assertInertia(fn (AssertableInertia $p) => $p->where('callingCode', '+234'));
     $this->get($this->origin.'/login/phone?country=QA')->assertInertia(fn (AssertableInertia $p) => $p->where('callingCode', '+974'));
     $this->withHeader('CF-IPCountry', 'QA')->get($this->origin.'/login/phone')->assertInertia(fn (AssertableInertia $p) => $p->where('callingCode', '+974'));
 });

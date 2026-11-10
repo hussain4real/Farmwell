@@ -214,7 +214,7 @@ export default {
             const url = new URL(request.url);
 
             if (url.hostname !== new URL(env.APP_URL).hostname) {
-                const publicPage = /^\/(?:|login(?:\/phone(?:\/(?:code|verify))?)?|logout|two-factor-challenge|favicon\.(?:ico|svg)|apple-touch-icon\.png)$/;
+                const publicPage = /^\/(?:|login(?:\/phone(?:\/(?:code|verify))?)?|logout|two-factor-challenge|favicon\.(?:ico|svg)|apple-touch-icon\.png|manifest\.webmanifest|farmwell-(?:192|512)\.png)$/;
                 const asset = /^\/build\/(?:assets|fonts)\/[a-zA-Z0-9_.-]+$/;
                 const farmPage = /^\/[a-zA-Z0-9_-]+\/(?:dashboard|field-diary|farm-activities|farm-tasks|evidence|farms|finance|harvests|investors|investor-portal|investor-evidence|investor-agreements|ai-summaries|whatsapp-intakes|commodities)(?:\/[a-zA-Z0-9_-]+)*$/;
 
