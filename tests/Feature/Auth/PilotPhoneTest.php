@@ -4,6 +4,7 @@ use App\Enums\TeamRole;
 use App\Models\Team;
 use App\Models\TeamInvitation;
 use App\Models\User;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Inertia\Testing\AssertableInertia;
 
@@ -11,39 +12,88 @@ beforeEach(function () {
     config(['services.phone_login.enabled' => true, 'services.phone_login.pilot_host' => 'pilot.test', 'inertia.ssr.enabled' => false]);
     $this->origin = 'https://pilot.test';
     $this->phone = '+2348012345678';
-    Http::fake(['*/pin?*' => Http::response(['smsStatus' => 'MESSAGE_SENT', 'pinId' => 'pin']), '*/verify' => Http::response(['verified' => true])]);
+    Http::preventStrayRequests()->fake([
+        'https://trial.api.infobip.com/2fa/2/pin?*' => Http::response(['smsStatus' => 'MESSAGE_SENT', 'pinId' => 'pin']),
+        'https://trial.api.infobip.com/2fa/2/pin/pin/verify' => Http::response(['verified' => true]),
+    ]);
     config(['services.infobip.base_url' => 'https://trial.api.infobip.com']);
 });
 
-test('a farmer accepts a phone invitation then returns to the same farm without email', function () {
+test('a farmer accepts a phone invitation then returns to the same farm without email', function (string $phone, string $provider) {
+    config([
+        'services.phone_login.nigerian_pilot_provider' => 'kudisms',
+        'services.kudisms.key' => 'fake-key',
+        'services.kudisms.application_code' => 'fake-app',
+        'services.kudisms.template_code' => 'fake-template',
+    ]);
+    Http::fake([
+        'https://my.kudisms.net/api/sendotp' => Http::sequence()
+            ->push(['status' => 'success', 'error_code' => '000', 'verification_id' => 'join-id'])
+            ->push(['status' => 'success', 'error_code' => '000', 'verification_id' => 'return-id']),
+        'https://my.kudisms.net/api/verifyotp' => Http::sequence()
+            ->push(['status' => 'error', 'error_code' => '003'])
+            ->push(['status' => 'success', 'error_code' => '000', 'verification_id' => 'join-id'])
+            ->push(['status' => 'success', 'error_code' => '000', 'verification_id' => 'return-id']),
+    ]);
+
     $team = Team::factory()->create();
     $owner = User::factory()->create();
     $team->members()->attach($owner, ['role' => 'owner']);
-    $this->actingAs($owner)->post(route('teams.invitations.store', $team), ['phone' => $this->phone, 'role' => 'operator'])->assertSessionHasNoErrors();
+    $this->actingAs($owner)->post(route('teams.invitations.store', $team), ['phone' => $phone, 'role' => 'admin'])->assertSessionHasNoErrors();
     $invite = $team->invitations()->firstOrFail();
     $link = $this->origin.'/login/phone?invite='.$invite->code;
     $this->get(route('teams.edit', $team))->assertInertia(fn (AssertableInertia $page) => $page->where('invitations.0.phone_url', $link));
     $this->post(route('logout'));
 
     $this->withHeader('CF-IPCountry', 'QA')->get($link)->assertInertia(fn (AssertableInertia $page) => $page
-        ->component('auth/PhoneLogin')->where('callingCode', '+234')->where('pilot', true));
-    $this->post($this->origin.'/login/phone/code', ['phone' => $this->phone, 'invite' => $invite->code])->assertSessionHasNoErrors();
+        ->component('auth/PhoneLogin')->where('callingCode', substr($phone, 0, 4))->where('pilot', true));
+    $this->post($this->origin.'/login/phone/code', ['phone' => $phone, 'invite' => $invite->code])->assertSessionHasNoErrors();
+    $this->get($link)->assertInertia(fn (AssertableInertia $page) => $page
+        ->where('awaitingCode', true)->where('codeLifetimeMinutes', $provider === 'kudisms' ? 10 : 5));
+    if ($provider === 'kudisms') {
+        $this->travel(6)->minutes();
+        $this->post($this->origin.'/login/phone/verify', ['name' => 'Pilot Farmer', 'otp' => '000001'])->assertSessionHasErrors('otp');
+        $this->assertGuest();
+        expect($invite->refresh()->isPending())->toBeTrue();
+    }
     $this->post($this->origin.'/login/phone/verify', ['name' => 'Pilot Farmer', 'otp' => '123456'])
-        ->assertRedirect($this->origin.'/'.$team->slug.'/dashboard')->assertCookie('phone_country', 'NG');
-    $farmer = User::where('phone', $this->phone)->firstOrFail();
+        ->assertRedirect($this->origin.'/'.$team->slug.'/dashboard')->assertCookie('phone_country', $provider === 'kudisms' ? 'NG' : 'QA');
+    $farmer = User::where('phone', $phone)->firstOrFail();
     expect($farmer->email)->toBeNull()->and($invite->refresh()->isAccepted())->toBeTrue();
     $this->get($this->origin.'/'.$team->slug.'/field-diary')->assertOk();
     $this->post($this->origin.'/logout');
     $this->travel(61)->seconds();
-    $this->post($this->origin.'/login/phone/code', ['phone' => $this->phone])->assertSessionHasNoErrors();
+    $this->post($this->origin.'/login/phone/code', ['phone' => $phone])->assertSessionHasNoErrors();
     $this->post($this->origin.'/login/phone/verify', ['otp' => '123456'])->assertRedirect($this->origin.'/'.$team->slug.'/dashboard');
     $this->assertAuthenticatedAs($farmer);
+    $this->get($this->origin.'/'.$team->slug.'/finance')->assertOk();
     $other = Team::factory()->create();
     $other->members()->attach($farmer, ['role' => 'operator']);
     $this->get($this->origin.'/'.$other->slug.'/field-diary')->assertForbidden();
+    $this->get($this->origin.'/'.$other->slug.'/finance')->assertForbidden();
     $team->members()->detach($farmer);
     $this->get($this->origin.'/'.$team->slug.'/field-diary')->assertForbidden();
-});
+    if ($provider === 'kudisms') {
+        Http::assertSentCount(5);
+        Http::assertSent(fn ($request) => $request->url() === 'https://my.kudisms.net/api/sendotp'
+            && str_starts_with($request->header('Content-Type')[0], 'multipart/form-data;')
+            && collect($request->data())->pluck('contents', 'name')->all() === [
+                'token' => 'fake-key', 'senderID' => 'Farmwell', 'recipients' => substr($phone, 1),
+                'appnamecode' => 'fake-app', 'templatecode' => 'fake-template', 'otp_type' => 'NUMERIC',
+                'otp_length' => 6, 'otp_duration' => 10, 'otp_attempts' => 2, 'channel' => 'sms',
+            ]);
+        Http::assertSent(fn ($request) => $request->url() === 'https://my.kudisms.net/api/verifyotp'
+            && collect($request->data())->pluck('contents', 'name')->all() === [
+                'token' => 'fake-key', 'verification_id' => 'return-id', 'otp' => '123456',
+            ]);
+    } else {
+        Http::assertSentCount(4);
+        Http::assertSent(fn ($request) => str_starts_with($request->url(), 'https://trial.api.infobip.com/2fa/2/pin?'));
+    }
+})->with([
+    'Nigeria with KudiSMS' => ['+2348012345678', 'kudisms'],
+    'Qatar with Infobip' => ['+97450123456', 'infobip'],
+]);
 
 test('pilot exposes only the phone entry and resolves a locked country prefix', function () {
     $this->get($this->origin.'/')->assertRedirect($this->origin.'/login/phone');
@@ -55,6 +105,27 @@ test('pilot exposes only the phone entry and resolves a locked country prefix', 
     $this->get($this->origin.'/login/phone?country=QA')->assertInertia(fn (AssertableInertia $p) => $p->where('callingCode', '+974'));
     $this->withHeader('CF-IPCountry', 'QA')->get($this->origin.'/login/phone')->assertInertia(fn (AssertableInertia $p) => $p->where('callingCode', '+974'));
 });
+
+test('KudiSMS failures do not leave a sign-in challenge', function (string $failure) {
+    config([
+        'services.phone_login.nigerian_pilot_provider' => 'kudisms',
+        'services.kudisms.key' => $failure === 'missing-key' ? null : 'fake-key',
+        'services.kudisms.application_code' => $failure === 'missing-app' ? null : 'fake-app',
+        'services.kudisms.template_code' => 'fake-template',
+    ]);
+    Http::fake(['https://my.kudisms.net/api/sendotp' => fn () => match ($failure) {
+        'connection' => throw new ConnectionException,
+        'http-error' => Http::response([], 503),
+        'invalid-json' => Http::response('provider unavailable'),
+        'missing-id' => Http::response(['status' => 'success', 'error_code' => '000']),
+    }]);
+    $invite = TeamInvitation::factory()->create(['phone' => $this->phone, 'email' => null]);
+
+    $this->post($this->origin.'/login/phone/code', ['phone' => $this->phone, 'invite' => $invite->code])
+        ->assertSessionHasErrors('service')->assertSessionMissing('phone_challenge');
+    $this->assertGuest();
+    expect($invite->refresh()->isPending())->toBeTrue();
+})->with(['missing-key', 'missing-app', 'connection', 'http-error', 'invalid-json', 'missing-id']);
 
 test('pilot rejects malformed national numbers before creating an SMS challenge', function (string $number) {
     $this->post($this->origin.'/login/phone/code', ['phone' => $number])

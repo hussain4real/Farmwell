@@ -2,6 +2,7 @@
 import { Form, Head, router } from '@inertiajs/vue3';
 import { ChevronDown, Mail, UserPlus, X } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
+import { toast } from 'vue-sonner';
 import CancelInvitationModal from '@/components/CancelInvitationModal.vue';
 import DeleteTeamModal from '@/components/DeleteTeamModal.vue';
 import Heading from '@/components/Heading.vue';
@@ -94,6 +95,21 @@ const confirmRemoveMember = (member: TeamMember) => {
 const confirmCancelInvitation = (invitation: TeamInvitation) => {
     invitationToCancel.value = invitation;
     cancelInvitationDialogOpen.value = true;
+};
+
+const copyInvitationLink = async (url: string | null | undefined) => {
+    if (!url) {
+        return;
+    }
+
+    try {
+        await navigator.clipboard.writeText(url);
+        toast.success('Invitation link copied.');
+    } catch {
+        toast.error(
+            'Could not copy the link. Select the link to copy it manually.',
+        );
+    }
 };
 </script>
 
@@ -270,7 +286,7 @@ const confirmCancelInvitation = (invitation: TeamInvitation) => {
                     v-for="invitation in invitations"
                     :key="invitation.code"
                     data-test="invitation-row"
-                    class="flex items-center justify-between rounded-lg border p-4"
+                    class="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4"
                 >
                     <div class="flex items-center gap-4">
                         <div
@@ -291,22 +307,35 @@ const confirmCancelInvitation = (invitation: TeamInvitation) => {
                     <div
                         v-if="
                             invitation.phone &&
+                            invitation.phone_url &&
                             phoneLoginEnabled &&
                             permissions.canCreateInvitation
                         "
-                        class="grid gap-1"
+                        class="order-last grid w-full min-w-0 gap-1 sm:order-none sm:w-auto sm:flex-1"
                     >
                         <Label :for="'share-' + invitation.code"
                             >Invitation link</Label
                         >
-                        <Input
-                            :id="'share-' + invitation.code"
-                            readonly
-                            :value="invitation.phone_url ?? undefined"
-                            @focus="
-                                ($event.target as HTMLInputElement).select()
-                            "
-                        />
+                        <div class="flex gap-2">
+                            <Input
+                                :id="'share-' + invitation.code"
+                                readonly
+                                :model-value="invitation.phone_url"
+                                @focus="
+                                    ($event.target as HTMLInputElement).select()
+                                "
+                            />
+                            <Button
+                                type="button"
+                                variant="outline"
+                                class="shrink-0"
+                                @click="
+                                    copyInvitationLink(invitation.phone_url)
+                                "
+                            >
+                                Copy link
+                            </Button>
+                        </div>
                     </div>
                     <TooltipProvider v-if="permissions.canCancelInvitation">
                         <Tooltip>

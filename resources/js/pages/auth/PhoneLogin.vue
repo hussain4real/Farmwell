@@ -20,6 +20,7 @@ defineProps<{
     invite: string | null;
     teamName: string | null;
     awaitingCode: boolean;
+    codeLifetimeMinutes: number;
     callingCode: string;
     pilot: boolean;
     countries: Record<string, string>;
@@ -62,7 +63,7 @@ const codeLength = 6;
         <template v-else>
             <p class="text-sm text-muted-foreground">
                 If your number is eligible, you’ll receive a six-digit code. It
-                expires in five minutes.
+                expires in {{ codeLifetimeMinutes }} minutes.
             </p>
             <Form
                 v-bind="verify.form()"
