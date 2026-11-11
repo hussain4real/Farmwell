@@ -78,3 +78,8 @@ jobs:
         run: |
           docker run --rm -i --entrypoint sh farmwell-queue-test \
             -c 'cat > /tmp/queue-timeout-image.php && php /tmp/queue-timeout-image.php' < tests/queue-timeout-image.php
+
+      - name: Verify multipart upload limits in Apache
+        run: |
+          docker run --rm --network none -i --entrypoint node farmwell-queue-test \
+            --input-type=module < tests/upload-limits-image.mjs

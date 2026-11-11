@@ -28,5 +28,7 @@ RUN cd /var/www/html && ln -s /app/node_modules node_modules \
     && php artisan wayfinder:generate --with-form --no-interaction \
     && /app/node_modules/.bin/vite build \
     && rm node_modules
+RUN printf 'upload_max_filesize=10M\npost_max_size=64M\ndisplay_errors=Off\nlog_errors=On\n' \
+    > /usr/local/etc/php/conf.d/farmwell-uploads.ini
 EXPOSE 80
 CMD ["apache2-foreground"]
