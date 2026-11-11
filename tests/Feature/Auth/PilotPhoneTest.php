@@ -233,11 +233,27 @@ test('pilot preserves an invited farmer’s authenticator challenge', function (
     $this->get($this->origin.'/'.$invite->team->slug.'/field-diary')->assertOk();
 });
 
-test('eligible pilot recipients have a daily SMS limit across sessions', function () {
-    $invite = TeamInvitation::factory()->create(['phone' => $this->phone, 'email' => null]);
-    for ($i = 0; $i < 6; $i++) {
-        $this->post($this->origin.'/login/phone/code', ['phone' => $this->phone, 'invite' => $invite->code])->assertSessionHasNoErrors();
-        $this->travel(61)->seconds();
+test('eligible pilot recipients have a configurable daily SMS limit and a one-minute cooldown', function (?int $configuredLimit, int $expectedLimit) {
+    if ($configuredLimit !== null) {
+        config(['services.phone_login.pilot_sms_daily_limit' => $configuredLimit]);
     }
-    Http::assertSentCount(5);
-});
+
+    $invite = TeamInvitation::factory()->create(['phone' => $this->phone, 'email' => null]);
+    $url = $this->origin.'/login/phone/code';
+    $payload = ['phone' => $this->phone, 'invite' => $invite->code];
+
+    $this->post($url, $payload)->assertSessionHasNoErrors();
+    $this->travel(59)->seconds();
+    $this->post($url, $payload)->assertSessionHasErrors(['phone' => 'Wait a minute before requesting another code.']);
+    Http::assertSentCount(1);
+    $this->travel(1)->seconds();
+
+    for ($attempt = 2; $attempt <= $expectedLimit + 1; $attempt++) {
+        $this->post($url, $payload)->assertSessionHasNoErrors();
+        $this->travel(60)->seconds();
+    }
+    Http::assertSentCount($expectedLimit);
+})->with([
+    'default' => [null, 5],
+    'staging override' => [10, 10],
+]);
