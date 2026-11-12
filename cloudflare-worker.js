@@ -77,6 +77,7 @@ export class FarmwellWeb extends DurableObject {
                 env: {
                     ...containerEnvironment(this.env),
                     PHONE_PILOT_HOST: this.env.PHONE_PILOT_HOST ?? '',
+                    PHONE_PILOT_SMS_DAILY_LIMIT: this.env.PHONE_PILOT_SMS_DAILY_LIMIT ?? '5',
                     PHONE_LOGIN_ENABLED: this.env.PHONE_LOGIN_ENABLED ?? 'false',
                     PHONE_OTP_ALLOWED_NUMBER: this.env.PHONE_OTP_ALLOWED_NUMBER ?? '',
                     INFOBIP_BASE_URL: this.env.INFOBIP_BASE_URL ?? '',

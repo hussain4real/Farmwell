@@ -76,7 +76,7 @@ class PhoneLoginController extends Controller
         $pinId = null;
         if ($eligible && $allowed) {
             $pinId = $pilot
-                ? RateLimiter::attempt('pilot-sms:'.hash('sha256', $phone), 5, fn () => $provider->send($phone), 86400)
+                ? RateLimiter::attempt('pilot-sms:'.hash('sha256', $phone), (int) config('services.phone_login.pilot_sms_daily_limit'), fn () => $provider->send($phone), 86400)
                 : $provider->send($phone);
         }
         $request->session()->put('phone_challenge', [

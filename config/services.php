@@ -6,6 +6,7 @@ return [
         'provider' => env('PHONE_OTP_PROVIDER', 'infobip'),
         'allowed_number' => env('PHONE_OTP_ALLOWED_NUMBER'),
         'pilot_host' => env('PHONE_PILOT_HOST'),
+        'pilot_sms_daily_limit' => (int) env('PHONE_PILOT_SMS_DAILY_LIMIT', 5),
         'nigerian_pilot_provider' => env('PHONE_PILOT_NIGERIA_OTP_PROVIDER', 'infobip'),
     ],
     'infobip' => [

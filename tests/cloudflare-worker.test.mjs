@@ -225,10 +225,11 @@ test('failed-job probe returns only the newest ID and refuses unexpected databas
     assert.equal(calls, 1);
 });
 
-test('only the web container receives phone verification credentials', async () => {
+test('only the web container receives phone verification settings and credentials', async () => {
     const webStarts = [];
     const phoneBindings = {
         PHONE_LOGIN_ENABLED: 'true',
+        PHONE_PILOT_SMS_DAILY_LIMIT: '10',
         INFOBIP_API_KEY: 'example-key',
         PHONE_PILOT_NIGERIA_OTP_PROVIDER: 'kudisms',
         KUDISMS_API_KEY: 'test-token',
