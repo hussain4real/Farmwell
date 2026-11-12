@@ -307,9 +307,23 @@ watch(activityFarmId, () => {
                         name="evidence[]"
                         type="file"
                         multiple
+                        accept=".jpg,.jpeg,.png,.webp,.pdf,.doc,.docx"
+                        aria-describedby="activity-evidence-help"
                     />
+                    <p
+                        id="activity-evidence-help"
+                        class="text-sm text-muted-foreground"
+                    >
+                        Up to 5 files, 10 MB each. JPG, PNG, WebP, PDF, or Word.
+                    </p>
                     <InputError :message="errors.evidence" />
-                    <InputError :message="errors['evidence.0']" />
+                    <InputError
+                        v-for="[field, message] in Object.entries(
+                            errors,
+                        ).filter(([field]) => field.startsWith('evidence.'))"
+                        :key="field"
+                        :message="message"
+                    />
                 </div>
                 <div class="grid gap-2">
                     <Label for="activity-evidence-caption">Caption</Label>

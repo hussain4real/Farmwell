@@ -515,6 +515,39 @@ test('phase three validation keeps field records scoped to the current team and 
         ->assertNotFound();
 });
 
+test('diary photo uploads accept the advertised size and reject oversized evidence without saving a partial entry', function () {
+    Storage::fake('farmwell_private');
+    [$operator, $team, $farm] = farmwellPhaseThreeContext(TeamRole::Operator);
+    $attributes = [
+        'farm_id' => $farm->id,
+        'activity_date' => '2026-11-11',
+        'activity_type' => 'Inspection',
+        'description' => 'Phone photo upload regression.',
+    ];
+
+    $this->actingAs($operator)->post(farmwellPhaseThreeRoute('farm-activities.store', $team), [
+        ...$attributes,
+        'evidence' => [
+            UploadedFile::fake()->image('phone.jpg')->size(6 * 1024),
+            UploadedFile::fake()->image('large.jpg')->size(10 * 1024),
+        ],
+    ])->assertSessionHasNoErrors()->assertRedirect(farmwellPhaseThreeRoute('field-diary.index', $team));
+
+    $activity = FarmActivity::query()->sole();
+    expect($activity->getMedia(FarmActivity::EvidenceCollection))->toHaveCount(2);
+
+    $this->post(farmwellPhaseThreeRoute('farm-activities.store', $team), [
+        ...$attributes,
+        'evidence' => [
+            UploadedFile::fake()->image('valid.jpg'),
+            UploadedFile::fake()->image('too-large.jpg')->size(10 * 1024 + 1),
+        ],
+    ])->assertSessionHasErrors('evidence.1');
+
+    expect(FarmActivity::query()->count())->toBe(1);
+    expect($activity->fresh()->getMedia(FarmActivity::EvidenceCollection))->toHaveCount(2);
+});
+
 test('field operators can submit photo evidence without finance or team administration access', function () {
     Storage::fake('farmwell_private');
     [$operator, $team, $farm, $unit, $cycle, $commodity] = farmwellPhaseThreeContext(TeamRole::Operator);
