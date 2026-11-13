@@ -36,9 +36,12 @@ SELECT EXISTS(SELECT 1 FROM teams WHERE slug = :'team' AND deleted_at IS NULL) A
 SELECT json_build_object(
     'team_id', t.id,
     'members', (SELECT count(*) FROM team_members WHERE team_id = t.id),
+    'memberships', (SELECT json_agg(json_build_object('user_id', u.id, 'role', tm.role, 'phone_verified', to_jsonb(u)->>'phone_verified_at' IS NOT NULL) ORDER BY u.id) FROM team_members tm JOIN users u ON u.id = tm.user_id WHERE tm.team_id = t.id),
     'verified_phone_members', (SELECT count(*) FROM team_members tm JOIN users u ON u.id = tm.user_id WHERE tm.team_id = t.id AND to_jsonb(u)->>'phone' IS NOT NULL AND to_jsonb(u)->>'phone_verified_at' IS NOT NULL),
     'farms', (SELECT count(*) FROM farms WHERE team_id = t.id),
     'activities', (SELECT count(*) FROM farm_activities WHERE team_id = t.id),
+    'activity_ids', (SELECT json_agg(id ORDER BY id) FROM farm_activities WHERE team_id = t.id),
+    'photo_ids', (SELECT json_agg(m.id ORDER BY m.id) FROM media m JOIN farm_activities a ON a.id = m.model_id WHERE m.model_type = 'App\Models\FarmActivity' AND m.collection_name = 'evidence' AND m.mime_type LIKE 'image/%' AND a.team_id = t.id),
     'diary_photos', (SELECT count(*) FROM media m JOIN farm_activities a ON a.id = m.model_id WHERE m.model_type = 'App\Models\FarmActivity' AND m.collection_name = 'evidence' AND m.mime_type LIKE 'image/%' AND a.team_id = t.id)
 ) FROM teams t WHERE t.slug = :'team';
 \else
