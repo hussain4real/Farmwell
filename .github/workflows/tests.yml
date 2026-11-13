@@ -65,6 +65,9 @@ jobs:
       - name: Restore a synthetic encrypted staging backup
         run: bash tests/backup-restore.sh
 
+      - name: Rehearse a tenant-isolated pilot migration
+        run: bash tests/team-migration.sh
+
       - name: Quality Gate
         run: composer ci:check
 

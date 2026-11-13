@@ -251,6 +251,11 @@ test('only the web container receives phone verification settings and credential
         assert.equal(webStarts[0][key], value);
         assert.equal(sharedEnvironment(env)[key], undefined);
     }
+
+    await new FarmwellWeb({ container, waitUntil() {} }, { ...env, REHEARSAL_MODE: 'true' }).startAndWait();
+    assert.equal(webStarts[1].PHONE_LOGIN_ENABLED, 'false');
+    assert.equal(webStarts[1].INFOBIP_API_KEY, '');
+    assert.equal(webStarts[1].KUDISMS_API_KEY, '');
 });
 
 test('the pilot hostname only forwards SMS, assets and farm paths', async () => {
@@ -271,4 +276,47 @@ test('the pilot hostname only forwards SMS, assets and farm paths', async () => 
 
     assert.equal((await worker.fetch(new Request('https://other.example/login/phone'), env)).status, 404);
     assert.equal(await (await worker.fetch(new Request('https://staging.example/register'), env)).text(), 'forwarded');
+});
+
+test('production rehearsal denies public access and mutations and strips its private credential', async () => {
+    const worker = vm.runInNewContext(`${source}\nworker;`, { URL, Request, Response, DurableObject: class {} });
+    let forwarded = 0;
+    const env = {
+        REHEARSAL_MODE: 'true', REHEARSAL_TOKEN: 'private-test-token',
+        CF_VERSION_METADATA: { id: 'rehearsal' },
+        FARMWELL_WEB: {
+            idFromName: (name) => name,
+            get: () => ({ ready: async () => {}, fetch: async (request) => {
+                assert.equal(request.headers.has('x-farmwell-rehearsal'), false);
+                forwarded++;
+
+                return new Response('private app');
+            } }),
+        },
+    };
+
+    for (const request of [
+        new Request('https://preview.test/login'),
+        new Request('https://preview.test/login', { headers: { 'x-farmwell-rehearsal': 'wrong' } }),
+        new Request('https://preview.test/login', { method: 'POST', headers: { 'x-farmwell-rehearsal': 'private-test-token' } }),
+    ]) {
+        assert.equal((await worker.fetch(request, env)).status, 403);
+    }
+
+    assert.equal(forwarded, 0);
+    assert.equal((await worker.fetch(new Request('https://preview.test/login', { headers: { 'x-farmwell-rehearsal': 'private-test-token' } }), env)).status, 200);
+    assert.equal(forwarded, 1);
+    assert.equal((await worker.fetch(new Request('https://preview.test/login'), { REHEARSAL_MODE: 'true' })).status, 403);
+    await worker.scheduled({}, { REHEARSAL_MODE: 'true' });
+});
+
+test('rehearsal containers suppress mail and AI credentials without changing staging cookies', () => {
+    const environment = vm.runInNewContext(`${source}\ncontainerEnvironment;`, { URL, DurableObject: class {} });
+    const settings = { DB_URL: 'postgres://db.example/test', OPENAI_API_KEY: 'do-not-use', CLOUDFLARE_KEY: 'do-not-use' };
+    assert.equal('SESSION_COOKIE' in environment(settings), false);
+    const result = environment({ ...settings, REHEARSAL_MODE: 'true', SESSION_COOKIE: 'production-cookie' });
+    assert.equal(result.MAIL_MAILER, 'array');
+    assert.equal(result.OPENAI_API_KEY, '');
+    assert.equal(result.CLOUDFLARE_KEY, '');
+    assert.equal(result.SESSION_COOKIE, 'production-cookie');
 });

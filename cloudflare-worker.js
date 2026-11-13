@@ -5,7 +5,7 @@ function containerEnvironment(env) {
     databaseUrl.hostname = databaseUrl.hostname.replace('-pooler.', '.');
 
     return {
-        APP_NAME: 'Farmwell Staging',
+        APP_NAME: env.APP_NAME ?? 'Farmwell Staging',
         APP_ENV: 'production',
         APP_DEBUG: 'false',
         APP_TRUSTED_PROXIES: '*',
@@ -15,6 +15,7 @@ function containerEnvironment(env) {
         DB_URL: databaseUrl.toString(),
         SESSION_DRIVER: 'database',
         SESSION_SECURE_COOKIE: 'true',
+        ...(env.SESSION_COOKIE ? { SESSION_COOKIE: env.SESSION_COOKIE } : {}),
         CACHE_STORE: 'database',
         QUEUE_CONNECTION: 'database',
         FARMWELL_PRIVATE_DISK: 'r2',
@@ -23,12 +24,12 @@ function containerEnvironment(env) {
         AWS_DEFAULT_REGION: 'auto',
         AWS_ENDPOINT: env.AWS_ENDPOINT,
         AWS_BUCKET: env.AWS_BUCKET,
-        MAIL_MAILER: 'cloudflare',
+        MAIL_MAILER: env.REHEARSAL_MODE === 'true' ? 'array' : 'cloudflare',
         CLOUDFLARE_ACCOUNT_ID: env.CLOUDFLARE_ACCOUNT_ID,
-        CLOUDFLARE_KEY: env.CLOUDFLARE_KEY,
+        CLOUDFLARE_KEY: env.REHEARSAL_MODE === 'true' ? '' : env.CLOUDFLARE_KEY,
         MAIL_FROM_ADDRESS: 'noreply@staging-mail.farmwell.app',
-        MAIL_FROM_NAME: 'Farmwell Staging',
-        OPENAI_API_KEY: env.OPENAI_API_KEY,
+        MAIL_FROM_NAME: env.APP_NAME ?? 'Farmwell Staging',
+        OPENAI_API_KEY: env.REHEARSAL_MODE === 'true' ? '' : env.OPENAI_API_KEY,
         AI_PROVIDER: 'openai',
         OPENAI_STORE: 'false',
         LOG_CHANNEL: 'stderr',
@@ -78,14 +79,14 @@ export class FarmwellWeb extends DurableObject {
                     ...containerEnvironment(this.env),
                     PHONE_PILOT_HOST: this.env.PHONE_PILOT_HOST ?? '',
                     PHONE_PILOT_SMS_DAILY_LIMIT: this.env.PHONE_PILOT_SMS_DAILY_LIMIT ?? '5',
-                    PHONE_LOGIN_ENABLED: this.env.PHONE_LOGIN_ENABLED ?? 'false',
+                    PHONE_LOGIN_ENABLED: this.env.REHEARSAL_MODE === 'true' ? 'false' : (this.env.PHONE_LOGIN_ENABLED ?? 'false'),
                     PHONE_OTP_ALLOWED_NUMBER: this.env.PHONE_OTP_ALLOWED_NUMBER ?? '',
                     INFOBIP_BASE_URL: this.env.INFOBIP_BASE_URL ?? '',
-                    INFOBIP_API_KEY: this.env.INFOBIP_API_KEY ?? '',
+                    INFOBIP_API_KEY: this.env.REHEARSAL_MODE === 'true' ? '' : (this.env.INFOBIP_API_KEY ?? ''),
                     INFOBIP_2FA_APP_ID: this.env.INFOBIP_2FA_APP_ID ?? '',
                     INFOBIP_2FA_MESSAGE_ID: this.env.INFOBIP_2FA_MESSAGE_ID ?? '',
                     PHONE_PILOT_NIGERIA_OTP_PROVIDER: this.env.PHONE_PILOT_NIGERIA_OTP_PROVIDER ?? 'infobip',
-                    KUDISMS_API_KEY: this.env.KUDISMS_API_KEY ?? '',
+                    KUDISMS_API_KEY: this.env.REHEARSAL_MODE === 'true' ? '' : (this.env.KUDISMS_API_KEY ?? ''),
                     KUDISMS_SENDER_ID: this.env.KUDISMS_SENDER_ID ?? 'Farmwell',
                     KUDISMS_OTP_APP_CODE: this.env.KUDISMS_OTP_APP_CODE ?? '',
                     KUDISMS_OTP_TEMPLATE_CODE: this.env.KUDISMS_OTP_TEMPLATE_CODE ?? '',
@@ -211,6 +212,15 @@ export class FarmwellQueue extends DurableObject {
 
 export default {
     async fetch(request, env) {
+        if (env.REHEARSAL_MODE === 'true') {
+            if (!env.REHEARSAL_TOKEN || request.headers.get('x-farmwell-rehearsal') !== env.REHEARSAL_TOKEN || !['GET', 'HEAD'].includes(request.method)) {
+                return new Response('Production rehearsal is private', { status: 403 });
+            }
+
+            request = new Request(request);
+            request.headers.delete('x-farmwell-rehearsal');
+        }
+
         if (env.APP_URL) {
             const url = new URL(request.url);
 
@@ -258,6 +268,10 @@ export default {
         }
     },
     async scheduled(_event, env) {
+        if (env.REHEARSAL_MODE === 'true') {
+            return;
+        }
+
         await env.FARMWELL_QUEUE.getByName(
             `staging-queue-${env.CF_VERSION_METADATA.id}`,
             { locationHint: 'weur' },
