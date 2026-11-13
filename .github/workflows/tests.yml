@@ -59,8 +59,14 @@ jobs:
           node --experimental-strip-types --test tests/summary-review-text.test.mjs
           node --test tests/font-build.test.mjs
 
-      - name: Restore a Farmwell backup into an isolated PostgreSQL cluster
+      - name: Install PostgreSQL 18 backup and restore tools
+        run: bash .github/scripts/setup-backup-postgres.sh
+
+      - name: Restore a synthetic encrypted staging backup
         run: bash tests/backup-restore.sh
+
+      - name: Rehearse a tenant-isolated pilot migration
+        run: bash tests/team-migration.sh
 
       - name: Quality Gate
         run: composer ci:check
