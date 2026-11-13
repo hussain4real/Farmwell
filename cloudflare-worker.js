@@ -27,7 +27,7 @@ function containerEnvironment(env) {
         MAIL_MAILER: env.REHEARSAL_MODE === 'true' ? 'array' : 'cloudflare',
         CLOUDFLARE_ACCOUNT_ID: env.CLOUDFLARE_ACCOUNT_ID,
         CLOUDFLARE_KEY: env.REHEARSAL_MODE === 'true' ? '' : env.CLOUDFLARE_KEY,
-        MAIL_FROM_ADDRESS: 'noreply@staging-mail.farmwell.app',
+        MAIL_FROM_ADDRESS: env.MAIL_FROM_ADDRESS ?? 'noreply@staging-mail.farmwell.app',
         MAIL_FROM_NAME: env.APP_NAME ?? 'Farmwell Staging',
         OPENAI_API_KEY: env.REHEARSAL_MODE === 'true' ? '' : env.OPENAI_API_KEY,
         AI_PROVIDER: 'openai',

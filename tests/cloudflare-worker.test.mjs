@@ -314,9 +314,10 @@ test('rehearsal containers suppress mail and AI credentials without changing sta
     const environment = vm.runInNewContext(`${source}\ncontainerEnvironment;`, { URL, DurableObject: class {} });
     const settings = { DB_URL: 'postgres://db.example/test', OPENAI_API_KEY: 'do-not-use', CLOUDFLARE_KEY: 'do-not-use' };
     assert.equal('SESSION_COOKIE' in environment(settings), false);
-    const result = environment({ ...settings, REHEARSAL_MODE: 'true', SESSION_COOKIE: 'production-cookie' });
+    const result = environment({ ...settings, REHEARSAL_MODE: 'true', SESSION_COOKIE: 'production-cookie', MAIL_FROM_ADDRESS: 'noreply@mail.example.test' });
     assert.equal(result.MAIL_MAILER, 'array');
     assert.equal(result.OPENAI_API_KEY, '');
     assert.equal(result.CLOUDFLARE_KEY, '');
     assert.equal(result.SESSION_COOKIE, 'production-cookie');
+    assert.equal(result.MAIL_FROM_ADDRESS, 'noreply@mail.example.test');
 });

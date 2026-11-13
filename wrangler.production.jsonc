@@ -12,6 +12,7 @@
         "CLOUDFLARE_ACCOUNT_ID": "40344948b73fa9da3008958fdc3faf12",
         "REHEARSAL_MODE": "true",
         "APP_NAME": "Farmwell Production Rehearsal",
+        "MAIL_FROM_ADDRESS": "noreply@mail.farmwell.app",
         "SESSION_COOKIE": "farmwell_production_session",
         "PHONE_PILOT_HOST": "",
         "PHONE_PILOT_SMS_DAILY_LIMIT": "10",
@@ -20,6 +21,7 @@
         "AWS_BUCKET": "farmwell-production-private",
     },
     "observability": { "enabled": true },
+    "tail_consumers": [{ "service": "farmwell-production-alerts" }],
     "triggers": { "crons": [] },
     "containers": [
         {
