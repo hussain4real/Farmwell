@@ -52,6 +52,9 @@ jobs:
       - name: Build Assets
         run: npm run build
 
+      - name: Install PostgreSQL 18 backup and restore tools
+        run: bash .github/scripts/setup-backup-postgres.sh
+
       - name: Restore a synthetic encrypted staging backup
         run: bash tests/backup-restore.sh
 

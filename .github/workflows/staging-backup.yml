@@ -2,6 +2,15 @@ name: Farmwell staging backup
 
 on:
   workflow_dispatch:
+    inputs:
+      restore_drill:
+        description: Download the new archive and restore it into an isolated local database
+        type: boolean
+        default: false
+      verify_team:
+        description: Optional team slug to include in the restored-records summary
+        type: string
+        default: ''
   schedule:
     - cron: '17 1 * * *'
     - cron: '17 13 * * *'
@@ -15,7 +24,7 @@ concurrency:
 
 jobs:
   backup:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment: staging-backups
     timeout-minutes: 60
     steps:
@@ -37,12 +46,9 @@ jobs:
           BACKUP_R2_ACCESS_KEY_ID: ${{ secrets.BACKUP_R2_ACCESS_KEY_ID }}
           BACKUP_R2_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_R2_SECRET_ACCESS_KEY }}
         run: php artisan backup:monitor --no-interaction
-      - name: Install PostgreSQL 18 client
+      - name: Install PostgreSQL 18 backup and restore tools
         if: github.event.schedule != '17 13 * * *'
-        run: |
-          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
-          sudo apt-get install -y postgresql-client-18
-          echo '/usr/lib/postgresql/18/bin' >> "$GITHUB_PATH"
+        run: bash .github/scripts/setup-backup-postgres.sh
       - name: Back up PostgreSQL and private uploads, check health and apply retention
         if: github.event.schedule != '17 13 * * *'
         env:
@@ -64,4 +70,6 @@ jobs:
           BACKUP_R2_ACCESS_KEY_ID: ${{ secrets.BACKUP_R2_ACCESS_KEY_ID }}
           BACKUP_R2_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_R2_SECRET_ACCESS_KEY }}
           BACKUP_ARCHIVE_PASSWORD: ${{ secrets.BACKUP_ARCHIVE_PASSWORD }}
+          FARMWELL_BACKUP_RESTORE_DRILL: ${{ inputs.restore_drill && 'true' || 'false' }}
+          FARMWELL_RESTORE_TEAM: ${{ inputs.verify_team }}
         run: bash .github/scripts/farmwell-backup.sh
