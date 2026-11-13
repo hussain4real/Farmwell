@@ -37,6 +37,17 @@ case "${FARMWELL_BACKUP_DISK:?}" in
 esac
 
 php .github/scripts/verify-backup-source.php "$FARMWELL_BACKUP_SOURCE/media" "$work/media.jsonl"
-php artisan backup:run --no-interaction
+archive="$(date -u +%Y-%m-%d-%H-%M-%S).zip"
+php artisan backup:run --no-interaction --filename="$archive"
 php artisan backup:monitor --no-interaction
+if [[ "${FARMWELL_BACKUP_RESTORE_DRILL:-false}" == true ]]; then
+    if [[ "$FARMWELL_BACKUP_DISK" == r2 ]]; then
+        AWS_ACCESS_KEY_ID="$BACKUP_R2_ACCESS_KEY_ID" AWS_SECRET_ACCESS_KEY="$BACKUP_R2_SECRET_ACCESS_KEY" \
+            aws --endpoint-url "$BACKUP_R2_ENDPOINT" s3 cp \
+            "s3://$BACKUP_R2_BUCKET/Farmwell/$archive" "$work/downloaded.zip" --only-show-errors
+    else
+        cp "$FARMWELL_BACKUP_ROOT/Farmwell/$archive" "$work/downloaded.zip"
+    fi
+    bash .github/scripts/restore-backup.sh "$work/downloaded.zip" "$FARMWELL_BACKUP_SOURCE"
+fi
 php artisan backup:clean --no-interaction
