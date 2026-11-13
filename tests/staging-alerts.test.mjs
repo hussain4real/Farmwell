@@ -87,10 +87,12 @@ test('staging alerts notify on failure, coalesce errors, recover and retry undel
 test('production monitoring keeps credentials on the private service and waits for delivery approval', async () => {
     const data = new Map();
     const messages = [];
+    const observations = [];
     let backupDate = new Date();
     let gatewayStatus = 403;
     const { AlertState, worker } = vm.runInNewContext(source + '\n;({AlertState, worker})', {
         URL, AbortSignal, DurableObject: class {},
+        console: { info: (label, checks) => observations.push({ label, checks: JSON.parse(JSON.stringify(checks)) }) },
         fetch: async (url, options) => {
             assert.equal(url, 'https://preview.test/up');
             assert.equal(options.headers, undefined);
@@ -121,6 +123,7 @@ test('production monitoring keeps credentials on the private service and waits f
     await worker.scheduled({}, env);
     assert.equal(messages.length, 0);
     assert.equal(data.has('lastTest'), false);
+    assert.deepEqual(observations[0], { label: 'Farmwell production checks', checks: {gateway: true, application: true, failedJobs: true, backup: true} });
     env.ALERT_DELIVERY_ENABLED = 'true';
     await worker.scheduled({}, env);
     assert.equal(messages[0].subject, '[Farmwell production] Delivery test production-smoke');

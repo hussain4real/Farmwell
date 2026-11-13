@@ -108,15 +108,15 @@ export class AlertState extends DurableObject {
         const queueUp = queue.status === 'fulfilled';
         const backupUp = backup.status === 'fulfilled' && backup.value;
 
-        console.info((this.env.ALERT_LABEL ?? 'Farmwell staging') + ' checks', {
+        const checks = {
             gateway: edgesUp,
             application: appUp,
             failedJobs: queueUp,
             backup: backupUp,
-        });
+        };
 
         if (this.env.ALERT_DELIVERY_ENABLED === 'false') {
-            return;
+            return checks;
         }
 
         await this.transition('gatewayDown', edgesUp, 'Public access gateway');
@@ -174,12 +174,15 @@ export class AlertState extends DurableObject {
             );
             await storage.put('lastTest', testId);
         }
+
+        return checks;
     }
 }
 
 export default {
     async scheduled(_event, env) {
-        await env.STATE.getByName(env.MONITOR_NAME ?? 'staging').poll();
+        const checks = await env.STATE.getByName(env.MONITOR_NAME ?? 'staging').poll();
+        console.info((env.ALERT_LABEL ?? 'Farmwell staging') + ' checks', checks);
     },
     async tail(events, env) {
         const failures = events.filter(
