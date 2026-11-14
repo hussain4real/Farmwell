@@ -139,18 +139,45 @@ test('production monitoring keeps credentials on the private service and waits f
 });
 
 
-test('production readiness configuration keeps the pilot and delivery gates closed', async () => {
+test('production cutover configuration isolates live storage and freezes the source farm', async () => {
     const parse = async name => JSON.parse((await readFile(new URL('../' + name, import.meta.url), 'utf8')).replace(/,\s*([}\]])/g, '$1'));
     const app = await parse('wrangler.production.jsonc');
     const alerts = await parse('wrangler.production-alerts.jsonc');
     assert.equal(app.name, 'farmwell-production');
-    assert.equal(app.vars.REHEARSAL_MODE, 'true');
-    assert.equal(app.vars.PHONE_PILOT_HOST, '');
-    assert.deepEqual(app.triggers.crons, []);
-    assert.deepEqual(app.routes.map(route => route.pattern), ['production-preview.farmwell.app']);
+    assert.equal(app.vars.REHEARSAL_MODE, 'false');
+    assert.equal(app.vars.PHONE_PILOT_FULL_WORKSPACE, 'true');
+    assert.equal(app.vars.AWS_BUCKET, 'farmwell-production-live-private');
+    assert.equal(app.vars.PHONE_PILOT_HOST, 'app.farmwell.app');
+    assert.equal(app.vars.REDIRECT_HOST, 'pilot.farmwell.app');
+    assert.deepEqual(app.triggers.crons, ['* * * * *']);
+    assert.deepEqual(app.routes.map(route => route.pattern), ['app.farmwell.app', 'pilot.farmwell.app']);
     assert.deepEqual(app.tail_consumers, [{service: alerts.name}]);
-    assert.equal(alerts.vars.ALERT_DELIVERY_ENABLED, 'false');
-    assert.equal(alerts.vars.GATEWAY_MODE, 'private');
+    assert.equal(alerts.vars.ALERT_DELIVERY_ENABLED, 'true');
+    assert.equal(alerts.vars.GATEWAY_MODE, 'public');
     assert.equal(alerts.services[0].service, app.name);
-    assert.equal(alerts.r2_buckets[0].bucket_name, 'farmwell-production-backups');
+    assert.equal(alerts.r2_buckets[0].bucket_name, 'farmwell-production-live-backups');
+    const staging = await parse('wrangler.jsonc');
+    assert.equal(staging.vars.FROZEN_TEAM_SLUG, 'mdsxclusive-farms');
+    assert.equal(staging.vars.FROZEN_TEAM_ID, '4');
+    assert.equal(staging.vars.MOVED_TEAM_ORIGIN, app.vars.APP_URL);
+    assert.deepEqual(staging.routes.map(route => route.pattern), ['staging.farmwell.app']);
+});
+
+test('public production health requires the Laravel health response', async () => {
+    let body = 'Application up';
+    let status = 200;
+    const State = vm.runInNewContext(source + '\nAlertState;', {
+        URL, AbortSignal, DurableObject: class {}, fetch: async () => new Response(body, {status}),
+    });
+    const state = new State();
+    state.ctx = {storage: {get: async () => null}};
+    state.env = {GATEWAY_MODE: 'public', HEALTH_URL: 'https://app.test/up', ALERT_DELIVERY_ENABLED: 'false',
+        APP: {fetch: async () => new Response('Application up')},
+        QUEUE: {getByName: () => ({failedJobWatermark: async () => '0'})},
+    };
+    assert.equal((await state.poll()).gateway, true);
+    body = 'Unexpected page';
+    assert.equal((await state.poll()).gateway, false);
+    body = 'Application up'; status = 503;
+    assert.equal((await state.poll()).gateway, false);
 });

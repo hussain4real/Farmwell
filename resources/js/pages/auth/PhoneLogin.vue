@@ -23,6 +23,7 @@ defineProps<{
     codeLifetimeMinutes: number;
     callingCode: string;
     pilot: boolean;
+    emailSignInAllowed: boolean;
     countries: Record<string, string>;
 }>();
 const requestAnother = ref(false);
@@ -134,7 +135,9 @@ const codeLength = 6;
                 >
             </template>
         </template>
-        <TextLink v-if="!pilot" :href="login({ query: { method: 'email' } })"
+        <TextLink
+            v-if="emailSignInAllowed"
+            :href="login({ query: { method: 'email' } })"
             >Sign in with email</TextLink
         >
     </div>

@@ -257,3 +257,42 @@ test('eligible pilot recipients have a configurable daily SMS limit and a one-mi
     'default' => [null, 5],
     'staging override' => [10, 10],
 ]);
+
+test('the production workspace supports invited SMS sign-in and owner email administration', function () {
+    config([
+        'services.phone_login.full_workspace' => true,
+        'services.phone_login.nigerian_pilot_provider' => 'kudisms',
+        'services.kudisms.key' => 'fake-key',
+        'services.kudisms.application_code' => 'fake-app',
+        'services.kudisms.template_code' => 'fake-template',
+    ]);
+    Http::fake([
+        'https://my.kudisms.net/api/sendotp' => Http::response(['status' => 'success', 'error_code' => '000', 'verification_id' => 'production-id']),
+        'https://my.kudisms.net/api/verifyotp' => Http::response(['status' => 'success', 'error_code' => '000', 'verification_id' => 'production-id']),
+    ]);
+    $farmer = User::factory()->create(['phone' => $this->phone, 'phone_verified_at' => now(), 'email' => null]);
+    $team = Team::factory()->create();
+    $team->members()->attach($farmer, ['role' => TeamRole::Operator->value]);
+    TeamInvitation::factory()->create(['team_id' => $team->id, 'phone' => $this->phone, 'email' => null, 'accepted_at' => now()]);
+    $this->get($this->origin.'/login')->assertRedirect($this->origin.'/login/phone');
+    $this->get($this->origin.'/login/phone')->assertInertia(fn (AssertableInertia $page) => $page->where('emailSignInAllowed', true)->where('callingCode', '+234'));
+    $this->get($this->origin.'/login?method=email')->assertInertia(fn (AssertableInertia $page) => $page->component('auth/Login'));
+    $this->post($this->origin.'/login/phone/code', ['phone' => $this->phone])->assertSessionHasNoErrors();
+    $this->post($this->origin.'/login/phone/verify', ['otp' => '123456'])->assertRedirect($this->origin.'/'.$team->slug.'/dashboard');
+    $this->assertAuthenticatedAs($farmer);
+    $this->get($this->origin.'/'.$team->slug.'/field-diary')->assertOk();
+    $this->get($this->origin.'/'.$team->slug.'/finance')->assertForbidden();
+    $this->get($this->origin.'/settings/teams/'.$team->slug)->assertForbidden();
+    $this->post($this->origin.'/logout');
+    $owner = User::factory()->create();
+    $this->post($this->origin.'/login', ['email' => $owner->email, 'password' => 'password'])->assertSessionHasNoErrors();
+    $this->assertAuthenticatedAs($owner);
+    $this->get($this->origin.'/settings/teams')->assertOk();
+    $this->post($this->origin.'/logout');
+    $this->travel(61)->seconds();
+    $team->members()->detach($farmer);
+    $this->post($this->origin.'/login/phone/code', ['phone' => $this->phone])->assertSessionHasNoErrors();
+    $this->post($this->origin.'/login/phone/verify', ['otp' => '123456'])->assertSessionHasErrors('otp');
+    $this->assertGuest();
+    Http::assertSentCount(2);
+});

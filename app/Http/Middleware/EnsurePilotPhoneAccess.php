@@ -12,7 +12,7 @@ class EnsurePilotPhoneAccess
 {
     public function handle(Request $request, Closure $next): Response
     {
-        if (! PilotPhone::isPilot($request)) {
+        if (! PilotPhone::isPilot($request) || config('services.phone_login.full_workspace')) {
             return $next($request);
         }
 

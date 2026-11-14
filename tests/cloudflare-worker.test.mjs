@@ -549,3 +549,51 @@ test('verification enables mail only during its bounded window and keeps AI disa
     assert.equal(environment(env).MAIL_MAILER, 'array');
     assert.equal(environment(env).CLOUDFLARE_KEY, '');
 });
+
+test('cutover freezes only the selected farm and never replays writes on the destination', async () => {
+    let forwarded = 0;
+    const worker = vm.runInNewContext(`${source}\nworker;`, {URL, Request, Response, DurableObject: class {}});
+    const env = {
+        FROZEN_TEAM_SLUG: 'moved-farm', FROZEN_TEAM_ID: '4',
+        CF_VERSION_METADATA: {id: 'cutover'},
+        FARMWELL_WEB: {idFromName: name => name, get: () => ({ready: async () => {}, fetch: async () => {
+forwarded++;
+
+ return new Response('Unchanged farm');
+}})},
+    };
+
+    for (const path of ['/moved-farm/field-diary', '/moved-farm/farm-activities', '/%6doved-farm//finance', '/settings/teams/4', '/settings/teams/moved-farm/members/13']) {
+        for (const method of ['GET', 'POST', 'PATCH', 'DELETE']) {
+            assert.equal((await worker.fetch(new Request('https://staging.test' + path, {method}), env)).status, 503);
+        }
+    }
+
+    assert.equal(forwarded, 0);
+    assert.equal((await worker.fetch(new Request('https://staging.test/other-farm/dashboard'), env)).status, 200);
+    assert.equal((await worker.fetch(new Request('https://staging.test/moved-farm-2/dashboard'), env)).status, 200);
+    env.MOVED_TEAM_ORIGIN = 'https://production.test';
+    const moved = await worker.fetch(new Request('https://staging.test/moved-farm/field-diary?page=2'), env);
+    assert.equal(moved.status, 302);
+    assert.equal(moved.headers.get('location'), 'https://production.test/moved-farm/field-diary?page=2');
+    assert.equal(moved.headers.get('cache-control'), 'no-store');
+    const inertia = await worker.fetch(new Request('https://staging.test/moved-farm/field-diary', {headers: {'x-inertia': 'true'}}), env);
+    assert.equal(inertia.status, 409);
+    assert.equal(inertia.headers.get('x-inertia-location'), 'https://production.test/moved-farm/field-diary');
+    assert.equal((await worker.fetch(new Request('https://staging.test/moved-farm/farm-activities', {method: 'POST'}), env)).status, 503);
+    assert.equal(forwarded, 2);
+});
+
+test('the old pilot address forwards reads to production without replaying submissions', async () => {
+    const worker = vm.runInNewContext(`${source}\nworker;`, {URL, Request, Response, DurableObject: class {}});
+    const env = {REDIRECT_HOST: 'pilot.test', APP_URL: 'https://app.test'};
+    const result = await worker.fetch(new Request('https://pilot.test/farm/field-diary?page=2'), env);
+    assert.equal(result.status, 302);
+    assert.equal(result.headers.get('location'), 'https://app.test/farm/field-diary?page=2');
+    const inertia = await worker.fetch(new Request('https://pilot.test/farm/dashboard', {headers: {'x-inertia': 'true'}}), env);
+    assert.equal(inertia.status, 409);
+    assert.equal(inertia.headers.get('x-inertia-location'), 'https://app.test/farm/dashboard');
+    const post = await worker.fetch(new Request('https://pilot.test/login/phone/code', {method: 'POST'}), env);
+    assert.equal(post.status, 409);
+    assert.equal(post.headers.has('location'), false);
+});

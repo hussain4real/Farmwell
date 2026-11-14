@@ -92,6 +92,7 @@ export class FarmwellWeb extends DurableObject {
                 env: {
                     ...containerEnvironment(this.env),
                     PHONE_PILOT_HOST: this.env.PHONE_PILOT_HOST ?? '',
+                    PHONE_PILOT_FULL_WORKSPACE: this.env.PHONE_PILOT_FULL_WORKSPACE ?? 'false',
                     PHONE_PILOT_SMS_DAILY_LIMIT: this.env.PHONE_PILOT_SMS_DAILY_LIMIT ?? '5',
                     PHONE_LOGIN_ENABLED: this.env.REHEARSAL_MODE === 'true' && !verificationActive(this.env) ? 'false' : (this.env.PHONE_LOGIN_ENABLED ?? 'false'),
                     PHONE_OTP_ALLOWED_NUMBER: this.env.PHONE_OTP_ALLOWED_NUMBER ?? '',
@@ -241,6 +242,50 @@ export class FarmwellQueue extends DurableObject {
 
 export default {
     async fetch(request, env) {
+        if (env.REDIRECT_HOST && new URL(request.url).hostname === env.REDIRECT_HOST) {
+            if (!['GET', 'HEAD'].includes(request.method)) {
+                return new Response('Farmwell has moved. Reopen the app before saving.', { status: 409, headers: { 'Cache-Control': 'no-store' } });
+            }
+
+            const url = new URL(request.url);
+            const target = new URL(env.APP_URL);
+            target.pathname = url.pathname;
+            target.search = url.search;
+
+            return request.headers.has('x-inertia')
+                ? new Response(null, { status: 409, headers: { 'X-Inertia-Location': target.toString(), 'Cache-Control': 'no-store' } })
+                : new Response(null, { status: 302, headers: { Location: target.toString(), 'Cache-Control': 'no-store' } });
+        }
+
+        if (env.FROZEN_TEAM_SLUG && env.FROZEN_TEAM_ID) {
+            const url = new URL(request.url);
+            let path;
+
+            try {
+                path = decodeURIComponent(url.pathname).replace(/\/{2,}/g, '/');
+            } catch {
+                return new Response('Not found', { status: 404 });
+            }
+
+            const teamPaths = [`/${env.FROZEN_TEAM_SLUG}`, `/settings/teams/${env.FROZEN_TEAM_SLUG}`, `/settings/teams/${env.FROZEN_TEAM_ID}`];
+
+            if (teamPaths.some(prefix => path === prefix || path.startsWith(prefix + '/'))) {
+                if (env.MOVED_TEAM_ORIGIN && ['GET', 'HEAD'].includes(request.method)) {
+                    const target = new URL(env.MOVED_TEAM_ORIGIN);
+                    target.pathname = url.pathname;
+                    target.search = url.search;
+
+                    if (request.headers.has('x-inertia')) {
+                        return new Response(null, { status: 409, headers: { 'X-Inertia-Location': target.toString(), 'Cache-Control': 'no-store' } });
+                    }
+
+                    return new Response(null, { status: 302, headers: { Location: target.toString(), 'Cache-Control': 'no-store' } });
+                }
+
+                return new Response('This farm is moving to production. Reopen Farmwell before saving.', { status: 503, headers: { 'Retry-After': '300', 'Cache-Control': 'no-store' } });
+            }
+        }
+
         if (env.REHEARSAL_MODE === 'true') {
             const verifying = verificationActive(env);
 
