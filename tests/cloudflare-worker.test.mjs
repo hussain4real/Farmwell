@@ -97,6 +97,69 @@ test('deployments route web requests to separate containers', async () => {
     assert.deepEqual(names, ['staging-web-version-one', 'staging-web-version-two']);
 });
 
+test('a warmed preview switches to enabled verification settings only within its window', async () => {
+    let time = 1000;
+    const instances = new Map();
+    const settings = [];
+    const { worker, Web } = vm.runInNewContext(`${source}\n({ worker, Web: FarmwellWeb });`, {
+        AbortSignal, URL, Request, Response,
+        Date: { now: () => time },
+        DurableObject: class {
+            constructor(ctx, env) {
+                this.ctx = ctx;
+                this.env = env;
+            }
+        },
+    });
+    const env = {
+        REHEARSAL_MODE: 'true', REHEARSAL_TOKEN: 'test-token',
+        APP_URL: 'https://production-preview.farmwell.app',
+        DB_URL: 'postgres://db.example/test',
+        PRODUCTION_VERIFICATION_STARTED_AT: '2000',
+        PRODUCTION_VERIFICATION_UNTIL: '3000',
+        PHONE_LOGIN_ENABLED: 'true', KUDISMS_API_KEY: 'test-sms-key',
+        CF_VERSION_METADATA: { id: 'same-deployment' },
+        FARMWELL_WEB: {
+            idFromName: name => name,
+            get(name) {
+                if (!instances.has(name)) {
+                    let configuration;
+                    const container = {
+                        running: false, images: { base: 'image' },
+                        start({ env: values }) {
+                            this.running = true;
+                            configuration = values;
+                            settings.push(values);
+                        },
+                        setInactivityTimeout: async () => {},
+                        monitor: () => new Promise(() => {}),
+                        getTcpPort: () => ({ fetch: async () => Response.json({
+                            phone: configuration.PHONE_LOGIN_ENABLED,
+                            mail: configuration.MAIL_MAILER,
+                            sms: configuration.KUDISMS_API_KEY,
+                        }) }),
+                    };
+                    instances.set(name, new Web({ container, waitUntil() {} }, env));
+                }
+
+                return instances.get(name);
+            },
+        },
+    };
+    const read = async () => (await worker.fetch(new Request(env.APP_URL + '/login/phone', {
+        headers: { 'x-farmwell-rehearsal': 'test-token' },
+    }), env)).json();
+    const disabled = { phone: 'false', mail: 'array', sms: '' };
+    assert.deepEqual(await read(), disabled);
+    time = 2000;
+    const enabled = { phone: 'true', mail: 'cloudflare', sms: 'test-sms-key' };
+    assert.deepEqual(await read(), enabled);
+    assert.deepEqual(await read(), enabled);
+    time = 3000;
+    assert.deepEqual(await read(), disabled);
+    assert.equal(settings.length, 2);
+});
+
 test('retries a safe request once when the container connection closes', async () => {
     const worker = vm.runInNewContext(`${source}\nworker;`, {
         AbortSignal,

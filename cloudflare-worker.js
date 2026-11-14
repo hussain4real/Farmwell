@@ -339,7 +339,8 @@ export default {
             }
         }
 
-        const id = env.FARMWELL_WEB.idFromName(`staging-web-${env.CF_VERSION_METADATA.id}`);
+        const verificationSuffix = verificationActive(env) ? '-verification' : '';
+        const id = env.FARMWELL_WEB.idFromName(`staging-web-${env.CF_VERSION_METADATA.id}${verificationSuffix}`);
         const connect = () => env.FARMWELL_WEB.get(id, { locationHint: 'weur' });
         const safeRead = ['GET', 'HEAD'].includes(request.method);
         let web = connect();
