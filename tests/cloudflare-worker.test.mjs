@@ -256,6 +256,15 @@ test('only the web container receives phone verification settings and credential
     assert.equal(webStarts[1].PHONE_LOGIN_ENABLED, 'false');
     assert.equal(webStarts[1].INFOBIP_API_KEY, '');
     assert.equal(webStarts[1].KUDISMS_API_KEY, '');
+
+    await new FarmwellWeb({ container, waitUntil() {} }, {
+        ...env, REHEARSAL_MODE: 'true', APP_URL: 'https://production-preview.farmwell.app',
+        PRODUCTION_VERIFICATION_STARTED_AT: String(Date.now() - 1000),
+        PRODUCTION_VERIFICATION_UNTIL: String(Date.now() + 60000),
+    }).startAndWait();
+    assert.equal(webStarts[2].PHONE_LOGIN_ENABLED, phoneBindings.PHONE_LOGIN_ENABLED);
+    assert.equal(webStarts[2].KUDISMS_API_KEY, phoneBindings.KUDISMS_API_KEY);
+    assert.equal(webStarts[2].INFOBIP_API_KEY, '');
 });
 
 test('the pilot hostname only forwards SMS, assets and farm paths', async () => {
@@ -461,4 +470,82 @@ test('startup timings and deployment identity are only exposed to authenticated 
         { ...env, REHEARSAL_MODE: 'false' },
     );
     assert.equal(ordinary.headers.has('Server-Timing'), false);
+});
+
+test('production verification stays private, restricts SMS recipients and expires automatically', async () => {
+    const now = Date.now();
+    let time = now;
+    let forwarded = 0;
+    let runs = 0;
+    const worker = vm.runInNewContext(`${source}\nworker;`, {
+        URL, Request, Response, Date: { now: () => time }, DurableObject: class {},
+    });
+    const env = {
+        REHEARSAL_MODE: 'true', REHEARSAL_TOKEN: 'private-token',
+        APP_URL: 'https://production-preview.farmwell.app',
+        PRODUCTION_VERIFICATION_STARTED_AT: String(now),
+        PRODUCTION_VERIFICATION_UNTIL: String(now + 60000),
+        PHONE_OTP_ALLOWED_NUMBER: '+2348000000000',
+        CF_VERSION_METADATA: { id: 'verification' },
+        FARMWELL_WEB: { idFromName: name => name, get: () => ({
+            ready: async () => {},
+            fetch: async request => {
+                assert.equal(request.headers.has('x-farmwell-rehearsal'), false);
+                forwarded++;
+
+                return new Response('Farmwell');
+            },
+        }) },
+        FARMWELL_QUEUE: { getByName: () => ({ run: async () => runs++ }) },
+    };
+    const request = (path = '/login/phone/code', phone = env.PHONE_OTP_ALLOWED_NUMBER, token = 'private-token') => new Request(env.APP_URL + path, {
+        method: 'POST', headers: { 'x-farmwell-rehearsal': token, 'content-type': 'application/json' }, body: JSON.stringify({ phone }),
+    });
+    assert.equal((await worker.fetch(request(undefined, undefined, 'wrong'), env)).status, 403);
+    assert.equal((await worker.fetch(request(undefined, '+2348111111111'), env)).status, 403);
+    assert.equal((await worker.fetch(request('/login/phone/%63ode/', '+2348111111111'), env)).status, 403);
+    assert.equal((await worker.fetch(request(), { ...env, PHONE_OTP_ALLOWED_NUMBER: '' })).status, 403);
+    assert.equal(forwarded, 0);
+    assert.equal((await worker.fetch(request(), env)).status, 200);
+    assert.equal((await worker.fetch(new Request(env.APP_URL + '/login/phone/code', {
+        method: 'POST', headers: { 'x-farmwell-rehearsal': 'private-token' },
+        body: new URLSearchParams({ phone: env.PHONE_OTP_ALLOWED_NUMBER }),
+    }), env)).status, 200);
+    await assert.rejects(worker.fetch(request('/__verification/error'), env), /Controlled production verification/);
+    await worker.scheduled({}, env);
+    assert.equal(runs, 1);
+
+    for (const settings of [
+        { ...env, PRODUCTION_VERIFICATION_UNTIL: String(now + 7200001) },
+        { ...env, PRODUCTION_VERIFICATION_STARTED_AT: String(now + 1) },
+        { ...env, PRODUCTION_VERIFICATION_UNTIL: 'invalid' },
+        { ...env, APP_URL: 'https://staging.farmwell.app' },
+    ]) {
+        assert.equal((await worker.fetch(request(), settings)).status, 403);
+        await worker.scheduled({}, settings);
+    }
+
+    time = now + 60000;
+    assert.equal((await worker.fetch(request(), env)).status, 403);
+    assert.equal((await worker.fetch(new Request(env.APP_URL + '/__verification/error', { headers: { 'x-farmwell-rehearsal': 'private-token' } }), env)).status, 404);
+    await worker.scheduled({}, env);
+    assert.equal(runs, 1);
+    assert.equal(forwarded, 2);
+});
+
+test('verification enables mail only during its bounded window and keeps AI disabled', () => {
+    const now = Date.now();
+    let time = now;
+    const environment = vm.runInNewContext(`${source}\ncontainerEnvironment;`, { URL, Date: { now: () => time }, DurableObject: class {} });
+    const env = {
+        DB_URL: 'postgres://db.example/test', APP_URL: 'https://production-preview.farmwell.app',
+        REHEARSAL_MODE: 'true', PRODUCTION_VERIFICATION_STARTED_AT: String(now),
+        PRODUCTION_VERIFICATION_UNTIL: String(now + 60000), CLOUDFLARE_KEY: 'test-key', OPENAI_API_KEY: 'never-use',
+    };
+    assert.equal(environment(env).MAIL_MAILER, 'cloudflare');
+    assert.equal(environment(env).CLOUDFLARE_KEY, 'test-key');
+    assert.equal(environment(env).OPENAI_API_KEY, '');
+    time += 60000;
+    assert.equal(environment(env).MAIL_MAILER, 'array');
+    assert.equal(environment(env).CLOUDFLARE_KEY, '');
 });

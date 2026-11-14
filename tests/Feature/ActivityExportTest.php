@@ -125,3 +125,16 @@ test('oversized activity exports ask for narrower filters without saving a parti
     $report = ReportArtifact::sole();
     expect($report->status)->toBe('failed')->and($report->document)->toBe('')->and($report->failure_message)->toContain('1000', 'period');
 });
+
+test('opening another farm export uses the requested team and permissions on the first response', function () {
+    $previousTeam = Team::factory()->create();
+    $previousTeam->members()->attach($this->owner, ['role' => TeamRole::Investor->value]);
+    $this->owner->switchTeam($previousTeam);
+
+    $this->get(route('activity-exports.index', $this->team))->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('field-diary/Exports')
+            ->where('currentTeam.slug', $this->team->slug)
+            ->where('currentTeam.role', TeamRole::Owner->value)
+            ->where('currentTeamPermissions.canManageFinance', true));
+});
