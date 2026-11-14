@@ -321,3 +321,144 @@ test('rehearsal containers suppress mail and AI credentials without changing sta
     assert.equal(result.SESSION_COOKIE, 'production-cookie');
     assert.equal(result.MAIL_FROM_ADDRESS, 'noreply@mail.example.test');
 });
+
+test('cold readiness measures static Apache readiness before Laravel and coalesces callers', async () => {
+    let clock = 0;
+    const calls = [];
+    const logs = [];
+    const Web = vm.runInNewContext(`${source}\nFarmwellWeb;`, {
+        AbortSignal,
+        URL,
+        Date: { now: () => clock },
+        console: { info: (_label, value) => logs.push(value) },
+        DurableObject: class {
+            constructor(ctx, env) {
+                this.ctx = ctx;
+                this.env = env;
+            }
+        },
+        scheduler: {
+            wait: async () => {
+                clock += 200;
+            },
+        },
+    });
+    const container = {
+        running: false,
+        images: { base: 'image' },
+        start() {
+            this.running = true;
+        },
+        setInactivityTimeout: async () => {},
+        monitor: () => new Promise(() => {}),
+        getTcpPort: () => ({
+            fetch: async (url) => {
+                calls.push(url);
+                clock += url.endsWith('favicon.svg') ? 800 : 120;
+
+                return new Response('ready');
+            },
+        }),
+    };
+    const web = new Web(
+        { container, waitUntil() {} },
+        {
+            DB_URL: 'postgres://db.example/test',
+            STARTUP_TIMING_ENABLED: 'true',
+        },
+    );
+    const [first, second] = await Promise.all([web.ready(), web.ready()]);
+    assert.deepEqual(JSON.parse(JSON.stringify(first)), {
+        cold: true,
+        http_ready_ms: 800,
+        laravel_ready_ms: 120,
+    });
+    assert.equal(first, second);
+    assert.deepEqual(calls, [
+        'http://container/favicon.svg',
+        'http://container/up',
+    ]);
+    assert.equal(logs.length, 1);
+    const warm = await web.ready();
+    assert.equal(warm.cold, false);
+    assert.equal(warm.http_ready_ms, 0);
+    assert.equal(warm.laravel_ready_ms, 120);
+});
+
+test('Apache readiness alone cannot pass a failed Laravel health check', async () => {
+    let attempts = 0;
+    const container = {
+        running: false,
+        images: { base: 'image' },
+        start() {},
+        setInactivityTimeout: async () => {},
+        monitor: () => new Promise(() => {}),
+        getTcpPort: () => ({
+            fetch: async (url) => {
+                attempts++;
+
+                return new Response('', {
+                    status: url.endsWith('favicon.svg') ? 200 : 503,
+                });
+            },
+        }),
+    };
+    const web = new FarmwellWeb(
+        { container, waitUntil() {} },
+        { DB_URL: 'postgres://db.example/test' },
+    );
+    await assert.rejects(web.ready(), /last status: 503/);
+    assert.equal(attempts, 100);
+});
+
+test('startup timings and deployment identity are only exposed to authenticated rehearsal reads', async () => {
+    const worker = vm.runInNewContext(`${source}\nworker;`, {
+        URL,
+        Request,
+        Response,
+        DurableObject: class {},
+    });
+    const env = {
+        REHEARSAL_MODE: 'true',
+        REHEARSAL_TOKEN: 'test-token',
+        STARTUP_TIMING_ENABLED: 'true',
+        CF_VERSION_METADATA: { id: 'measured-deployment' },
+        FARMWELL_WEB: {
+            idFromName: (name) => name,
+            get: () => ({
+                ready: async () => ({
+                    cold: true,
+                    http_ready_ms: 800,
+                    laravel_ready_ms: 120,
+                }),
+                fetch: async () => new Response('Farmwell'),
+            }),
+        },
+    };
+    const blocked = await worker.fetch(
+        new Request('https://preview.test/up'),
+        env,
+    );
+    assert.equal(blocked.status, 403);
+    assert.equal(blocked.headers.has('Server-Timing'), false);
+    const response = await worker.fetch(
+        new Request('https://preview.test/up', {
+            headers: { 'x-farmwell-rehearsal': 'test-token' },
+        }),
+        env,
+    );
+    assert.match(
+        response.headers.get('Server-Timing'),
+        /http_ready;dur=800, laravel_ready;dur=120/,
+    );
+    assert.equal(response.headers.get('X-Farmwell-Cold-Start'), '1');
+    assert.equal(
+        response.headers.get('X-Farmwell-Deployment'),
+        'measured-deployment',
+    );
+    const ordinary = await worker.fetch(
+        new Request('https://preview.test/up'),
+        { ...env, REHEARSAL_MODE: 'false' },
+    );
+    assert.equal(ordinary.headers.has('Server-Timing'), false);
+});
