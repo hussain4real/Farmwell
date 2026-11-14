@@ -103,6 +103,7 @@ try {
         }
         $user['current_team_id'] = in_array($user['id'], array_column($data['team_members'], 'user_id'), true) ? $teamId : null;
         $user['remember_token'] = null;
+        $user['platform_role'] = null;
     }
     unset($user);
     foreach ($foreignKeys as $key) {

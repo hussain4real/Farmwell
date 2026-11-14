@@ -43,12 +43,26 @@ use App\Http\Controllers\Investors\InvestorController;
 use App\Http\Controllers\Investors\InvestorEvidenceController;
 use App\Http\Controllers\Investors\InvestorPortalController;
 use App\Http\Controllers\Investors\InvestorStatementController;
+use App\Http\Controllers\PlatformAccessController;
+use App\Http\Controllers\PlatformAdminController;
 use App\Http\Controllers\Teams\TeamInvitationController;
 use App\Http\Middleware\EnsureContactIsVerified;
 use App\Http\Middleware\EnsureTeamMembership;
 use Illuminate\Support\Facades\Route;
 
 Route::inertia('/', 'Welcome')->name('home');
+
+Route::prefix('platform')->name('platform.')->middleware(['auth', EnsureContactIsVerified::class, 'can:managePlatform'])->controller(PlatformAdminController::class)->group(function () {
+    Route::get('/', 'index')->name('index');
+    Route::delete('/access', [PlatformAccessController::class, 'destroy'])->name('access.destroy')->block();
+    Route::middleware('throttle:platform-admin')->group(function () {
+        Route::post('/access', [PlatformAccessController::class, 'store'])->name('access.store')->block();
+        Route::post('/farms', 'storeFarm')->name('farms.store');
+        Route::patch('/farms/{farm}', 'updateFarm')->name('farms.update');
+        Route::patch('/users/{user}', 'updateUser')->name('users.update');
+        Route::put('/users/{user}/membership', 'updateMembership')->name('memberships.update');
+    });
+});
 
 Route::middleware('guest')->controller(PhoneLoginController::class)->prefix('login/phone')->name('phone-login.')->group(function () {
     Route::get('/', 'show')->name('show');

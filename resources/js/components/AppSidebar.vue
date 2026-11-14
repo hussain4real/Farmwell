@@ -39,6 +39,7 @@ import { index as harvestsIndex } from '@/routes/harvests';
 import { index as investorPortalIndex } from '@/routes/investor-portal';
 import { index as investorsIndex } from '@/routes/investors';
 import { index as investorApprovalsIndex } from '@/routes/investors/approvals';
+import { index as platformIndex } from '@/routes/platform';
 import { index as whatsappIntakesIndex } from '@/routes/whatsapp-intakes';
 import type { NavItem } from '@/types';
 
@@ -109,6 +110,37 @@ const homeUrl = computed(() =>
 
 const mainNavItems = computed<NavItem[]>(() => {
     const permissions = currentPermissions.value;
+    const access = page.props.platformAccess;
+
+    if (access) {
+        return [
+            {
+                title: 'Dashboard',
+                href: dashboard(access.team_slug).url,
+                icon: LayoutGrid,
+            },
+            {
+                title: 'Field Diary',
+                href: fieldDiaryIndex(access.team_slug).url,
+                icon: ClipboardList,
+            },
+            {
+                title: 'Finance',
+                href: financeIndex(access.team_slug).url,
+                icon: Landmark,
+            },
+            {
+                title: 'Investors',
+                href: investorsIndex(access.team_slug).url,
+                icon: Handshake,
+            },
+            {
+                title: 'Approvals',
+                href: investorApprovalsIndex(access.team_slug).url,
+                icon: ShieldCheck,
+            },
+        ];
+    }
 
     if (investorOnly.value) {
         return [
@@ -228,13 +260,32 @@ const footerNavItems: NavItem[] = [
             </SidebarMenu>
             <SidebarMenu>
                 <SidebarMenuItem>
-                    <TeamSwitcher />
+                    <p
+                        v-if="page.props.platformAccess"
+                        class="px-2 py-3 text-sm font-medium"
+                    >
+                        {{ page.props.platformAccess.team_name
+                        }}<span class="block text-xs text-muted-foreground"
+                            >Admin session · read only</span
+                        >
+                    </p>
+                    <TeamSwitcher v-else />
                 </SidebarMenuItem>
             </SidebarMenu>
         </SidebarHeader>
 
         <SidebarContent>
             <NavMain :items="mainNavItems" />
+            <NavMain
+                v-if="page.props.canManagePlatform"
+                :items="[
+                    {
+                        title: 'Platform admin',
+                        href: platformIndex().url,
+                        icon: ShieldCheck,
+                    },
+                ]"
+            />
         </SidebarContent>
 
         <SidebarFooter>
