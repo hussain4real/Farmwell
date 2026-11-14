@@ -87,5 +87,10 @@ jobs:
 
       - name: Verify multipart upload limits in Apache
         run: |
-          docker run --rm --network none -i --entrypoint node farmwell-queue-test \
+          docker create --name farmwell-node-tool node:22-bookworm-slim
+          docker cp farmwell-node-tool:/usr/local/bin/node "$RUNNER_TEMP/farmwell-test-node"
+          docker rm farmwell-node-tool
+          docker run --rm --network none -i \
+            --mount "type=bind,src=$RUNNER_TEMP/farmwell-test-node,dst=/tmp/test-node,readonly" \
+            --entrypoint /tmp/test-node farmwell-queue-test \
             --input-type=module < tests/upload-limits-image.mjs

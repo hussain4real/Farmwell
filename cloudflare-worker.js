@@ -43,7 +43,8 @@ export class FarmwellWeb extends DurableObject {
         this.starting ??= this.startAndWait().finally(() => {
             this.starting = undefined;
         });
-        await this.starting;
+
+        return this.starting;
     }
 
     async fetch(request) {
@@ -69,8 +70,11 @@ export class FarmwellWeb extends DurableObject {
 
     async startAndWait() {
         const container = this.ctx.container;
+        const startedAt = Date.now();
+        const cold = !container.running;
+        let httpReadyAt = cold ? undefined : startedAt;
 
-        if (!container.running) {
+        if (cold) {
             container.start({
                 image: container.images.base,
                 instance: 'standard-1',
@@ -114,14 +118,29 @@ export class FarmwellWeb extends DurableObject {
             }
 
             try {
-                const response = await port.fetch('http://container/up', {
+                const response = await port.fetch(httpReadyAt === undefined ? 'http://container/favicon.svg' : 'http://container/up', {
                     signal: AbortSignal.timeout(1000),
                 });
                 await response.body?.cancel();
                 lastStatus = response.status;
 
                 if (response.ok) {
-                    return;
+                    if (httpReadyAt === undefined) {
+                        httpReadyAt = Date.now();
+                        continue;
+                    }
+
+                    const timings = {
+                        cold,
+                        http_ready_ms: httpReadyAt - startedAt,
+                        laravel_ready_ms: Date.now() - httpReadyAt,
+                    };
+
+                    if (this.env.STARTUP_TIMING_ENABLED === 'true') {
+                        console.info('Farmwell readiness', timings);
+                    }
+
+                    return timings;
                 }
             } catch {
                 /* Wait for Apache to start. */
@@ -243,10 +262,21 @@ export default {
 
         for (let attempt = 1; ; attempt++) {
             try {
-                await web.ready();
+                const timings = await web.ready();
                 forwarded = true;
+                const forwardStartedAt = Date.now();
+                const response = await web.fetch(request);
 
-                return await web.fetch(request);
+                if (env.REHEARSAL_MODE === 'true' && env.STARTUP_TIMING_ENABLED === 'true' && timings) {
+                    const measured = new Response(response.body, response);
+                    measured.headers.set('Server-Timing', `http_ready;dur=${timings.http_ready_ms}, laravel_ready;dur=${timings.laravel_ready_ms}, forward;dur=${Date.now() - forwardStartedAt}`);
+                    measured.headers.set('X-Farmwell-Cold-Start', timings.cold ? '1' : '0');
+                    measured.headers.set('X-Farmwell-Deployment', env.CF_VERSION_METADATA.id);
+
+                    return measured;
+                }
+
+                return response;
             } catch (error) {
                 const transient = error?.retryable ||
                     /Container port connection closed unexpectedly|Container exited during startup|Farmwell container did not become ready/.test(error?.message ?? '');

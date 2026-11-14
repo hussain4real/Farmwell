@@ -1,11 +1,48 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
-import { writeFile, rm } from 'node:fs/promises';
+import { access, readFile, writeFile, rm, stat } from 'node:fs/promises';
 import { request } from 'node:http';
 import { setTimeout as delay } from 'node:timers/promises';
 
 // Run only inside the disposable application image, with --network none.
+// Mount the test runner separately; build tools must not ship in the image.
+for (const path of [
+    '/app/node_modules',
+    '/var/www/html/node_modules',
+    '/usr/local/bin/node',
+    '/usr/local/bin/composer',
+]) {
+    await assert.rejects(access(path), { code: 'ENOENT' });
+}
+
+const manifest = JSON.parse(
+    await readFile('/var/www/html/public/build/manifest.json', 'utf8'),
+);
+assert.equal(
+    (await stat('/var/www/html/app/Providers/AppServiceProvider.php')).uid,
+    0,
+);
+assert.equal((await stat('/var/www/html/bootstrap/cache')).uid, 33);
+assert.equal((await stat('/var/www/html/storage')).uid, 33);
+assert.ok(Object.values(manifest).some((entry) => entry.isEntry));
+const fonts = JSON.parse(
+    await readFile('/var/www/html/public/build/fonts-manifest.json', 'utf8'),
+);
+
+for (const weight of [400, 500, 600]) {
+    for (const file of fonts.families['instrument-sans'].variants[
+        `${weight}:normal`
+    ].files) {
+        assert.equal(
+            (await readFile(`/var/www/html/public/build/${file.file}`))
+                .subarray(0, 4)
+                .toString(),
+            'wOF2',
+        );
+    }
+}
+
 const probe = '/var/www/html/public/__upload_limits_test.php';
 await writeFile(
     probe,
@@ -18,7 +55,18 @@ echo json_encode([
 ]);
 `,
 );
-const server = spawn('apache2-foreground', [], { stdio: 'ignore' });
+const server = spawn('apache2-foreground', [], {
+    stdio: 'ignore',
+    env: {
+        ...process.env,
+        APP_KEY: `base64:${Buffer.alloc(32).toString('base64')}`,
+        APP_ENV: 'testing',
+        APP_DEBUG: 'false',
+        SESSION_DRIVER: 'array',
+        CACHE_STORE: 'array',
+        PHONE_LOGIN_ENABLED: 'false',
+    },
+});
 const stopped = once(server, 'exit');
 const boundary = 'farmwell-upload-test';
 const megabyte = 1024 * 1024;
@@ -104,6 +152,22 @@ try {
 
             await delay(100);
         }
+    }
+
+    for (const path of ['/up', '/login']) {
+        const response = await fetch(`http://127.0.0.1${path}`, {
+            redirect: 'manual',
+        });
+        assert.equal(
+            response.status,
+            200,
+            `${path} must work in the trimmed runtime`,
+        );
+        assert.ok(
+            (await response.text()).includes(
+                path === '/up' ? 'Application up' : 'Farmwell',
+            ),
+        );
     }
 
     for (const sizes of [
