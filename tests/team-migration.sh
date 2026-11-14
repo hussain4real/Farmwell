@@ -19,6 +19,7 @@ psql -Xq -v ON_ERROR_STOP=1 <<'SQL'
 INSERT INTO teams (id,name,slug) VALUES (4,'Pilot','pilot'), (5,'Unrelated','other');
 INSERT INTO users (id,name,email,password,current_team_id,phone,phone_verified_at,two_factor_secret) VALUES
 (13,'Pilot user',NULL,'preserved-hash',4,'+2348000000000',now(),'encrypted-secret'),(14,'Other user','other@example.test','other-hash',5,NULL,NULL,NULL);
+UPDATE users SET platform_role='super_admin' WHERE id=13;
 INSERT INTO team_members (team_id,user_id,role) VALUES (4,13,'admin'),(5,14,'admin');
 INSERT INTO team_invitations (id,code,team_id,phone,role,invited_by,accepted_at) VALUES (1,repeat('a',64),4,'+2348000000000','admin',13,now()), (2,repeat('b',64),4,'+2348000000001','operator',13,NULL);
 INSERT INTO farms (id,team_id,name,farm_type) VALUES (1,4,'Pilot farm','crop'),(2,5,'Other farm','crop');
@@ -36,6 +37,8 @@ psql -Xq -c 'UPDATE users SET two_factor_secret=NULL WHERE id=13'
 php .github/scripts/rehearse-team-migration.php "$work/connections.json" pilot "$work/receipt.json"
 [[ "$(psql -XAt -d destination -c "SELECT id || '|' || password || '|' || current_team_id FROM users")" == '13|preserved-hash|4' ]]
 [[ "$(psql -XAt -d destination -c 'SELECT count(*) FROM team_invitations WHERE accepted_at IS NOT NULL')" == 1 ]]
+[[ "$(psql -XAt -d destination -c 'SELECT count(*) FROM users WHERE platform_role IS NOT NULL')" == 0 ]]
+[[ "$(psql -XAt -c "SELECT platform_role FROM users WHERE id=13")" == 'super_admin' ]]
 [[ "$(psql -XAt -d destination -c 'SELECT count(*) FROM sessions')" == 0 ]]
 [[ "$(psql -XAt -d destination -c 'SELECT count(*) FROM cache')" == 0 ]]
 [[ "$(psql -XAt -d destination -c 'SELECT count(*) FROM media')" == 3 ]]

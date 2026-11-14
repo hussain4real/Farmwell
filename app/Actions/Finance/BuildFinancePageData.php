@@ -22,6 +22,7 @@ use App\Models\InvestorAgreement;
 use App\Models\Team;
 use App\Models\User;
 use App\Support\Money;
+use App\Support\PlatformAccess;
 use Illuminate\Database\Eloquent\Collection;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
@@ -41,7 +42,9 @@ class BuildFinancePageData
      */
     public function dashboard(Team $team, User $user): array
     {
-        $this->ensureDefaultExpenseCategories->handle($team);
+        if (! PlatformAccess::activeFor($user, $team)) {
+            $this->ensureDefaultExpenseCategories->handle($team);
+        }
 
         return [
             'permissions' => $user->toTeamPermissions($team),
@@ -59,7 +62,9 @@ class BuildFinancePageData
      */
     public function budgets(Team $team, User $user): array
     {
-        $this->ensureDefaultExpenseCategories->handle($team);
+        if (! PlatformAccess::activeFor($user, $team)) {
+            $this->ensureDefaultExpenseCategories->handle($team);
+        }
 
         return [
             'permissions' => $user->toTeamPermissions($team),
@@ -93,7 +98,9 @@ class BuildFinancePageData
      */
     public function expenses(Team $team, User $user): array
     {
-        $this->ensureDefaultExpenseCategories->handle($team);
+        if (! PlatformAccess::activeFor($user, $team)) {
+            $this->ensureDefaultExpenseCategories->handle($team);
+        }
 
         return [
             'permissions' => $user->toTeamPermissions($team),
