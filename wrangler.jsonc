@@ -5,8 +5,7 @@
     "workers_dev": false,
     "preview_urls": false,
     "routes": [
-        { "pattern": "staging.farmwell.app", "custom_domain": true },
-        { "pattern": "pilot.farmwell.app", "custom_domain": true }
+        { "pattern": "staging.farmwell.app", "custom_domain": true }
     ],
     "version_metadata": { "binding": "CF_VERSION_METADATA" },
     "vars": {
@@ -16,30 +15,59 @@
         "APP_URL": "https://staging.farmwell.app",
         "AWS_ENDPOINT": "https://40344948b73fa9da3008958fdc3faf12.r2.cloudflarestorage.com",
         "AWS_BUCKET": "farmwell-staging-private",
+        "FROZEN_TEAM_SLUG": "mdsxclusive-farms",
+        "FROZEN_TEAM_ID": "4",
+        "MOVED_TEAM_ORIGIN": "https://app.farmwell.app"
     },
     "observability": { "enabled": true },
-    "tail_consumers": [{ "service": "farmwell-staging-alerts" }],
-    "triggers": { "crons": ["* * * * *"] },
+    "tail_consumers": [
+        {
+            "service": "farmwell-staging-alerts"
+        }
+    ],
+    "triggers": {
+        "crons": ["* * * * *"]
+    },
     "containers": [
         {
             "class_name": "FarmwellWeb",
             "scheduling_policy": "durable_object",
-            "images": { "base": { "dockerfile": "./Dockerfile" } },
+            "images": {
+                "base": {
+                    "dockerfile": "./Dockerfile"
+                }
+            }
         },
         {
             "class_name": "FarmwellQueue",
             "scheduling_policy": "durable_object",
-            "images": { "base": { "dockerfile": "./Dockerfile" } },
-        },
+            "images": {
+                "base": {
+                    "dockerfile": "./Dockerfile"
+                }
+            }
+        }
     ],
     "durable_objects": {
         "bindings": [
-            { "name": "FARMWELL_WEB", "class_name": "FarmwellWeb" },
-            { "name": "FARMWELL_QUEUE", "class_name": "FarmwellQueue" },
-        ],
+            {
+                "name": "FARMWELL_WEB",
+                "class_name": "FarmwellWeb"
+            },
+            {
+                "name": "FARMWELL_QUEUE",
+                "class_name": "FarmwellQueue"
+            }
+        ]
     },
     "exports": {
-        "FarmwellWeb": { "type": "durable-object", "storage": "sqlite" },
-        "FarmwellQueue": { "type": "durable-object", "storage": "sqlite" },
-    },
+        "FarmwellWeb": {
+            "type": "durable-object",
+            "storage": "sqlite"
+        },
+        "FarmwellQueue": {
+            "type": "durable-object",
+            "storage": "sqlite"
+        }
+    }
 }

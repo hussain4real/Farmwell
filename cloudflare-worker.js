@@ -1,5 +1,15 @@
 import { DurableObject } from 'cloudflare:workers';
 
+function verificationActive(env) {
+    const start = Number(env.PRODUCTION_VERIFICATION_STARTED_AT);
+    const end = Number(env.PRODUCTION_VERIFICATION_UNTIL);
+
+    return env.REHEARSAL_MODE === 'true' &&
+        env.APP_URL === 'https://production-preview.farmwell.app' &&
+        start > 0 && end > start && end - start <= 7200000 &&
+        Date.now() >= start && Date.now() < end;
+}
+
 function containerEnvironment(env) {
     const databaseUrl = new URL(env.DB_URL);
     databaseUrl.hostname = databaseUrl.hostname.replace('-pooler.', '.');
@@ -24,9 +34,9 @@ function containerEnvironment(env) {
         AWS_DEFAULT_REGION: 'auto',
         AWS_ENDPOINT: env.AWS_ENDPOINT,
         AWS_BUCKET: env.AWS_BUCKET,
-        MAIL_MAILER: env.REHEARSAL_MODE === 'true' ? 'array' : 'cloudflare',
+        MAIL_MAILER: env.REHEARSAL_MODE === 'true' && !verificationActive(env) ? 'array' : 'cloudflare',
         CLOUDFLARE_ACCOUNT_ID: env.CLOUDFLARE_ACCOUNT_ID,
-        CLOUDFLARE_KEY: env.REHEARSAL_MODE === 'true' ? '' : env.CLOUDFLARE_KEY,
+        CLOUDFLARE_KEY: env.REHEARSAL_MODE === 'true' && !verificationActive(env) ? '' : env.CLOUDFLARE_KEY,
         MAIL_FROM_ADDRESS: env.MAIL_FROM_ADDRESS ?? 'noreply@staging-mail.farmwell.app',
         MAIL_FROM_NAME: env.APP_NAME ?? 'Farmwell Staging',
         OPENAI_API_KEY: env.REHEARSAL_MODE === 'true' ? '' : env.OPENAI_API_KEY,
@@ -82,15 +92,16 @@ export class FarmwellWeb extends DurableObject {
                 env: {
                     ...containerEnvironment(this.env),
                     PHONE_PILOT_HOST: this.env.PHONE_PILOT_HOST ?? '',
+                    PHONE_PILOT_FULL_WORKSPACE: this.env.PHONE_PILOT_FULL_WORKSPACE ?? 'false',
                     PHONE_PILOT_SMS_DAILY_LIMIT: this.env.PHONE_PILOT_SMS_DAILY_LIMIT ?? '5',
-                    PHONE_LOGIN_ENABLED: this.env.REHEARSAL_MODE === 'true' ? 'false' : (this.env.PHONE_LOGIN_ENABLED ?? 'false'),
+                    PHONE_LOGIN_ENABLED: this.env.REHEARSAL_MODE === 'true' && !verificationActive(this.env) ? 'false' : (this.env.PHONE_LOGIN_ENABLED ?? 'false'),
                     PHONE_OTP_ALLOWED_NUMBER: this.env.PHONE_OTP_ALLOWED_NUMBER ?? '',
                     INFOBIP_BASE_URL: this.env.INFOBIP_BASE_URL ?? '',
                     INFOBIP_API_KEY: this.env.REHEARSAL_MODE === 'true' ? '' : (this.env.INFOBIP_API_KEY ?? ''),
                     INFOBIP_2FA_APP_ID: this.env.INFOBIP_2FA_APP_ID ?? '',
                     INFOBIP_2FA_MESSAGE_ID: this.env.INFOBIP_2FA_MESSAGE_ID ?? '',
                     PHONE_PILOT_NIGERIA_OTP_PROVIDER: this.env.PHONE_PILOT_NIGERIA_OTP_PROVIDER ?? 'infobip',
-                    KUDISMS_API_KEY: this.env.REHEARSAL_MODE === 'true' ? '' : (this.env.KUDISMS_API_KEY ?? ''),
+                    KUDISMS_API_KEY: this.env.REHEARSAL_MODE === 'true' && !verificationActive(this.env) ? '' : (this.env.KUDISMS_API_KEY ?? ''),
                     KUDISMS_SENDER_ID: this.env.KUDISMS_SENDER_ID ?? 'Farmwell',
                     KUDISMS_OTP_APP_CODE: this.env.KUDISMS_OTP_APP_CODE ?? '',
                     KUDISMS_OTP_TEMPLATE_CODE: this.env.KUDISMS_OTP_TEMPLATE_CODE ?? '',
@@ -231,9 +242,83 @@ export class FarmwellQueue extends DurableObject {
 
 export default {
     async fetch(request, env) {
+        if (env.REDIRECT_HOST && new URL(request.url).hostname === env.REDIRECT_HOST) {
+            if (!['GET', 'HEAD'].includes(request.method)) {
+                return new Response('Farmwell has moved. Reopen the app before saving.', { status: 409, headers: { 'Cache-Control': 'no-store' } });
+            }
+
+            const url = new URL(request.url);
+            const target = new URL(env.APP_URL);
+            target.pathname = url.pathname;
+            target.search = url.search;
+
+            return request.headers.has('x-inertia')
+                ? new Response(null, { status: 409, headers: { 'X-Inertia-Location': target.toString(), 'Cache-Control': 'no-store' } })
+                : new Response(null, { status: 302, headers: { Location: target.toString(), 'Cache-Control': 'no-store' } });
+        }
+
+        if (env.FROZEN_TEAM_SLUG && env.FROZEN_TEAM_ID) {
+            const url = new URL(request.url);
+            let path;
+
+            try {
+                path = decodeURIComponent(url.pathname).replace(/\/{2,}/g, '/');
+            } catch {
+                return new Response('Not found', { status: 404 });
+            }
+
+            const teamPaths = [`/${env.FROZEN_TEAM_SLUG}`, `/settings/teams/${env.FROZEN_TEAM_SLUG}`, `/settings/teams/${env.FROZEN_TEAM_ID}`];
+
+            if (teamPaths.some(prefix => path === prefix || path.startsWith(prefix + '/'))) {
+                if (env.MOVED_TEAM_ORIGIN && ['GET', 'HEAD'].includes(request.method)) {
+                    const target = new URL(env.MOVED_TEAM_ORIGIN);
+                    target.pathname = url.pathname;
+                    target.search = url.search;
+
+                    if (request.headers.has('x-inertia')) {
+                        return new Response(null, { status: 409, headers: { 'X-Inertia-Location': target.toString(), 'Cache-Control': 'no-store' } });
+                    }
+
+                    return new Response(null, { status: 302, headers: { Location: target.toString(), 'Cache-Control': 'no-store' } });
+                }
+
+                return env.MOVED_TEAM_ORIGIN
+                    ? new Response('This farm has moved to production. Reopen Farmwell before saving.', { status: 409, headers: { 'Cache-Control': 'no-store' } })
+                    : new Response('This farm is moving to production. Reopen Farmwell before saving.', { status: 503, headers: { 'Retry-After': '300', 'Cache-Control': 'no-store' } });
+            }
+        }
+
         if (env.REHEARSAL_MODE === 'true') {
-            if (!env.REHEARSAL_TOKEN || request.headers.get('x-farmwell-rehearsal') !== env.REHEARSAL_TOKEN || !['GET', 'HEAD'].includes(request.method)) {
+            const verifying = verificationActive(env);
+
+            if (!env.REHEARSAL_TOKEN || request.headers.get('x-farmwell-rehearsal') !== env.REHEARSAL_TOKEN || (!['GET', 'HEAD'].includes(request.method) && !verifying)) {
                 return new Response('Production rehearsal is private', { status: 403 });
+            }
+
+            let path;
+
+            try {
+                path = decodeURIComponent(new URL(request.url).pathname).replace(/\/{2,}/g, '/').replace(/\/$/, '');
+            } catch {
+                return new Response('Not found', { status: 404 });
+            }
+
+            if (path === '/__verification/error') {
+                if (!verifying) {
+                    return new Response('Not found', { status: 404 });
+                }
+
+                throw new Error('Controlled production verification error');
+            }
+
+            if (verifying && request.method === 'POST' && path === '/login/phone/code') {
+                const json = request.headers.get('content-type')?.includes('application/json');
+                const data = await (json ? request.clone().json() : request.clone().formData()).catch(() => null);
+                const phone = json ? data?.phone : data?.get('phone');
+
+                if (!env.PHONE_OTP_ALLOWED_NUMBER || phone !== env.PHONE_OTP_ALLOWED_NUMBER) {
+                    return new Response('Production verification recipient is restricted', { status: 403 });
+                }
             }
 
             request = new Request(request);
@@ -254,7 +339,8 @@ export default {
             }
         }
 
-        const id = env.FARMWELL_WEB.idFromName(`staging-web-${env.CF_VERSION_METADATA.id}`);
+        const verificationSuffix = verificationActive(env) ? '-verification' : '';
+        const id = env.FARMWELL_WEB.idFromName(`staging-web-${env.CF_VERSION_METADATA.id}${verificationSuffix}`);
         const connect = () => env.FARMWELL_WEB.get(id, { locationHint: 'weur' });
         const safeRead = ['GET', 'HEAD'].includes(request.method);
         let web = connect();
@@ -298,7 +384,7 @@ export default {
         }
     },
     async scheduled(_event, env) {
-        if (env.REHEARSAL_MODE === 'true') {
+        if (env.REHEARSAL_MODE === 'true' && !verificationActive(env)) {
             return;
         }
 

@@ -80,6 +80,10 @@ export class AlertState extends DurableObject {
                     return r.status === 403 && (await r.text()) === 'Production rehearsal is private';
                 }
 
+                if (this.env.GATEWAY_MODE === 'public') {
+                    return r.status === 200 && (await r.text()).includes('Application up');
+                }
+
                 await r.body?.cancel();
 
                 return (

@@ -42,6 +42,7 @@ class PhoneLoginController extends Controller
             'invite' => $invite?->code,
             'callingCode' => ($recipient ? PhoneCallingCode::forRecipient($recipient) : $callingCode) ?? PilotPhone::callingCode($request),
             'pilot' => $pilot,
+            'emailSignInAllowed' => ! $pilot || (bool) config('services.phone_login.full_workspace'),
             'countries' => PilotPhone::Countries,
             'teamName' => $invite?->team->name,
             'awaitingCode' => $awaitingCode,

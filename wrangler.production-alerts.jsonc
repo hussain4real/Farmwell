@@ -5,24 +5,57 @@
     "workers_dev": false,
     "preview_urls": false,
     "observability": { "enabled": true },
-    "triggers": { "crons": ["*/10 * * * *"] },
-    "services": [{ "binding": "APP", "service": "farmwell-production" }],
-    "r2_buckets": [{ "binding": "BACKUPS", "bucket_name": "farmwell-production-backups" }],
-    "send_email": [{ "name": "MAIL", "allowed_sender_addresses": ["noreply@mail.farmwell.app"] }],
+    "triggers": {
+        "crons": ["*/10 * * * *"]
+    },
+    "services": [
+        {
+            "binding": "APP",
+            "service": "farmwell-production"
+        }
+    ],
+    "r2_buckets": [
+        {
+            "binding": "BACKUPS",
+            "bucket_name": "farmwell-production-live-backups"
+        }
+    ],
+    "send_email": [
+        {
+            "name": "MAIL",
+            "allowed_sender_addresses": [
+                "noreply@mail.farmwell.app"
+            ]
+        }
+    ],
     "durable_objects": {
         "bindings": [
-            { "name": "STATE", "class_name": "AlertState" },
-            { "name": "QUEUE", "class_name": "FarmwellQueue", "script_name": "farmwell-production" }
+            {
+                "name": "STATE",
+                "class_name": "AlertState"
+            },
+            {
+                "name": "QUEUE",
+                "class_name": "FarmwellQueue",
+                "script_name": "farmwell-production"
+            }
         ]
     },
-    "migrations": [{ "tag": "v1", "new_sqlite_classes": ["AlertState"] }],
+    "migrations": [
+        {
+            "tag": "v1",
+            "new_sqlite_classes": [
+                "AlertState"
+            ]
+        }
+    ],
     "vars": {
         "INITIAL_FAILED_JOB_ID": "0",
         "ALERT_LABEL": "Farmwell production",
-        "MONITOR_NAME": "production",
+        "MONITOR_NAME": "production-live",
         "MAIL_FROM": "noreply@mail.farmwell.app",
-        "HEALTH_URL": "https://production-preview.farmwell.app/up",
-        "GATEWAY_MODE": "private",
-        "ALERT_DELIVERY_ENABLED": "false"
+        "HEALTH_URL": "https://app.farmwell.app/up",
+        "GATEWAY_MODE": "public",
+        "ALERT_DELIVERY_ENABLED": "true"
     }
 }
