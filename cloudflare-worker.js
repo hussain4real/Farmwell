@@ -282,7 +282,9 @@ export default {
                     return new Response(null, { status: 302, headers: { Location: target.toString(), 'Cache-Control': 'no-store' } });
                 }
 
-                return new Response('This farm is moving to production. Reopen Farmwell before saving.', { status: 503, headers: { 'Retry-After': '300', 'Cache-Control': 'no-store' } });
+                return env.MOVED_TEAM_ORIGIN
+                    ? new Response('This farm has moved to production. Reopen Farmwell before saving.', { status: 409, headers: { 'Cache-Control': 'no-store' } })
+                    : new Response('This farm is moving to production. Reopen Farmwell before saving.', { status: 503, headers: { 'Retry-After': '300', 'Cache-Control': 'no-store' } });
             }
         }
 

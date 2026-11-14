@@ -580,7 +580,7 @@ forwarded++;
     const inertia = await worker.fetch(new Request('https://staging.test/moved-farm/field-diary', {headers: {'x-inertia': 'true'}}), env);
     assert.equal(inertia.status, 409);
     assert.equal(inertia.headers.get('x-inertia-location'), 'https://production.test/moved-farm/field-diary');
-    assert.equal((await worker.fetch(new Request('https://staging.test/moved-farm/farm-activities', {method: 'POST'}), env)).status, 503);
+    assert.equal((await worker.fetch(new Request('https://staging.test/moved-farm/farm-activities', {method: 'POST'}), env)).status, 409);
     assert.equal(forwarded, 2);
 });
 
