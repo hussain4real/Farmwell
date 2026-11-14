@@ -31,15 +31,16 @@ RUN cd /var/www/html && ln -s /app/node_modules node_modules \
     && /app/node_modules/.bin/vite build \
     && rm node_modules
 FROM runtime AS app
-COPY --from=build --chown=www-data:www-data /var/www/html/app ./app
-COPY --from=build --chown=www-data:www-data /var/www/html/bootstrap ./bootstrap
-COPY --from=build --chown=www-data:www-data /var/www/html/config ./config
-COPY --from=build --chown=www-data:www-data /var/www/html/database ./database
-COPY --from=build --chown=www-data:www-data /var/www/html/public ./public
-COPY --from=build --chown=www-data:www-data /var/www/html/resources/views ./resources/views
-COPY --from=build --chown=www-data:www-data /var/www/html/routes ./routes
-COPY --from=build --chown=www-data:www-data /var/www/html/storage ./storage
-COPY --from=build --chown=www-data:www-data /var/www/html/vendor ./vendor
+COPY --from=build /var/www/html/app ./app
+COPY --from=build /var/www/html/bootstrap ./bootstrap
+COPY --from=build /var/www/html/config ./config
+COPY --from=build /var/www/html/database ./database
+COPY --from=build /var/www/html/public ./public
+COPY --from=build /var/www/html/resources/views ./resources/views
+COPY --from=build /var/www/html/routes ./routes
+COPY --from=build /var/www/html/storage ./storage
+COPY --from=build /var/www/html/vendor ./vendor
 COPY --from=build /var/www/html/artisan /var/www/html/composer.json /var/www/html/composer.lock ./
+RUN chown -R www-data:www-data storage bootstrap/cache
 EXPOSE 80
 CMD ["apache2-foreground"]

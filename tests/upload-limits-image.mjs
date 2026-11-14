@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
-import { access, readFile, writeFile, rm } from 'node:fs/promises';
+import { access, readFile, writeFile, rm, stat } from 'node:fs/promises';
 import { request } from 'node:http';
 import { setTimeout as delay } from 'node:timers/promises';
 
@@ -19,6 +19,12 @@ for (const path of [
 const manifest = JSON.parse(
     await readFile('/var/www/html/public/build/manifest.json', 'utf8'),
 );
+assert.equal(
+    (await stat('/var/www/html/app/Providers/AppServiceProvider.php')).uid,
+    0,
+);
+assert.equal((await stat('/var/www/html/bootstrap/cache')).uid, 33);
+assert.equal((await stat('/var/www/html/storage')).uid, 33);
 assert.ok(Object.values(manifest).some((entry) => entry.isEntry));
 const fonts = JSON.parse(
     await readFile('/var/www/html/public/build/fonts-manifest.json', 'utf8'),
