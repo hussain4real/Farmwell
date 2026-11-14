@@ -274,6 +274,7 @@ test('the production workspace supports invited SMS sign-in and owner email admi
     $team = Team::factory()->create();
     $team->members()->attach($farmer, ['role' => TeamRole::Operator->value]);
     TeamInvitation::factory()->create(['team_id' => $team->id, 'phone' => $this->phone, 'email' => null, 'accepted_at' => now()]);
+    $this->get($this->origin.'/')->assertRedirect($this->origin.'/login');
     $this->get($this->origin.'/login')->assertRedirect($this->origin.'/login/phone');
     $this->get($this->origin.'/login/phone')->assertInertia(fn (AssertableInertia $page) => $page->where('emailSignInAllowed', true)->where('callingCode', '+234'));
     $this->get($this->origin.'/login?method=email')->assertInertia(fn (AssertableInertia $page) => $page->component('auth/Login'));
