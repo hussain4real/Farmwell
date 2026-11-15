@@ -862,3 +862,60 @@ test('an existing requested phase can be submitted once for investor approval', 
     $this->post($url)->assertSessionHasErrors('milestone_evidence');
     expect(ApprovalRequest::query()->where('subject_id', $phase->id)->count())->toBe(1);
 });
+
+test('an investor in two workspaces receives only each farms public agreement terms', function () {
+    [, $investor, $cropTeam, $cropFarm] = farmwellInvestorContext();
+    $fishTeam = Team::factory()->create();
+    $fishTeam->members()->attach($investor, ['role' => TeamRole::Investor->value]);
+    $fishFarm = Farm::factory()->create(['team_id' => $fishTeam->id]);
+
+    $cropAgreement = InvestorAgreement::factory()->create([
+        'team_id' => $cropTeam->id,
+        'farm_id' => $cropFarm->id,
+        'investor_id' => $investor->id,
+        'production_cycle_id' => null,
+        'status' => InvestorAgreementStatus::Active,
+        'amount_committed_minor' => 114_450_000,
+        'amount_funded_minor' => 0,
+        'investor_profit_share_percentage' => 30,
+        'farm_profit_share_percentage' => 70,
+        'public_notes' => "Rice, separate season: NGN 606,500.\nDry Season Pepper: NGN 538,000.",
+        'internal_notes' => 'Private crop-farm terms.',
+        'funding_model' => 'Phased funding.',
+    ]);
+    $fishAgreement = InvestorAgreement::factory()->create([
+        'team_id' => $fishTeam->id,
+        'farm_id' => $fishFarm->id,
+        'investor_id' => $investor->id,
+        'production_cycle_id' => null,
+        'status' => InvestorAgreementStatus::Active,
+        'amount_committed_minor' => 24_850_000,
+        'amount_funded_minor' => 0,
+        'investor_profit_share_percentage' => 35,
+        'farm_profit_share_percentage' => 65,
+        'public_notes' => 'Initial 1,500-fish batch; estimated cycle budget NGN 887,800.',
+        'internal_notes' => 'Private fish-farm terms.',
+        'funding_model' => 'First-month pledge; later instalments agreed in writing.',
+    ]);
+    InvestorAgreement::factory()->create([
+        'team_id' => $cropTeam->id,
+        'farm_id' => $cropFarm->id,
+        'status' => InvestorAgreementStatus::Active,
+    ]);
+
+    foreach ([[$cropTeam, $cropAgreement], [$fishTeam, $fishAgreement]] as [$team, $agreement]) {
+        $this->actingAs($investor)->get(farmwellInvestorRoute('investor-portal.index', $team))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('agreements', 1)
+                ->where('agreements.0.id', $agreement->id)
+                ->where('agreements.0.farmId', $agreement->farm_id)
+                ->where('agreements.0.amountCommittedMinor', $agreement->amount_committed_minor)
+                ->where('agreements.0.amountFunded', '0.00')
+                ->where('agreements.0.investorProfitSharePercentage', $agreement->investor_profit_share_percentage)
+                ->where('agreements.0.farmProfitSharePercentage', $agreement->farm_profit_share_percentage)
+                ->where('agreements.0.publicNotes', $agreement->public_notes)
+                ->where('agreements.0.fundingModel', $agreement->funding_model)
+                ->where('agreements.0.internalNotes', null));
+    }
+});
