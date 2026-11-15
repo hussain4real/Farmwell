@@ -4,6 +4,7 @@ import { Handshake, MessageSquare } from 'lucide-vue-next';
 import { computed } from 'vue';
 import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
+import InvestorAgreementTerms from '@/components/InvestorAgreementTerms.vue';
 import SummaryText from '@/components/SummaryText.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -76,6 +77,8 @@ const currentTeamSlug = computed(() => currentTeam.value?.slug ?? '');
                         {{ agreement.statusLabel }}
                     </Badge>
                 </div>
+                <InvestorAgreementTerms :agreement="agreement" />
+
                 <Link
                     :href="statementsIndex([currentTeamSlug, agreement.id])"
                     class="text-sm font-medium underline underline-offset-4"
