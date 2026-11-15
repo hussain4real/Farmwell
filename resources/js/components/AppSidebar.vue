@@ -1,9 +1,7 @@
 <script setup lang="ts">
 import { Link, usePage } from '@inertiajs/vue3';
 import {
-    BookOpen,
     ClipboardList,
-    FolderGit2,
     FileText,
     Handshake,
     Landmark,
@@ -16,7 +14,6 @@ import {
 } from 'lucide-vue-next';
 import { computed } from 'vue';
 import AppLogo from '@/components/AppLogo.vue';
-import NavFooter from '@/components/NavFooter.vue';
 import NavMain from '@/components/NavMain.vue';
 import NavUser from '@/components/NavUser.vue';
 import TeamSwitcher from '@/components/TeamSwitcher.vue';
@@ -231,19 +228,6 @@ const mainNavItems = computed<NavItem[]>(() => {
 
     return items;
 });
-
-const footerNavItems: NavItem[] = [
-    {
-        title: 'Repository',
-        href: 'https://github.com/hussain4real/Farmwell',
-        icon: FolderGit2,
-    },
-    {
-        title: 'Documentation',
-        href: 'https://github.com/hussain4real/Farmwell/tree/dev/docs/user-guides',
-        icon: BookOpen,
-    },
-];
 </script>
 
 <template>
@@ -289,7 +273,6 @@ const footerNavItems: NavItem[] = [
         </SidebarContent>
 
         <SidebarFooter>
-            <NavFooter :items="footerNavItems" />
             <NavUser />
         </SidebarFooter>
     </Sidebar>
