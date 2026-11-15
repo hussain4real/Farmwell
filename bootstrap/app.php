@@ -5,6 +5,7 @@ use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\SetTeamUrlDefaults;
 use App\Http\Middleware\StartFarmwellSession;
+use App\Models\User;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -27,6 +28,20 @@ return Application::configure(basePath: dirname(__DIR__))
             headers: Request::HEADER_X_FORWARDED_FOR | Request::HEADER_X_FORWARDED_HOST | Request::HEADER_X_FORWARDED_PROTO,
         );
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
+
+        $middleware->redirectUsersTo(function (Request $request): string {
+            $user = $request->user();
+            abort_unless($user instanceof User, 403);
+
+            $team = $user->currentTeam ?? $user->personalTeam();
+            abort_unless($team, 403);
+
+            $route = $user->can('viewInvestorPortal', $team) && $user->cannot('viewFieldWork', $team)
+                ? 'investor-portal.index'
+                : 'dashboard';
+
+            return route($route, ['current_team' => $team]);
+        });
 
         $middleware->web(append: [
             EnsurePilotPhoneAccess::class,

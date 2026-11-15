@@ -258,6 +258,23 @@ test('eligible pilot recipients have a configurable daily SMS limit and a one-mi
     'staging override' => [10, 10],
 ]);
 
+test('a signed-in investor can open the production homepage and sign-in links', function () {
+    config(['services.phone_login.full_workspace' => true]);
+
+    $investor = User::factory()->create();
+    $team = Team::factory()->create();
+    $team->members()->attach($investor, ['role' => TeamRole::Investor->value]);
+    $investor->switchTeam($team);
+
+    $portal = $this->origin.'/'.$team->slug.'/investor-portal';
+
+    $this->actingAs($investor)->get($this->origin.'/')->assertRedirect($this->origin.'/login');
+    $this->get($this->origin.'/login')->assertRedirect($portal);
+    $this->get($this->origin.'/login/phone')->assertRedirect($portal);
+    $this->get($portal)->assertOk();
+    $this->get($this->origin.'/'.$team->slug.'/dashboard')->assertForbidden();
+});
+
 test('the production workspace supports invited SMS sign-in and owner email administration', function () {
     config([
         'services.phone_login.full_workspace' => true,
