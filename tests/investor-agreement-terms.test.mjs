@@ -197,7 +197,7 @@ test('the decision queue puts pending requests first and only shows a decision f
     assert.equal((html.match(/<form\b/g) ?? []).length, 1);
 });
 
-test('farm updates display shared photo previews in date order and retain the download link', async () => {
+test('farm updates show photo viewer buttons and document downloads in the activity trail', async () => {
     const html = await renderToString(
         createSSRApp({
             render: () =>
@@ -218,6 +218,14 @@ test('farm updates display shared photo previews in date order and retain the do
                                         previewUrl:
                                             '/test-farm/investor-evidence/3?preview=1',
                                         caption: 'Shared pond photo',
+                                    },
+                                    {
+                                        id: 4,
+                                        fileName: 'inspection.pdf',
+                                        downloadUrl:
+                                            '/test-farm/investor-evidence/4',
+                                        previewUrl: null,
+                                        caption: null,
                                     },
                                 ],
                             },
@@ -243,10 +251,15 @@ test('farm updates display shared photo previews in date order and retain the do
     );
 
     assert.match(html, /datetime="2026-11-15"[^>]*>15 Nov 2026/);
-    assert.match(html, /href="\/test-farm\/investor-evidence\/3"/);
+    assert.match(html, /href="\/test-farm\/investor-evidence\/4"/);
+    assert.doesNotMatch(html, /href="\/test-farm\/investor-evidence\/3"/);
     assert.match(
         html,
-        /<img[^>]+src="\/test-farm\/investor-evidence\/3\?preview=1"[^>]+alt="Shared pond photo"/,
+        /<button[^>]+aria-haspopup="dialog"[^>]+aria-label="View photo: Shared pond photo \(pond.jpg\)"/,
+    );
+    assert.match(
+        html,
+        /<img[^>]+src="\/test-farm\/investor-evidence\/3\?preview=1"[^>]+alt=""/,
     );
     assert.ok(
         html.indexOf('Shared field photos') < html.indexOf('Weekly update'),

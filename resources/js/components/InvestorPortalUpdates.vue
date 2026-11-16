@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { Paperclip } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import Heading from '@/components/Heading.vue';
+import InvestorUpdateEvidence from '@/components/InvestorUpdateEvidence.vue';
 import SummaryText from '@/components/SummaryText.vue';
 import { Label } from '@/components/ui/label';
 import { formatInvestorDate } from '@/lib/investor-portal';
@@ -142,45 +142,10 @@ const visibleUpdates = computed(() =>
                 >
                     {{ update.detail }}
                 </p>
-                <ul
+                <InvestorUpdateEvidence
                     v-if="update.evidence?.length"
-                    class="mt-3 flex flex-wrap gap-2"
-                >
-                    <li
-                        v-for="file in update.evidence"
-                        :key="file.id"
-                        class="max-w-full min-w-0"
-                    >
-                        <a
-                            :href="file.downloadUrl"
-                            class="inline-flex max-w-full overflow-hidden rounded-md border text-sm hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
-                            :class="
-                                file.previewUrl
-                                    ? 'w-36 flex-col'
-                                    : 'items-center gap-2 px-3 py-2'
-                            "
-                        >
-                            <img
-                                v-if="file.previewUrl"
-                                :src="file.previewUrl"
-                                :alt="file.caption ?? ''"
-                                loading="lazy"
-                                decoding="async"
-                                class="aspect-[4/3] w-full bg-muted object-cover"
-                            />
-                            <Paperclip
-                                v-else
-                                aria-hidden="true"
-                                class="size-4 shrink-0"
-                            />
-                            <span
-                                class="break-all"
-                                :class="{ 'px-2 py-1.5': file.previewUrl }"
-                                >{{ file.fileName }}</span
-                            >
-                        </a>
-                    </li>
-                </ul>
+                    :evidence="update.evidence"
+                />
             </li>
         </ol>
         <p
