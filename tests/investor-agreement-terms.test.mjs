@@ -32,6 +32,9 @@ const { default: Decisions } = await server.ssrLoadModule(
 const { default: Updates } = await server.ssrLoadModule(
     '/resources/js/components/InvestorPortalUpdates.vue',
 );
+const { usePhotoZoom } = await server.ssrLoadModule(
+    '/resources/js/composables/usePhotoZoom.ts',
+);
 
 function agreement(overrides = {}) {
     return {
@@ -267,6 +270,26 @@ test('farm updates show photo viewer buttons and document downloads in the activ
     assert.ok(
         html.indexOf('Weekly update') < html.indexOf('Clean the equipment'),
     );
+});
+
+test('photo zoom keeps the fitted image within reach and restores the swipable view at normal size', () => {
+    const zoom = usePhotoZoom(() => ({
+        clientWidth: 390,
+        clientHeight: 600,
+        naturalWidth: 3000,
+        naturalHeight: 4000,
+    }));
+
+    zoom.zoomBy(2);
+    zoom.panBy(600, -600);
+
+    assert.equal(zoom.zoomed.value, true);
+    assert.equal(zoom.transform.value, 'translate(195px, -220px) scale(2)');
+
+    zoom.zoomBy(0.5);
+
+    assert.equal(zoom.zoomed.value, false);
+    assert.equal(zoom.transform.value, undefined);
 });
 
 test('fish commitment stays distinct from the full cycle estimate and shows its own terms', async () => {

@@ -6,8 +6,11 @@ import {
     Download,
     Paperclip,
     X,
+    ZoomIn,
+    ZoomOut,
 } from 'lucide-vue-next';
-import { computed, nextTick, ref, useId, useTemplateRef } from 'vue';
+import { computed, nextTick, ref, useId, useTemplateRef, watch } from 'vue';
+import { usePhotoZoom } from '@/composables/usePhotoZoom';
 import type { InvestorActivityEvidence } from '@/types';
 
 const props = defineProps<{ evidence: InvestorActivityEvidence[] }>();
@@ -23,6 +26,35 @@ const photos = computed(() =>
     ),
 );
 const photo = computed(() => photos.value[photoIndex.value ?? -1]);
+const zoom = usePhotoZoom(
+    () =>
+        track.value?.children[photoIndex.value ?? -1]?.querySelector('img') ??
+        null,
+);
+const { zoomed, canZoomIn, transform } = zoom;
+watch(photoIndex, zoom.reset, { flush: 'sync' });
+
+const panKeys = new Map([
+    ['ArrowLeft', [64, 0]],
+    ['ArrowRight', [-64, 0]],
+    ['ArrowUp', [0, 64]],
+    ['ArrowDown', [0, -64]],
+]);
+
+function handleTrackKeydown(event: KeyboardEvent) {
+    const offset = panKeys.get(event.key);
+
+    if (zoomed.value && offset) {
+        event.preventDefault();
+        zoom.panBy(offset[0], offset[1]);
+    } else if (
+        photoIndex.value !== null &&
+        (event.key === 'ArrowLeft' || event.key === 'ArrowRight')
+    ) {
+        event.preventDefault();
+        scrollToPhoto(photoIndex.value + (event.key === 'ArrowLeft' ? -1 : 1));
+    }
+}
 
 function syncPhoto() {
     const scroller = track.value;
@@ -167,11 +199,19 @@ async function openPhoto(photoId: number) {
                     aria-label="Shared photos"
                     aria-roledescription="carousel"
                     tabindex="0"
-                    class="flex min-h-0 min-w-0 touch-manipulation snap-x snap-mandatory [scrollbar-width:none] overflow-x-auto overflow-y-hidden overscroll-contain focus-visible:outline-2 focus-visible:-outline-offset-2"
+                    class="flex min-h-0 min-w-0 snap-x snap-mandatory [scrollbar-width:none] overflow-y-hidden overscroll-contain focus-visible:outline-2 focus-visible:-outline-offset-2"
+                    :class="
+                        zoomed
+                            ? 'touch-none overflow-x-hidden'
+                            : 'touch-pan-x overflow-x-auto'
+                    "
                     @scroll.passive="handleScroll"
                     @scrollend="syncPhoto"
-                    @keydown.left.self.prevent="scrollToPhoto(photoIndex - 1)"
-                    @keydown.right.self.prevent="scrollToPhoto(photoIndex + 1)"
+                    @keydown.self="handleTrackKeydown"
+                    @touchstart="zoom.onContactsChanged"
+                    @touchmove="zoom.onTouchMove"
+                    @touchend="zoom.onContactsChanged"
+                    @touchcancel="zoom.onTouchCancel"
                 >
                     <div
                         v-for="(image, index) in photos"
@@ -179,7 +219,7 @@ async function openPhoto(photoId: number) {
                         role="group"
                         aria-roledescription="slide"
                         :aria-label="`${index + 1} of ${photos.length}`"
-                        class="grid w-full shrink-0 snap-center snap-always place-items-center"
+                        class="grid w-full shrink-0 snap-center snap-always place-items-center overflow-hidden"
                     >
                         <img
                             :src="image.previewUrl"
@@ -187,7 +227,10 @@ async function openPhoto(photoId: number) {
                             :loading="index === photoIndex ? 'eager' : 'lazy'"
                             decoding="async"
                             draggable="false"
-                            class="h-full min-h-0 w-full object-contain"
+                            class="h-full min-h-0 w-full object-contain select-none"
+                            :style="
+                                index === photoIndex ? { transform } : undefined
+                            "
                         />
                     </div>
                 </div>
@@ -195,12 +238,40 @@ async function openPhoto(photoId: number) {
                 <footer
                     class="space-y-1 px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] text-center sm:px-6"
                 >
-                    <p
-                        class="truncate text-sm text-neutral-200"
-                        :title="photo.caption || photo.fileName"
+                    <div
+                        class="flex min-w-0 items-center justify-between gap-3"
                     >
-                        {{ photo.caption || photo.fileName }}
-                    </p>
+                        <p
+                            class="truncate text-start text-sm text-neutral-200"
+                            :title="photo.caption || photo.fileName"
+                        >
+                            {{ photo.caption || photo.fileName }}
+                        </p>
+                        <div
+                            role="group"
+                            aria-label="Photo zoom"
+                            class="flex shrink-0 gap-2"
+                        >
+                            <button
+                                type="button"
+                                aria-label="Zoom out"
+                                :aria-disabled="!zoomed"
+                                class="inline-flex size-11 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 focus-visible:outline-2 aria-disabled:opacity-40"
+                                @click="zoom.zoomBy(1 / 1.5)"
+                            >
+                                <ZoomOut aria-hidden="true" class="size-5" />
+                            </button>
+                            <button
+                                type="button"
+                                aria-label="Zoom in"
+                                :aria-disabled="!canZoomIn"
+                                class="inline-flex size-11 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 focus-visible:outline-2 aria-disabled:opacity-40"
+                                @click="zoom.zoomBy(1.5)"
+                            >
+                                <ZoomIn aria-hidden="true" class="size-5" />
+                            </button>
+                        </div>
+                    </div>
                     <nav
                         v-if="photos.length > 1"
                         aria-label="Photo navigation"
