@@ -82,9 +82,8 @@ class BuildInvestorPageData
      */
     public function portal(Team $team, User $user): array
     {
-        $agreements = $team->investorAgreements()
-            ->where('investor_id', $user->id)
-            ->whereIn('status', [InvestorAgreementStatus::Active->value, InvestorAgreementStatus::Completed->value])
+        $agreements = $this->visibleAgreements($user)
+            ->whereBelongsTo($team)
             ->with([
                 'team', 'investor', 'farm', 'productionCycle', 'approvalRequests.investorAgreement.investor', 'investorComments.author',
                 'approvalRequests.subject' => fn (MorphTo $subject) => $subject->morphWith([
@@ -139,6 +138,83 @@ class BuildInvestorPageData
                 ],
             ],
         ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function portfolio(User $user): array
+    {
+        $agreements = $this->visibleAgreements($user)
+            ->whereHas('team.members', fn (Builder $members) => $members->whereKey($user->id))
+            ->whereHas('farm', fn (Builder $farm) => $farm->whereColumn('farms.team_id', 'investor_agreements.team_id'))
+            ->select('investor_agreements.*')
+            ->addSelect(['latest_activity_id' => $this->sharedActivities()
+                ->select('farm_activities.id')
+                ->whereColumn('farm_activities.team_id', 'investor_agreements.team_id')
+                ->whereColumn('farm_activities.farm_id', 'investor_agreements.farm_id')
+                ->where(fn (Builder $query) => $query->whereNull('investor_agreements.production_cycle_id')
+                    ->orWhereColumn('farm_activities.production_cycle_id', 'investor_agreements.production_cycle_id'))
+                ->limit(1)])
+            ->with(['team', 'farm', 'approvalRequests' => fn ($query) => $query->where('status', ApprovalRequestStatus::Pending->value)])
+            ->latest('id')
+            ->get()
+            ->filter(fn (InvestorAgreement $agreement): bool => $user->can('viewInvestorPortal', $agreement->team));
+
+        $activities = FarmActivity::query()->whereKey($agreements->pluck('latest_activity_id')->filter()->unique()->all())
+            ->get(['id', 'activity_type', 'activity_date', 'investor_safe_summary'])->keyBy('id');
+
+        return [
+            'farms' => $agreements->sortBy('farm.name', SORT_NATURAL | SORT_FLAG_CASE)->groupBy('farm_id')
+                ->map(function (Collection $group) use ($activities): array {
+                    $first = $group->firstOrFail();
+
+                    return [
+                        'id' => $first->farm_id,
+                        'name' => $first->farm->name,
+                        'teamSlug' => $first->team->slug,
+                        'agreements' => $group->map(function (InvestorAgreement $agreement) use ($activities): array {
+                            $activity = $activities->get((int) $agreement->getAttribute('latest_activity_id'));
+
+                            return [
+                                'id' => $agreement->id,
+                                'title' => $agreement->title,
+                                'statusLabel' => $agreement->status->label(),
+                                'currency' => $agreement->currency,
+                                'committed' => Money::toDecimal($agreement->amount_committed_minor),
+                                'funded' => Money::toDecimal($agreement->amount_funded_minor),
+                                'latestActivity' => $activity ? [
+                                    'title' => $this->sharedActivityTitle($activity),
+                                    'date' => $activity->activity_date->toDateString(),
+                                ] : null,
+                            ];
+                        })->values()->all(),
+                    ];
+                })->values()->all(),
+            'attention' => $agreements->flatMap(fn (InvestorAgreement $agreement) => $agreement->approvalRequests
+                ->filter(fn (ApprovalRequest $request): bool => $request->team_id === $agreement->team_id
+                    && in_array($request->getAttribute('farm_id'), [null, $agreement->farm_id], true))
+                ->map(fn (ApprovalRequest $request): array => [
+                    'requestId' => $request->id,
+                    'agreementId' => $agreement->id,
+                    'agreementTitle' => $agreement->title,
+                    'farmName' => $agreement->farm->name,
+                    'teamSlug' => $agreement->team->slug,
+                    'label' => $request->request_type->label(),
+                    'amount' => Money::toDecimal($request->requested_amount_minor),
+                    'currency' => $request->currency,
+                    'requestedAt' => $request->requested_at->toISOString(),
+                ])->all())->sortBy([['requestedAt', 'asc'], ['requestId', 'asc']])->values()->all(),
+        ];
+    }
+
+    /**
+     * @return Builder<InvestorAgreement>
+     */
+    private function visibleAgreements(User $user): Builder
+    {
+        return InvestorAgreement::query()->where('investor_id', $user->id)
+            ->whereIn('status', [InvestorAgreementStatus::Active->value, InvestorAgreementStatus::Completed->value]);
     }
 
     /**
@@ -362,20 +438,33 @@ class BuildInvestorPageData
      */
     private function approvedActivities(InvestorAgreement $agreement): Collection
     {
-        return FarmActivity::query()
+        return $this->sharedActivities()
             ->where('team_id', $agreement->team_id)
             ->where('farm_id', $agreement->farm_id)
             ->when($agreement->production_cycle_id, fn ($query) => $query->where('production_cycle_id', $agreement->production_cycle_id))
+            ->with('media')
+            ->limit(20)
+            ->get();
+    }
+
+    /**
+     * @return Builder<FarmActivity>
+     */
+    private function sharedActivities(): Builder
+    {
+        return FarmActivity::query()
             ->where(fn (Builder $query) => $query->whereNotNull('investor_safe_summary')
                 ->orWhereHas('media', fn (Builder $media) => $media
                     ->where('collection_name', FarmActivity::EvidenceCollection)
                     ->where('custom_properties->visibility', 'investor_visible')
                     ->whereIn('mime_type', FarmActivity::InvestorPhotoMimeTypes)))
-            ->with('media')
             ->latest('activity_date')
-            ->latest('id')
-            ->limit(20)
-            ->get();
+            ->latest('id');
+    }
+
+    private function sharedActivityTitle(FarmActivity $activity): string
+    {
+        return $activity->investor_safe_summary === null ? 'Shared field photos' : $activity->activity_type;
     }
 
     /**
@@ -577,7 +666,7 @@ class BuildInvestorPageData
         return [
             'id' => $activity->id,
             'activityDate' => $activity->activity_date->toDateString(),
-            'activityType' => $activity->investor_safe_summary === null ? 'Shared field photos' : $activity->activity_type,
+            'activityType' => $this->sharedActivityTitle($activity),
             'summary' => $activity->investor_safe_summary,
             'status' => $activity->status->value,
             'evidence' => $activity->getMedia(FarmActivity::EvidenceCollection)

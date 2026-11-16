@@ -73,7 +73,9 @@ const visibleRequests = computed(() => {
             <div
                 v-for="request in visibleRequests"
                 :key="request.id"
-                class="rounded-xl border bg-card p-4 text-sm sm:p-5"
+                :id="`investor-request-${request.id}`"
+                tabindex="-1"
+                class="scroll-mt-4 rounded-xl border bg-card p-4 text-sm focus:outline-2 focus:outline-offset-2 focus:outline-ring sm:p-5"
             >
                 <div class="flex flex-wrap items-start justify-between gap-3">
                     <p class="font-medium">
