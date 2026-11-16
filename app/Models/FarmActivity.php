@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 /**
  * @property int $id
@@ -69,6 +70,15 @@ class FarmActivity extends Model implements HasMedia
     use InteractsWithMedia;
 
     public const EvidenceCollection = 'evidence';
+
+    public const InvestorPhotoMimeTypes = ['image/jpeg', 'image/png', 'image/webp'];
+
+    public function sharesEvidenceWithInvestors(Media $media): bool
+    {
+        return $media->collection_name === self::EvidenceCollection
+            && $media->getCustomProperty('visibility') === 'investor_visible'
+            && ($this->investor_safe_summary !== null || in_array($media->mime_type, self::InvestorPhotoMimeTypes, true));
+    }
 
     /**
      * Get the team that owns the activity.

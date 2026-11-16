@@ -35,12 +35,22 @@ class InvestorEvidenceController extends Controller
         abort_if(! $subject instanceof Model, 404);
         abort_unless((int) $subject->getAttribute('team_id') === $currentTeam->id, 404);
 
-        if ($user->can('viewInvestorAgreements', $currentTeam) || $user->can('viewFinance', $currentTeam)) {
-            return $media->toResponse($request);
+        if (! $user->can('viewInvestorAgreements', $currentTeam) && ! $user->can('viewFinance', $currentTeam)) {
+            abort_unless($user->can('viewInvestorPortal', $currentTeam), 403);
+            abort_unless($this->isInvestorVisible($currentTeam, $user, $media, $subject), 404);
         }
 
-        abort_unless($user->can('viewInvestorPortal', $currentTeam), 403);
-        abort_unless($this->isInvestorVisible($currentTeam, $user, $media, $subject), 404);
+        if ($request->boolean('preview')) {
+            abort_unless($subject instanceof FarmActivity && $subject->sharesEvidenceWithInvestors($media)
+                && in_array($media->mime_type, FarmActivity::InvestorPhotoMimeTypes, true), 404);
+
+            $response = $media->toInlineResponse($request);
+            $response->headers->set('Cache-Control', 'private, no-store');
+            $response->headers->remove('Pragma');
+            $response->headers->set('X-Content-Type-Options', 'nosniff');
+
+            return $response;
+        }
 
         return $media->toResponse($request);
     }
@@ -82,8 +92,7 @@ class InvestorEvidenceController extends Controller
         }
 
         if ($subject instanceof FarmActivity) {
-            return $media->getCustomProperty('visibility') === 'investor_visible'
-                && $subject->investor_safe_summary !== null
+            return $subject->sharesEvidenceWithInvestors($media)
                 && InvestorAgreement::query()
                     ->where('team_id', $team->id)
                     ->where('investor_id', $user->id)

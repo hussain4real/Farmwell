@@ -5,7 +5,10 @@ import Heading from '@/components/Heading.vue';
 import SummaryText from '@/components/SummaryText.vue';
 import { Label } from '@/components/ui/label';
 import { formatInvestorDate } from '@/lib/investor-portal';
-import type { Evidence, InvestorPortalAgreement } from '@/types';
+import type {
+    InvestorActivityEvidence,
+    InvestorPortalAgreement,
+} from '@/types';
 
 const props = defineProps<{ agreement: InvestorPortalAgreement }>();
 
@@ -17,7 +20,7 @@ type Update = {
     date: string | null;
     detail?: string | null;
     html?: string;
-    evidence?: Evidence[];
+    evidence?: InvestorActivityEvidence[];
 };
 
 const labels: Record<UpdateKind, string> = {
@@ -150,13 +153,31 @@ const visibleUpdates = computed(() =>
                     >
                         <a
                             :href="file.downloadUrl"
-                            class="inline-flex max-w-full items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
+                            class="inline-flex max-w-full overflow-hidden rounded-md border text-sm hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
+                            :class="
+                                file.previewUrl
+                                    ? 'w-36 flex-col'
+                                    : 'items-center gap-2 px-3 py-2'
+                            "
                         >
+                            <img
+                                v-if="file.previewUrl"
+                                :src="file.previewUrl"
+                                :alt="file.caption ?? ''"
+                                loading="lazy"
+                                decoding="async"
+                                class="aspect-[4/3] w-full bg-muted object-cover"
+                            />
                             <Paperclip
+                                v-else
                                 aria-hidden="true"
                                 class="size-4 shrink-0"
                             />
-                            <span class="break-all">{{ file.fileName }}</span>
+                            <span
+                                class="break-all"
+                                :class="{ 'px-2 py-1.5': file.previewUrl }"
+                                >{{ file.fileName }}</span
+                            >
                         </a>
                     </li>
                 </ul>
