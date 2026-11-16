@@ -197,7 +197,7 @@ test('the decision queue puts pending requests first and only shows a decision f
     assert.equal((html.match(/<form\b/g) ?? []).length, 1);
 });
 
-test('farm updates are ordered by date and retain the shared evidence link', async () => {
+test('farm updates display shared photo previews in date order and retain the download link', async () => {
     const html = await renderToString(
         createSSRApp({
             render: () =>
@@ -206,15 +206,18 @@ test('farm updates are ordered by date and retain the shared evidence link', asy
                         activities: [
                             {
                                 id: 1,
-                                activityType: 'Pond inspection',
+                                activityType: 'Shared field photos',
                                 activityDate: '2026-11-15',
-                                summary: 'Pond ready.',
+                                summary: null,
                                 evidence: [
                                     {
                                         id: 3,
                                         fileName: 'pond.jpg',
                                         downloadUrl:
                                             '/test-farm/investor-evidence/3',
+                                        previewUrl:
+                                            '/test-farm/investor-evidence/3?preview=1',
+                                        caption: 'Shared pond photo',
                                     },
                                 ],
                             },
@@ -241,7 +244,13 @@ test('farm updates are ordered by date and retain the shared evidence link', asy
 
     assert.match(html, /datetime="2026-11-15"[^>]*>15 Nov 2026/);
     assert.match(html, /href="\/test-farm\/investor-evidence\/3"/);
-    assert.ok(html.indexOf('Pond inspection') < html.indexOf('Weekly update'));
+    assert.match(
+        html,
+        /<img[^>]+src="\/test-farm\/investor-evidence\/3\?preview=1"[^>]+alt="Shared pond photo"/,
+    );
+    assert.ok(
+        html.indexOf('Shared field photos') < html.indexOf('Weekly update'),
+    );
     assert.ok(
         html.indexOf('Weekly update') < html.indexOf('Clean the equipment'),
     );

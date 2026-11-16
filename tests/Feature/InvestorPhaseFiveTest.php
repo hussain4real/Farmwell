@@ -721,6 +721,76 @@ test('investor portal denies unrelated inactive and private records while allowi
         ->assertRedirect();
 });
 
+test('investors can preview shared diary photos without a public summary', function () {
+    [, $investor, $team, $farm, $cycle] = farmwellInvestorContext();
+    Storage::fake('farmwell_private');
+
+    $agreement = InvestorAgreement::factory()->create([
+        'team_id' => $team->id,
+        'investor_id' => $investor->id,
+        'farm_id' => $farm->id,
+        'production_cycle_id' => $cycle->id,
+        'status' => InvestorAgreementStatus::Active,
+    ]);
+    $activity = FarmActivity::factory()->create([
+        'team_id' => $team->id,
+        'farm_id' => $farm->id,
+        'production_cycle_id' => $cycle->id,
+        'activity_type' => 'Private operations title',
+        'description' => 'Private diary description',
+        'investor_safe_summary' => null,
+    ]);
+    $photo = $activity->addMedia(UploadedFile::fake()->image('shared.jpg'))
+        ->withCustomProperties(['visibility' => 'investor_visible'])
+        ->toMediaCollection(FarmActivity::EvidenceCollection);
+    $private = $activity->addMedia(UploadedFile::fake()->image('private.jpg'))
+        ->withCustomProperties(['visibility' => 'private'])
+        ->toMediaCollection(FarmActivity::EvidenceCollection);
+    $document = $activity->addMedia(UploadedFile::fake()->create('record.pdf', 20, 'application/pdf'))
+        ->withCustomProperties(['visibility' => 'investor_visible'])
+        ->toMediaCollection(FarmActivity::EvidenceCollection);
+    $privateActivity = FarmActivity::factory()->create([
+        'team_id' => $team->id,
+        'farm_id' => $farm->id,
+        'production_cycle_id' => $cycle->id,
+        'investor_safe_summary' => null,
+    ]);
+    $privateActivity->addMedia(UploadedFile::fake()->image('private-update.jpg'))
+        ->withCustomProperties(['visibility' => 'private'])
+        ->toMediaCollection(FarmActivity::EvidenceCollection);
+    $preview = farmwellInvestorRoute('investor-evidence.show', $team, ['media' => $photo, 'preview' => 1]);
+
+    $this->actingAs($investor)->get(farmwellInvestorRoute('investor-portal.index', $team))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('agreements.0.activities', 1)
+            ->where('agreements.0.activities.0.activityType', 'Shared field photos')
+            ->where('agreements.0.activities.0.summary', null)
+            ->missing('agreements.0.activities.0.description')
+            ->has('agreements.0.activities.0.evidence', 1)
+            ->where('agreements.0.activities.0.evidence.0.previewUrl', $preview));
+
+    $response = $this->get($preview)->assertOk()
+        ->assertHeader('Content-Type', 'image/jpeg')
+        ->assertHeader('Content-Disposition', 'inline; filename="shared.jpg"')
+        ->assertHeader('Cache-Control', 'no-store, private')
+        ->assertHeader('X-Content-Type-Options', 'nosniff');
+    expect($response->streamedContent())->toBe(Storage::disk('farmwell_private')->get($photo->getPathRelativeToRoot()));
+
+    $this->get(farmwellInvestorRoute('investor-evidence.show', $team, ['media' => $private, 'preview' => 1]))->assertNotFound();
+    $this->get(farmwellInvestorRoute('investor-evidence.show', $team, ['media' => $document]))->assertNotFound();
+
+    $otherInvestor = User::factory()->create();
+    $team->members()->attach($otherInvestor, ['role' => TeamRole::Investor->value]);
+    $this->actingAs($otherInvestor)->get($preview)->assertNotFound();
+
+    $activity->update(['investor_safe_summary' => 'Reviewed update']);
+    $this->actingAs($investor)->get(farmwellInvestorRoute('investor-evidence.show', $team, ['media' => $document]))->assertDownload('record.pdf');
+    $this->get(farmwellInvestorRoute('investor-evidence.show', $team, ['media' => $document, 'preview' => 1]))->assertNotFound();
+
+    $agreement->update(['status' => InvestorAgreementStatus::Suspended]);
+    $this->get($preview)->assertNotFound();
+});
+
 test('cross-team investor references and private evidence downloads are denied', function () {
     Storage::fake('farmwell_private');
 

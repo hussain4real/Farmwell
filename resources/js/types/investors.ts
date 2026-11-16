@@ -182,13 +182,18 @@ export type InvestorDistributionRecord = {
     calculatedAt: string;
 };
 
+export type InvestorActivityEvidence = Pick<
+    Evidence,
+    'id' | 'fileName' | 'caption' | 'downloadUrl'
+> & { previewUrl: string | null };
+
 export type InvestorActivity = {
     id: number;
     activityDate: string;
     activityType: string;
     summary: string | null;
     status: string;
-    evidence: Evidence[];
+    evidence: InvestorActivityEvidence[];
     agreementId: number;
 };
 

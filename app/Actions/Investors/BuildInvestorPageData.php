@@ -29,6 +29,7 @@ use App\Models\Team;
 use App\Models\User;
 use App\Support\Money;
 use App\Support\SummaryMarkdown;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
@@ -365,9 +366,14 @@ class BuildInvestorPageData
             ->where('team_id', $agreement->team_id)
             ->where('farm_id', $agreement->farm_id)
             ->when($agreement->production_cycle_id, fn ($query) => $query->where('production_cycle_id', $agreement->production_cycle_id))
-            ->whereNotNull('investor_safe_summary')
+            ->where(fn (Builder $query) => $query->whereNotNull('investor_safe_summary')
+                ->orWhereHas('media', fn (Builder $media) => $media
+                    ->where('collection_name', FarmActivity::EvidenceCollection)
+                    ->where('custom_properties->visibility', 'investor_visible')
+                    ->whereIn('mime_type', FarmActivity::InvestorPhotoMimeTypes)))
             ->with('media')
             ->latest('activity_date')
+            ->latest('id')
             ->limit(20)
             ->get();
     }
@@ -571,12 +577,17 @@ class BuildInvestorPageData
         return [
             'id' => $activity->id,
             'activityDate' => $activity->activity_date->toDateString(),
-            'activityType' => $activity->activity_type,
+            'activityType' => $activity->investor_safe_summary === null ? 'Shared field photos' : $activity->activity_type,
             'summary' => $activity->investor_safe_summary,
             'status' => $activity->status->value,
             'evidence' => $activity->getMedia(FarmActivity::EvidenceCollection)
-                ->filter(fn (Media $media): bool => $media->getCustomProperty('visibility') === 'investor_visible')
-                ->map(fn (Media $media) => $this->mediaPayload($media, $agreement->team))
+                ->filter(fn (Media $media): bool => $activity->sharesEvidenceWithInvestors($media))
+                ->map(fn (Media $media): array => [
+                    ...$this->mediaPayload($media, $agreement->team),
+                    'previewUrl' => in_array($media->mime_type, FarmActivity::InvestorPhotoMimeTypes, true)
+                        ? route('investor-evidence.show', [$agreement->team, $media, 'preview' => 1])
+                        : null,
+                ])
                 ->values(),
             'agreementId' => $agreement->id,
         ];
