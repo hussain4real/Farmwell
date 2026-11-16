@@ -42,6 +42,7 @@ use App\Http\Controllers\Investors\InvestorCommentController;
 use App\Http\Controllers\Investors\InvestorController;
 use App\Http\Controllers\Investors\InvestorEvidenceController;
 use App\Http\Controllers\Investors\InvestorPortalController;
+use App\Http\Controllers\Investors\InvestorPortfolioController;
 use App\Http\Controllers\Investors\InvestorStatementController;
 use App\Http\Controllers\PlatformAccessController;
 use App\Http\Controllers\PlatformAdminController;
@@ -51,6 +52,8 @@ use App\Http\Middleware\EnsureTeamMembership;
 use Illuminate\Support\Facades\Route;
 
 Route::inertia('/', 'Welcome')->name('home');
+Route::get('my-investments', InvestorPortfolioController::class)
+    ->middleware(['auth', EnsureContactIsVerified::class])->name('my-investments.index');
 
 Route::prefix('platform')->name('platform.')->middleware(['auth', EnsureContactIsVerified::class, 'can:managePlatform'])->controller(PlatformAdminController::class)->group(function () {
     Route::get('/', 'index')->name('index');

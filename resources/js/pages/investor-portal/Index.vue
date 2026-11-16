@@ -22,6 +22,7 @@ import { Label } from '@/components/ui/label';
 import { formatCurrency } from '@/lib/currency';
 import { index as investorPortalIndex } from '@/routes/investor-portal';
 import { index as statementsIndex } from '@/routes/investor-statements';
+import { index as myInvestments } from '@/routes/my-investments';
 import type { InvestorPortalAgreement, Team } from '@/types';
 
 const props = defineProps<{ agreements: InvestorPortalAgreement[] }>();
@@ -50,6 +51,9 @@ const tabs = [
 ] as const;
 
 const currentTeamSlug = computed(() => page.props.currentTeam?.slug ?? '');
+const linkQuery = computed(
+    () => new URLSearchParams(page.url.split('?')[1]?.split('#')[0] ?? ''),
+);
 const selectedId = ref<number>();
 const activeTab = ref('overview');
 
@@ -65,20 +69,45 @@ const agreement = computed(
 );
 
 watch(
-    [currentTeamSlug, () => props.agreements],
-    ([slug, agreements], [previousSlug]) => {
+    [currentTeamSlug, () => props.agreements, () => page.url],
+    ([slug, agreements, url], [previousSlug, , previousUrl]) => {
         if (
             slug !== previousSlug ||
+            url !== previousUrl ||
             !agreements.some((item) => item.id === selectedId.value)
         ) {
-            selectedId.value = agreements[0]?.id;
+            selectedId.value =
+                agreements.find(
+                    (item) =>
+                        String(item.id) === linkQuery.value.get('agreement'),
+                )?.id ?? agreements[0]?.id;
         }
     },
     { immediate: true },
 );
-watch([currentTeamSlug, () => agreement.value?.id], () => {
-    activeTab.value = 'overview';
-});
+watch(
+    [currentTeamSlug, () => agreement.value?.id, () => page.url],
+    () => {
+        const linkedRequest =
+            String(agreement.value?.id) === linkQuery.value.get('agreement')
+                ? agreement.value?.approvalRequests.find(
+                      (item) =>
+                          String(item.id) === linkQuery.value.get('request'),
+                  )
+                : undefined;
+
+        activeTab.value = linkedRequest ? 'decisions' : 'overview';
+
+        if (linkedRequest && typeof document !== 'undefined') {
+            void nextTick(() =>
+                document
+                    .getElementById(`investor-request-${linkedRequest.id}`)
+                    ?.focus(),
+            );
+        }
+    },
+    { immediate: true },
+);
 
 const pendingCount = computed(
     () =>
@@ -117,6 +146,9 @@ const financialMetrics = [
             <h1 class="text-2xl font-semibold tracking-tight sm:text-3xl">
                 Your investments
             </h1>
+            <Button variant="outline" as-child
+                ><Link :href="myInvestments()">All investments</Link></Button
+            >
             <div
                 v-if="agreements.length > 1"
                 class="grid w-full max-w-sm min-w-0 gap-2 sm:w-auto"

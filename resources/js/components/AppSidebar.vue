@@ -36,6 +36,7 @@ import { index as harvestsIndex } from '@/routes/harvests';
 import { index as investorPortalIndex } from '@/routes/investor-portal';
 import { index as investorsIndex } from '@/routes/investors';
 import { index as investorApprovalsIndex } from '@/routes/investors/approvals';
+import { index as myInvestments } from '@/routes/my-investments';
 import { index as platformIndex } from '@/routes/platform';
 import { index as whatsappIntakesIndex } from '@/routes/whatsapp-intakes';
 import type { NavItem } from '@/types';
@@ -102,8 +103,13 @@ const investorOnly = computed(
         currentPermissions.value.canViewInvestorAgreements !== true,
 );
 const homeUrl = computed(() =>
-    investorOnly.value ? investorPortalUrl.value : dashboardUrl.value,
+    investorOnly.value ? myInvestments.url() : dashboardUrl.value,
 );
+const investmentsNavItem: NavItem = {
+    title: 'My Investments',
+    href: myInvestments.url(),
+    icon: LayoutGrid,
+};
 
 const mainNavItems = computed<NavItem[]>(() => {
     const permissions = currentPermissions.value;
@@ -141,6 +147,7 @@ const mainNavItems = computed<NavItem[]>(() => {
 
     if (investorOnly.value) {
         return [
+            investmentsNavItem,
             {
                 title: 'Investor Portal',
                 href: investorPortalUrl.value,
@@ -156,6 +163,10 @@ const mainNavItems = computed<NavItem[]>(() => {
             icon: LayoutGrid,
         },
     ];
+
+    if (page.props.teams?.some((team) => team.role === 'investor')) {
+        items.push(investmentsNavItem);
+    }
 
     if (permissions?.canViewFarmOperations) {
         items.push(
