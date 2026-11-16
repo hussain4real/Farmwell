@@ -1,27 +1,30 @@
 <script setup lang="ts">
-import { Form, Head, Link, usePage } from '@inertiajs/vue3';
-import { Handshake, MessageSquare } from 'lucide-vue-next';
-import { computed } from 'vue';
+import { Head, Link, usePage } from '@inertiajs/vue3';
+import {
+    ArrowRight,
+    ClipboardCheck,
+    FileText,
+    Handshake,
+    MessageSquare,
+    Sprout,
+    Wallet,
+} from 'lucide-vue-next';
+import { TabsContent, TabsList, TabsRoot, TabsTrigger } from 'reka-ui';
+import { computed, nextTick, ref, watch } from 'vue';
 import Heading from '@/components/Heading.vue';
-import InputError from '@/components/InputError.vue';
 import InvestorAgreementTerms from '@/components/InvestorAgreementTerms.vue';
-import SummaryText from '@/components/SummaryText.vue';
-import { Badge } from '@/components/ui/badge';
+import InvestorPortalDecisions from '@/components/InvestorPortalDecisions.vue';
+import InvestorPortalFinancialRecords from '@/components/InvestorPortalFinancialRecords.vue';
+import InvestorPortalQuestions from '@/components/InvestorPortalQuestions.vue';
+import InvestorPortalUpdates from '@/components/InvestorPortalUpdates.vue';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { formatCurrency } from '@/lib/currency';
-import { store as storeInvestorComment } from '@/routes/investor-comments';
 import { index as investorPortalIndex } from '@/routes/investor-portal';
 import { index as statementsIndex } from '@/routes/investor-statements';
-import { store as storeDecision } from '@/routes/investors/approvals/decisions';
 import type { InvestorPortalAgreement, Team } from '@/types';
 
-type Props = {
-    agreements: InvestorPortalAgreement[];
-};
-
-defineProps<Props>();
+const props = defineProps<{ agreements: InvestorPortalAgreement[] }>();
 const page = usePage();
 
 defineOptions({
@@ -37,779 +40,357 @@ defineOptions({
     }),
 });
 
-const currentTeam = computed(() => page.props.currentTeam as Team | null);
-const currentTeamSlug = computed(() => currentTeam.value?.slug ?? '');
+const tabs = [
+    { id: 'overview', title: 'Overview', icon: Handshake },
+    { id: 'decisions', title: 'Decisions', icon: ClipboardCheck },
+    { id: 'financials', title: 'Financials', icon: Wallet },
+    { id: 'updates', title: 'Farm updates', icon: Sprout },
+    { id: 'documents', title: 'Documents', icon: FileText },
+    { id: 'questions', title: 'Questions', icon: MessageSquare },
+] as const;
+
+const currentTeamSlug = computed(() => page.props.currentTeam?.slug ?? '');
+const selectedId = ref<number>();
+const activeTab = ref('overview');
+
+async function openSection(tab: 'decisions' | 'documents'): Promise<void> {
+    activeTab.value = tab;
+    await nextTick();
+    document.getElementById(`investor-${tab}`)?.focus();
+}
+const agreement = computed(
+    () =>
+        props.agreements.find((item) => item.id === selectedId.value) ??
+        props.agreements[0],
+);
+
+watch(
+    [currentTeamSlug, () => props.agreements],
+    ([slug, agreements], [previousSlug]) => {
+        if (
+            slug !== previousSlug ||
+            !agreements.some((item) => item.id === selectedId.value)
+        ) {
+            selectedId.value = agreements[0]?.id;
+        }
+    },
+    { immediate: true },
+);
+watch([currentTeamSlug, () => agreement.value?.id], () => {
+    activeTab.value = 'overview';
+});
+
+const pendingCount = computed(
+    () =>
+        agreement.value?.approvalRequests.filter(
+            (request) => request.status === 'pending',
+        ).length ?? 0,
+);
+const fundingPercent = computed(() => {
+    const item = agreement.value;
+
+    if (!item || !(item.amountCommittedMinor > 0)) {
+        return null;
+    }
+
+    return Math.round(
+        (item.amountFundedMinor / item.amountCommittedMinor) * 100,
+    );
+});
+
+const financialMetrics = [
+    { key: 'released', label: 'Released' },
+    { key: 'spent', label: 'Spent' },
+    { key: 'balance', label: 'Balance' },
+    { key: 'saleNet', label: 'Net sales' },
+    { key: 'capitalRecovered', label: 'Capital recovered' },
+    { key: 'investorShare', label: 'Investor share' },
+] as const;
 </script>
 
 <template>
-    <div class="flex flex-1 flex-col gap-8 p-4 md:p-6">
+    <div
+        class="mx-auto flex w-full max-w-7xl min-w-0 flex-1 flex-col gap-6 p-4 md:p-6 lg:p-8"
+    >
         <Head title="Investor Portal" />
-        <Heading
-            title="Your investments"
-            description="Follow farm progress, financial updates, and decisions for your agreements."
-        />
-
-        <section v-if="agreements.length > 0" class="space-y-6">
-            <article
-                v-for="agreement in agreements"
-                :key="agreement.id"
-                class="space-y-6 rounded-xl border border-[#d6e5dc] bg-card p-5 sm:p-6 dark:border-border"
+        <div class="flex flex-wrap items-end justify-between gap-4">
+            <h1 class="text-2xl font-semibold tracking-tight sm:text-3xl">
+                Your investments
+            </h1>
+            <div
+                v-if="agreements.length > 1"
+                class="grid w-full max-w-sm min-w-0 gap-2 sm:w-auto"
             >
-                <div class="flex flex-wrap items-start justify-between gap-4">
-                    <div>
-                        <div class="flex items-center gap-2">
-                            <span
-                                class="flex size-11 shrink-0 items-center justify-center rounded-xl bg-[#e5f1e9] text-[#28664e] dark:bg-emerald-950 dark:text-emerald-300"
-                                ><Handshake class="size-5"
-                            /></span>
-                            <h2 class="text-lg font-semibold">
-                                {{ agreement.title }}
-                            </h2>
-                        </div>
-                        <p class="mt-1 text-sm text-muted-foreground">
+                <Label for="portal-agreement">Agreement</Label>
+                <select
+                    id="portal-agreement"
+                    v-model="selectedId"
+                    class="h-10 w-full min-w-0 rounded-md border bg-background px-3 text-sm"
+                >
+                    <option
+                        v-for="item in agreements"
+                        :key="item.id"
+                        :value="item.id"
+                    >
+                        {{ item.title }}
+                    </option>
+                </select>
+            </div>
+        </div>
+
+        <TabsRoot
+            v-if="agreement"
+            :key="`${currentTeamSlug}:${agreement.id}`"
+            v-model="activeTab"
+            class="min-w-0"
+        >
+            <div
+                class="relative isolate overflow-hidden rounded-2xl bg-[#1c493b] px-5 py-6 text-[#f7fcf8] sm:px-8 sm:py-8 dark:bg-[#173c31]"
+            >
+                <div
+                    class="grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(14rem,18rem)] md:items-center"
+                >
+                    <div class="min-w-0">
+                        <span
+                            class="inline-flex rounded-full border border-white/25 px-2.5 py-1 text-xs font-medium"
+                            >{{ agreement.statusLabel }}</span
+                        >
+                        <h2
+                            class="mt-3 text-2xl leading-tight font-semibold tracking-tight break-words sm:text-3xl"
+                        >
                             {{ agreement.farmName }}
-                            <span v-if="agreement.productionCycleName">
-                                / {{ agreement.productionCycleName }}
-                            </span>
+                        </h2>
+                        <p
+                            v-if="agreement.title !== agreement.farmName"
+                            class="mt-2 max-w-xl text-sm leading-relaxed text-[#dbede3] sm:text-base"
+                        >
+                            {{ agreement.title }}
+                        </p>
+                        <p
+                            v-if="agreement.productionCycleName"
+                            class="mt-1 text-sm text-[#dbede3]"
+                        >
+                            {{ agreement.productionCycleName }}
                         </p>
                     </div>
-                    <Badge variant="secondary">
-                        {{ agreement.statusLabel }}
-                    </Badge>
+                    <div
+                        v-if="fundingPercent !== null"
+                        class="min-w-0 border-t border-white/20 pt-4 md:border-s md:border-t-0 md:ps-6 md:pt-0"
+                    >
+                        <p class="text-sm text-[#dbede3]">Commitment funded</p>
+                        <p class="mt-1 text-3xl font-semibold tabular-nums">
+                            {{ fundingPercent }}%
+                        </p>
+                        <progress
+                            aria-label="Share of capital commitment funded"
+                            :value="Math.max(0, Math.min(fundingPercent, 100))"
+                            max="100"
+                            class="mt-3 block h-1.5 w-full appearance-none overflow-hidden rounded-full [&::-moz-progress-bar]:rounded-full [&::-moz-progress-bar]:bg-[#aee2bb] [&::-webkit-progress-bar]:bg-white/20 [&::-webkit-progress-value]:rounded-full [&::-webkit-progress-value]:bg-[#aee2bb]"
+                        />
+                    </div>
                 </div>
-                <InvestorAgreementTerms :agreement="agreement" />
+            </div>
 
-                <Link
-                    :href="statementsIndex([currentTeamSlug, agreement.id])"
-                    class="text-sm font-medium underline underline-offset-4"
-                    >Investor statements</Link
+            <div
+                v-if="pendingCount"
+                class="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-300/70 bg-amber-50 px-4 py-3 text-amber-950 dark:border-amber-800 dark:bg-amber-950/45 dark:text-amber-100"
+            >
+                <p class="flex items-center gap-2 text-sm font-medium">
+                    <ClipboardCheck
+                        class="size-4 shrink-0"
+                        aria-hidden="true"
+                    />
+                    {{ pendingCount }}
+                    {{ pendingCount === 1 ? 'request needs' : 'requests need' }}
+                    your decision
+                </p>
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    @click="openSection('decisions')"
                 >
+                    Review requests
+                    <ArrowRight class="size-4" aria-hidden="true" />
+                </Button>
+            </div>
+
+            <TabsList
+                aria-label="Agreement sections"
+                class="mt-4 grid grid-cols-2 gap-1 rounded-xl border bg-muted/40 p-1.5 sm:grid-cols-3 xl:grid-cols-6"
+            >
+                <TabsTrigger
+                    v-for="tab in tabs"
+                    :key="tab.id"
+                    :value="tab.id"
+                    class="inline-flex min-h-10 min-w-0 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-medium text-muted-foreground hover:bg-background hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm"
+                >
+                    <component
+                        :is="tab.icon"
+                        aria-hidden="true"
+                        class="size-4 shrink-0"
+                    />
+                    {{ tab.title }}
+                    <span
+                        v-if="tab.id === 'decisions' && pendingCount"
+                        class="shrink-0 rounded-full bg-amber-100 px-1.5 text-xs text-amber-950 dark:bg-amber-900 dark:text-amber-100"
+                        >{{ pendingCount }}</span
+                    >
+                </TabsTrigger>
+            </TabsList>
+
+            <TabsContent
+                value="overview"
+                class="mt-6 space-y-5 focus-visible:ring-2 focus-visible:ring-ring"
+            >
+                <InvestorAgreementTerms :agreement="agreement" />
+                <dl
+                    class="grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border sm:grid-cols-3"
+                >
+                    <div
+                        v-for="metric in financialMetrics"
+                        :key="metric.key"
+                        class="min-w-0 bg-card p-3.5 sm:p-4"
+                    >
+                        <dt class="text-sm text-muted-foreground">
+                            {{ metric.label }}
+                        </dt>
+                        <dd
+                            class="mt-1 text-base font-semibold break-words tabular-nums sm:text-lg"
+                        >
+                            {{
+                                formatCurrency(
+                                    agreement.summary[metric.key],
+                                    agreement.currency,
+                                )
+                            }}
+                        </dd>
+                    </div>
+                </dl>
+                <div v-if="currentTeamSlug" class="flex flex-wrap gap-2">
+                    <Button variant="outline" as-child
+                        ><Link
+                            :href="
+                                statementsIndex([currentTeamSlug, agreement.id])
+                            "
+                            >Investor statements</Link
+                        ></Button
+                    >
+                    <Button
+                        v-if="agreement.documents.length"
+                        variant="ghost"
+                        type="button"
+                        @click="openSection('documents')"
+                        >View agreement files</Button
+                    >
+                </div>
+            </TabsContent>
+
+            <TabsContent
+                value="decisions"
+                class="mt-6 focus-visible:ring-2 focus-visible:ring-ring"
+            >
+                <InvestorPortalDecisions
+                    :requests="agreement.approvalRequests"
+                    :current-team-slug="currentTeamSlug"
+                    :agreement-id="agreement.id"
+                />
+            </TabsContent>
+
+            <TabsContent
+                value="financials"
+                class="mt-6 focus-visible:ring-2 focus-visible:ring-ring"
+            >
+                <InvestorPortalFinancialRecords :agreement="agreement" />
+            </TabsContent>
+
+            <TabsContent
+                value="updates"
+                class="mt-6 focus-visible:ring-2 focus-visible:ring-ring"
+            >
+                <InvestorPortalUpdates :agreement="agreement" />
+            </TabsContent>
+
+            <TabsContent
+                value="documents"
+                class="mt-6 space-y-4 focus-visible:ring-2 focus-visible:ring-ring"
+            >
                 <div
-                    v-if="agreement.documents.length"
-                    class="flex flex-wrap gap-2 text-sm"
+                    id="investor-documents"
+                    tabindex="-1"
+                    class="flex flex-wrap items-start justify-between gap-3 focus:outline-none"
                 >
-                    <a
+                    <Heading
+                        variant="small"
+                        title="Agreement documents"
+                        description="Download shared files or open investor statements."
+                    />
+                    <Button v-if="currentTeamSlug" variant="outline" as-child
+                        ><Link
+                            :href="
+                                statementsIndex([currentTeamSlug, agreement.id])
+                            "
+                            >Investor statements</Link
+                        ></Button
+                    >
+                </div>
+                <ul
+                    v-if="agreement.documents.length"
+                    class="divide-y overflow-hidden rounded-xl border bg-card"
+                >
+                    <li
                         v-for="document in agreement.documents"
                         :key="document.id"
-                        :href="document.downloadUrl"
-                        class="underline underline-offset-4"
                     >
-                        {{ document.fileName }}
-                    </a>
-                </div>
-
-                <div
-                    class="grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border xl:grid-cols-3"
+                        <a
+                            :href="document.downloadUrl"
+                            class="flex items-center gap-3 px-4 py-3 text-sm hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+                        >
+                            <FileText
+                                class="size-4 shrink-0 text-muted-foreground"
+                                aria-hidden="true"
+                            />
+                            <span class="min-w-0 break-all">{{
+                                document.fileName
+                            }}</span>
+                            <span class="ms-auto underline underline-offset-4"
+                                >Download</span
+                            >
+                        </a>
+                    </li>
+                </ul>
+                <p
+                    v-else
+                    class="rounded-lg border border-dashed p-5 text-sm text-muted-foreground"
                 >
-                    <div class="min-w-0 bg-[#f8fbf9] p-4 dark:bg-muted/20">
-                        <p class="text-sm text-muted-foreground">Released</p>
-                        <p
-                            class="mt-2 text-lg font-semibold tracking-tight break-words"
-                        >
-                            {{
-                                formatCurrency(
-                                    agreement.summary.released,
-                                    agreement.currency,
-                                )
-                            }}
-                        </p>
-                    </div>
-                    <div class="min-w-0 bg-[#f8fbf9] p-4 dark:bg-muted/20">
-                        <p class="text-sm text-muted-foreground">Spent</p>
-                        <p
-                            class="mt-2 text-lg font-semibold tracking-tight break-words"
-                        >
-                            {{
-                                formatCurrency(
-                                    agreement.summary.spent,
-                                    agreement.currency,
-                                )
-                            }}
-                        </p>
-                    </div>
-                    <div class="min-w-0 bg-[#f8fbf9] p-4 dark:bg-muted/20">
-                        <p class="text-sm text-muted-foreground">Balance</p>
-                        <p
-                            class="mt-2 text-lg font-semibold tracking-tight break-words"
-                        >
-                            {{
-                                formatCurrency(
-                                    agreement.summary.balance,
-                                    agreement.currency,
-                                )
-                            }}
-                        </p>
-                    </div>
-                    <div class="min-w-0 bg-[#f8fbf9] p-4 dark:bg-muted/20">
-                        <p class="text-sm text-muted-foreground">Net sales</p>
-                        <p
-                            class="mt-2 text-lg font-semibold tracking-tight break-words"
-                        >
-                            {{
-                                formatCurrency(
-                                    agreement.summary.saleNet,
-                                    agreement.currency,
-                                )
-                            }}
-                        </p>
-                    </div>
-                    <div class="min-w-0 bg-[#f8fbf9] p-4 dark:bg-muted/20">
-                        <p class="text-sm text-muted-foreground">
-                            Capital recovered
-                        </p>
-                        <p
-                            class="mt-2 text-lg font-semibold tracking-tight break-words"
-                        >
-                            {{
-                                formatCurrency(
-                                    agreement.summary.capitalRecovered,
-                                    agreement.currency,
-                                )
-                            }}
-                        </p>
-                    </div>
-                    <div class="min-w-0 bg-[#f8fbf9] p-4 dark:bg-muted/20">
-                        <p class="text-sm text-muted-foreground">
-                            Investor share
-                        </p>
-                        <p
-                            class="mt-2 text-lg font-semibold tracking-tight break-words"
-                        >
-                            {{
-                                formatCurrency(
-                                    agreement.summary.investorShare,
-                                    agreement.currency,
-                                )
-                            }}
-                        </p>
-                    </div>
-                </div>
+                    No agreement files have been shared yet.
+                </p>
+            </TabsContent>
 
-                <div class="grid gap-6 xl:grid-cols-2">
-                    <section class="space-y-3">
-                        <Heading
-                            variant="small"
-                            title="Funding phases"
-                            description="Approved release milestones"
-                        />
-                        <div
-                            v-if="agreement.fundingPhases.length"
-                            class="space-y-3"
-                        >
-                            <div
-                                v-for="phase in agreement.fundingPhases"
-                                :key="phase.id"
-                                class="rounded-lg border p-3 text-sm"
-                            >
-                                <div
-                                    class="flex items-start justify-between gap-3"
-                                >
-                                    <p class="font-medium">
-                                        {{ phase.name }}
-                                    </p>
-                                    <Badge variant="secondary">
-                                        {{ phase.statusLabel }}
-                                    </Badge>
-                                </div>
-                                <p class="mt-1 text-muted-foreground">
-                                    Released
-                                    {{
-                                        formatCurrency(
-                                            phase.externallyReleasedAmount,
-                                            agreement.currency,
-                                        )
-                                    }}
-                                </p>
-                            </div>
-                        </div>
-                        <p v-else class="text-sm text-muted-foreground">
-                            No approved funding phases yet.
-                        </p>
-                    </section>
+            <TabsContent
+                value="questions"
+                class="mt-6 focus-visible:ring-2 focus-visible:ring-ring"
+            >
+                <InvestorPortalQuestions
+                    :agreement="agreement"
+                    :current-team-slug="currentTeamSlug"
+                />
+            </TabsContent>
+        </TabsRoot>
 
-                    <section class="space-y-3">
-                        <Heading
-                            variant="small"
-                            title="Approved expenses"
-                            description="Category, amount, status, and receipt evidence"
-                        />
-                        <div v-if="agreement.expenses.length" class="space-y-3">
-                            <div
-                                v-for="expense in agreement.expenses"
-                                :key="expense.id"
-                                class="rounded-lg border p-3 text-sm"
-                            >
-                                <div
-                                    class="flex items-start justify-between gap-3"
-                                >
-                                    <p class="font-medium">
-                                        {{ expense.categoryName }}
-                                    </p>
-                                    <Badge variant="secondary">
-                                        {{
-                                            formatCurrency(
-                                                expense.amount,
-                                                expense.currency,
-                                            )
-                                        }}
-                                    </Badge>
-                                </div>
-                                <p class="mt-2">{{ expense.description }}</p>
-                                <div
-                                    v-if="expense.receipts.length"
-                                    class="mt-2 flex flex-wrap gap-2"
-                                >
-                                    <a
-                                        v-for="receipt in expense.receipts"
-                                        :key="receipt.id"
-                                        :href="receipt.downloadUrl"
-                                        class="underline underline-offset-4"
-                                    >
-                                        {{ receipt.fileName }}
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-                        <p v-else class="text-sm text-muted-foreground">
-                            No approved expenses yet.
-                        </p>
-                    </section>
-                </div>
-
-                <div class="grid gap-6 xl:grid-cols-3">
-                    <section class="space-y-3">
-                        <Heading
-                            variant="small"
-                            title="Harvest output"
-                            description="Approved output entries and evidence"
-                        />
-                        <div
-                            v-if="agreement.harvestRecords.length"
-                            class="space-y-3"
-                        >
-                            <div
-                                v-for="harvest in agreement.harvestRecords"
-                                :key="harvest.id"
-                                class="rounded-lg border p-3 text-sm"
-                            >
-                                <div
-                                    class="flex items-start justify-between gap-3"
-                                >
-                                    <p class="font-medium">
-                                        {{ harvest.commodityName }}
-                                    </p>
-                                    <Badge variant="secondary">
-                                        {{ harvest.statusLabel }}
-                                    </Badge>
-                                </div>
-                                <p class="mt-1 text-muted-foreground">
-                                    {{ harvest.stageLabel }} /
-                                    {{ harvest.harvestedOn }}
-                                </p>
-                                <p class="mt-2">
-                                    {{ harvest.quantity }}
-                                    {{ harvest.quantityUnit }}
-                                </p>
-                                <div
-                                    v-if="harvest.evidence.length"
-                                    class="mt-2 flex flex-wrap gap-2"
-                                >
-                                    <a
-                                        v-for="evidence in harvest.evidence"
-                                        :key="evidence.id"
-                                        :href="evidence.downloadUrl"
-                                        class="underline underline-offset-4"
-                                    >
-                                        {{ evidence.fileName }}
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-                        <p v-else class="text-sm text-muted-foreground">
-                            No approved harvest output yet.
-                        </p>
-                    </section>
-
-                    <section class="space-y-3">
-                        <Heading
-                            variant="small"
-                            title="Sales"
-                            description="Approved buyer records and net proceeds"
-                        />
-                        <div
-                            v-if="agreement.saleRecords.length"
-                            class="space-y-3"
-                        >
-                            <div
-                                v-for="sale in agreement.saleRecords"
-                                :key="sale.id"
-                                class="rounded-lg border p-3 text-sm"
-                            >
-                                <div
-                                    class="flex items-start justify-between gap-3"
-                                >
-                                    <p class="font-medium">
-                                        {{ sale.buyerName }}
-                                    </p>
-                                    <Badge variant="secondary">
-                                        {{
-                                            formatCurrency(
-                                                sale.netAmount,
-                                                sale.currency,
-                                            )
-                                        }}
-                                    </Badge>
-                                </div>
-                                <p class="mt-1 text-muted-foreground">
-                                    {{ sale.commodityName }} /
-                                    {{ sale.soldOn }}
-                                </p>
-                                <p class="mt-2">
-                                    Gross
-                                    {{
-                                        formatCurrency(
-                                            sale.grossAmount,
-                                            sale.currency,
-                                        )
-                                    }}, deductions
-                                    {{
-                                        formatCurrency(
-                                            sale.deductionAmount,
-                                            sale.currency,
-                                        )
-                                    }}
-                                </p>
-                            </div>
-                        </div>
-                        <p v-else class="text-sm text-muted-foreground">
-                            No approved sales yet.
-                        </p>
-                    </section>
-
-                    <section class="space-y-3">
-                        <Heading
-                            variant="small"
-                            title="Distributions"
-                            description="Capital recovery before profit share"
-                        />
-                        <div
-                            v-if="agreement.distributionRecords.length"
-                            class="space-y-3"
-                        >
-                            <div
-                                v-for="distribution in agreement.distributionRecords"
-                                :key="distribution.id"
-                                class="rounded-lg border p-3 text-sm"
-                            >
-                                <div
-                                    class="flex items-start justify-between gap-3"
-                                >
-                                    <p class="font-medium">
-                                        {{ distribution.buyerName }}
-                                    </p>
-                                    <Badge variant="secondary">
-                                        {{ distribution.statusLabel }}
-                                    </Badge>
-                                </div>
-                                <p class="mt-2">
-                                    Capital
-                                    {{
-                                        formatCurrency(
-                                            distribution.capitalRecovered,
-                                            distribution.currency,
-                                        )
-                                    }}, profit
-                                    {{
-                                        formatCurrency(
-                                            distribution.netProfit,
-                                            distribution.currency,
-                                        )
-                                    }}
-                                </p>
-                                <p class="mt-1 text-muted-foreground">
-                                    Investor
-                                    {{
-                                        formatCurrency(
-                                            distribution.investorShare,
-                                            distribution.currency,
-                                        )
-                                    }}
-                                    / farm
-                                    {{
-                                        formatCurrency(
-                                            distribution.farmShare,
-                                            distribution.currency,
-                                        )
-                                    }}
-                                </p>
-                            </div>
-                        </div>
-                        <p v-else class="text-sm text-muted-foreground">
-                            No approved distributions yet.
-                        </p>
-                    </section>
-                </div>
-
-                <div class="grid gap-6 xl:grid-cols-2">
-                    <section class="space-y-3">
-                        <Heading
-                            variant="small"
-                            title="External transfers"
-                            description="Approved recorded releases and proof"
-                        />
-                        <div
-                            v-if="agreement.externalTransfers.length"
-                            class="space-y-3"
-                        >
-                            <div
-                                v-for="transfer in agreement.externalTransfers"
-                                :key="transfer.id"
-                                class="rounded-lg border p-3 text-sm"
-                            >
-                                <div
-                                    class="flex items-start justify-between gap-3"
-                                >
-                                    <p class="font-medium">
-                                        {{ transfer.transferType }}
-                                    </p>
-                                    <Badge variant="secondary">
-                                        {{
-                                            formatCurrency(
-                                                transfer.amount,
-                                                transfer.currency,
-                                            )
-                                        }}
-                                    </Badge>
-                                </div>
-                                <p class="mt-1 text-muted-foreground">
-                                    {{ transfer.transferredOn }}
-                                </p>
-                                <div
-                                    v-if="transfer.proof.length"
-                                    class="mt-2 flex flex-wrap gap-2"
-                                >
-                                    <a
-                                        v-for="proof in transfer.proof"
-                                        :key="proof.id"
-                                        :href="proof.downloadUrl"
-                                        class="underline underline-offset-4"
-                                    >
-                                        {{ proof.fileName }}
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-                        <p v-else class="text-sm text-muted-foreground">
-                            No approved external transfers yet.
-                        </p>
-                    </section>
-
-                    <section class="space-y-3">
-                        <Heading
-                            variant="small"
-                            title="Approval requests"
-                            description="Investor decisions and clarification history"
-                        />
-                        <div
-                            v-if="agreement.approvalRequests.length"
-                            class="space-y-3"
-                        >
-                            <div
-                                v-for="request in agreement.approvalRequests"
-                                :key="request.id"
-                                class="rounded-lg border p-3 text-sm"
-                            >
-                                <div
-                                    class="flex items-start justify-between gap-3"
-                                >
-                                    <p class="font-medium">
-                                        {{ request.requestTypeLabel }}
-                                    </p>
-                                    <Badge variant="secondary">
-                                        {{ request.statusLabel }}
-                                    </Badge>
-                                </div>
-                                <p class="mt-1 text-muted-foreground">
-                                    {{ request.subjectLabel }} /
-                                    {{
-                                        formatCurrency(
-                                            request.requestedAmount,
-                                            request.currency,
-                                        )
-                                    }}
-                                </p>
-                                <div
-                                    v-if="request.expenseDescription"
-                                    class="mt-3"
-                                >
-                                    <p
-                                        class="text-xs font-medium text-muted-foreground"
-                                    >
-                                        Expense description
-                                    </p>
-                                    <p
-                                        class="mt-1 break-words whitespace-pre-wrap"
-                                    >
-                                        {{ request.expenseDescription }}
-                                    </p>
-                                </div>
-                                <div
-                                    v-if="request.requesterComment"
-                                    class="mt-3"
-                                >
-                                    <p
-                                        class="text-xs font-medium text-muted-foreground"
-                                    >
-                                        Requester’s comment
-                                    </p>
-                                    <p
-                                        class="mt-1 break-words whitespace-pre-wrap"
-                                    >
-                                        {{ request.requesterComment }}
-                                    </p>
-                                </div>
-                                <p v-if="request.milestone" class="mt-2">
-                                    Milestone: {{ request.milestone }}
-                                </p>
-                                <div
-                                    v-if="request.milestoneEvidence.length"
-                                    class="mt-2"
-                                >
-                                    <p>Milestone evidence</p>
-                                    <a
-                                        v-for="file in request.milestoneEvidence"
-                                        :key="file.id"
-                                        :href="file.downloadUrl"
-                                        class="underline"
-                                        >{{ file.fileName }}</a
-                                    >
-                                </div>
-                                <p v-if="request.decisionComment" class="mt-2">
-                                    {{ request.decisionComment }}
-                                </p>
-                                <Form
-                                    v-if="
-                                        request.status === 'pending' &&
-                                        currentTeamSlug
-                                    "
-                                    v-bind="
-                                        storeDecision.form({
-                                            current_team: currentTeamSlug,
-                                            approval_request: request.id,
-                                        })
-                                    "
-                                    class="mt-3 grid gap-3 md:grid-cols-3"
-                                    v-slot="{ errors, processing }"
-                                >
-                                    <div class="grid gap-2">
-                                        <Label
-                                            :for="`portal-decision-${request.id}`"
-                                        >
-                                            Decision
-                                        </Label>
-                                        <select
-                                            :id="`portal-decision-${request.id}`"
-                                            name="status"
-                                            class="h-9 rounded-md border bg-background px-3 text-sm"
-                                        >
-                                            <option value="approved">
-                                                Approved
-                                            </option>
-                                            <option value="rejected">
-                                                Rejected
-                                            </option>
-                                            <option
-                                                value="clarification_requested"
-                                            >
-                                                Request clarification
-                                            </option>
-                                        </select>
-                                        <InputError :message="errors.status" />
-                                    </div>
-                                    <div
-                                        v-if="
-                                            request.requestType ===
-                                            'funding_release'
-                                        "
-                                        class="grid gap-2"
-                                    >
-                                        <Label
-                                            :for="`portal-approved-amount-${request.id}`"
-                                        >
-                                            Approved amount ({{
-                                                request.currency
-                                            }})
-                                        </Label>
-                                        <Input
-                                            :id="`portal-approved-amount-${request.id}`"
-                                            name="approved_amount"
-                                            inputmode="decimal"
-                                            :placeholder="
-                                                request.requestedAmount
-                                            "
-                                        />
-                                        <p
-                                            class="text-xs text-muted-foreground"
-                                        >
-                                            Leave blank to approve the full
-                                            requested amount.
-                                        </p>
-                                        <InputError
-                                            :message="errors.approved_amount"
-                                        />
-                                    </div>
-                                    <div class="grid gap-2">
-                                        <Label
-                                            :for="`portal-decision-comment-${request.id}`"
-                                        >
-                                            Comment
-                                        </Label>
-                                        <Input
-                                            :id="`portal-decision-comment-${request.id}`"
-                                            name="decision_comment"
-                                        />
-                                        <InputError
-                                            :message="errors.decision_comment"
-                                        />
-                                    </div>
-                                    <div class="flex items-end">
-                                        <Button :disabled="processing">
-                                            Submit
-                                        </Button>
-                                    </div>
-                                </Form>
-                            </div>
-                        </div>
-                        <p v-else class="text-sm text-muted-foreground">
-                            No approval requests yet.
-                        </p>
-                    </section>
-                </div>
-
-                <div class="grid gap-6 xl:grid-cols-2">
-                    <section class="space-y-3">
-                        <Heading
-                            variant="small"
-                            title="Progress updates"
-                            description="Investor-safe activity and task updates"
-                        />
-                        <div
-                            v-if="
-                                agreement.aiSummaries.length ||
-                                agreement.activities.length ||
-                                agreement.tasks.length ||
-                                agreement.planChanges.length
-                            "
-                            class="space-y-3"
-                        >
-                            <div
-                                v-for="summary in agreement.aiSummaries"
-                                :key="`summary-${summary.id}`"
-                                class="rounded-lg border p-3 text-sm"
-                            >
-                                <p class="font-medium">
-                                    Reviewed progress summary
-                                </p>
-                                <SummaryText
-                                    class="mt-1"
-                                    :html="summary.html"
-                                />
-                            </div>
-                            <div
-                                v-for="activity in agreement.activities"
-                                :key="`activity-${activity.id}`"
-                                class="rounded-lg border p-3 text-sm"
-                            >
-                                <p class="font-medium">
-                                    {{ activity.activityType }}
-                                </p>
-                                <p class="mt-1">{{ activity.summary }}</p>
-                            </div>
-                            <div
-                                v-for="task in agreement.tasks"
-                                :key="`task-${task.id}`"
-                                class="rounded-lg border p-3 text-sm"
-                            >
-                                <p class="font-medium">{{ task.title }}</p>
-                                <p class="mt-1 text-muted-foreground">
-                                    {{ task.status }}
-                                </p>
-                            </div>
-                            <div
-                                v-for="change in agreement.planChanges"
-                                :key="`change-${change.id}`"
-                                class="rounded-lg border p-3 text-sm"
-                            >
-                                <p class="font-medium">
-                                    {{ change.changeType }}
-                                </p>
-                                <p class="mt-1">
-                                    {{ change.summary ?? change.impact }}
-                                </p>
-                            </div>
-                        </div>
-                        <p v-else class="text-sm text-muted-foreground">
-                            No approved progress updates yet.
-                        </p>
-                    </section>
-
-                    <section class="space-y-3">
-                        <Heading
-                            variant="small"
-                            title="Questions"
-                            description="Comments are stored for internal review"
-                        />
-                        <div v-if="agreement.comments.length" class="space-y-3">
-                            <div
-                                v-for="comment in agreement.comments"
-                                :key="comment.id"
-                                class="rounded-lg border p-3 text-sm"
-                            >
-                                <p class="font-medium">
-                                    {{ comment.authorName }}
-                                </p>
-                                <p class="mt-1">{{ comment.body }}</p>
-                                <p class="mt-1 text-muted-foreground">
-                                    {{ comment.subjectLabel }}
-                                </p>
-                            </div>
-                        </div>
-
-                        <Form
-                            v-if="currentTeamSlug"
-                            v-bind="
-                                storeInvestorComment.form({
-                                    current_team: currentTeamSlug,
-                                    investor_agreement: agreement.id,
-                                })
-                            "
-                            class="grid gap-3"
-                            v-slot="{ errors, processing }"
-                        >
-                            <div class="grid gap-2">
-                                <Label :for="`comment-${agreement.id}`">
-                                    Comment
-                                </Label>
-                                <Input
-                                    :id="`comment-${agreement.id}`"
-                                    name="body"
-                                    required
-                                />
-                                <InputError :message="errors.body" />
-                            </div>
-                            <div>
-                                <Button :disabled="processing">
-                                    <MessageSquare class="mr-2 size-4" />
-                                    Send
-                                </Button>
-                            </div>
-                        </Form>
-                    </section>
-                </div>
-            </article>
+        <section
+            v-else
+            class="rounded-xl border border-dashed bg-card px-6 py-10 text-center"
+        >
+            <Handshake
+                class="mx-auto mb-3 size-7 text-muted-foreground"
+                aria-hidden="true"
+            />
+            <h2 class="text-lg font-semibold">No agreements to show</h2>
+            <p class="mt-1 text-sm text-muted-foreground">
+                Agreements assigned to you will appear here once they are
+                active.
+            </p>
         </section>
-        <p v-else class="text-sm text-muted-foreground">
-            No active investor agreements are assigned to this account.
-        </p>
     </div>
 </template>

@@ -26,6 +26,12 @@ const { default: Portal } = await server.ssrLoadModule(
 const { default: Terms } = await server.ssrLoadModule(
     '/resources/js/components/InvestorAgreementTerms.vue',
 );
+const { default: Decisions } = await server.ssrLoadModule(
+    '/resources/js/components/InvestorPortalDecisions.vue',
+);
+const { default: Updates } = await server.ssrLoadModule(
+    '/resources/js/components/InvestorPortalUpdates.vue',
+);
 
 function agreement(overrides = {}) {
     return {
@@ -35,7 +41,9 @@ function agreement(overrides = {}) {
         farmName: 'Crop farm',
         currency: 'NGN',
         statusLabel: 'Active',
+        amountCommittedMinor: 114450000,
         amountCommitted: '1144500.00',
+        amountFundedMinor: 0,
         amountFunded: '0.00',
         investorProfitSharePercentage: 30,
         farmProfitSharePercentage: 70,
@@ -121,6 +129,122 @@ test('portal renders combined commitment, separate crop allocations and profit s
 
     assert.doesNotMatch(html, /PRIVATE BANKING INSTRUCTIONS/);
     assert.ok(html.indexOf('Your agreement') < html.indexOf('Released'));
+});
+
+test('the overview shows funded progress and calls out requests that need a decision', async () => {
+    const html = await renderPortal(
+        agreement({
+            amountFundedMinor: 57225000,
+            amountFunded: '572250.00',
+            approvalRequests: [{ status: 'pending' }, { status: 'approved' }],
+        }),
+    );
+
+    assert.match(html, /<progress[^>]+value="50"/);
+    assert.match(html, /1 request needs your decision/);
+    assert.match(html, /Review requests/);
+});
+
+test('the decision queue puts pending requests first and only shows a decision form for pending requests', async () => {
+    const request = {
+        id: 7,
+        requestType: 'funding_release',
+        requestTypeLabel: 'Funding release',
+        status: 'pending',
+        statusLabel: 'Pending',
+        subjectLabel: 'Stocking milestone',
+        requestedAmount: '75000.00',
+        approvedAmount: null,
+        currency: 'NGN',
+        requestedAt: '2026-11-14T12:00:00Z',
+        milestone: 'Pond ready',
+        milestoneEvidence: [
+            {
+                id: 3,
+                fileName: 'pond.jpg',
+                downloadUrl: '/test-farm/investor-evidence/3',
+            },
+        ],
+        requesterComment: 'Tank preparation is complete.',
+    };
+    const html = await renderToString(
+        createSSRApp({
+            render: () =>
+                h(Decisions, {
+                    requests: [
+                        {
+                            ...request,
+                            id: 6,
+                            status: 'approved',
+                            statusLabel: 'Approved',
+                            subjectLabel: 'Earlier decision',
+                            approvedAmount: '65000.00',
+                        },
+                        request,
+                    ],
+                    currentTeamSlug: 'test-farm',
+                    agreementId: 1,
+                }),
+        }),
+    );
+
+    assert.ok(
+        html.indexOf('Stocking milestone') < html.indexOf('Earlier decision'),
+    );
+    assert.match(html, /Choose a decision/);
+    assert.match(html, /Tank preparation is complete/);
+    assert.match(html, /href="\/test-farm\/investor-evidence\/3"/);
+    assert.equal((html.match(/<form\b/g) ?? []).length, 1);
+});
+
+test('farm updates are ordered by date and retain the shared evidence link', async () => {
+    const html = await renderToString(
+        createSSRApp({
+            render: () =>
+                h(Updates, {
+                    agreement: agreement({
+                        activities: [
+                            {
+                                id: 1,
+                                activityType: 'Pond inspection',
+                                activityDate: '2026-11-15',
+                                summary: 'Pond ready.',
+                                evidence: [
+                                    {
+                                        id: 3,
+                                        fileName: 'pond.jpg',
+                                        downloadUrl:
+                                            '/test-farm/investor-evidence/3',
+                                    },
+                                ],
+                            },
+                        ],
+                        tasks: [
+                            {
+                                id: 1,
+                                title: 'Clean the equipment',
+                                dueOn: null,
+                                status: 'in_progress',
+                            },
+                        ],
+                        aiSummaries: [
+                            {
+                                id: 1,
+                                html: '<p>Weekly update</p>',
+                                publishedAt: '2026-11-14T12:00:00Z',
+                            },
+                        ],
+                    }),
+                }),
+        }),
+    );
+
+    assert.match(html, /datetime="2026-11-15"[^>]*>15 Nov 2026/);
+    assert.match(html, /href="\/test-farm\/investor-evidence\/3"/);
+    assert.ok(html.indexOf('Pond inspection') < html.indexOf('Weekly update'));
+    assert.ok(
+        html.indexOf('Weekly update') < html.indexOf('Clean the equipment'),
+    );
 });
 
 test('fish commitment stays distinct from the full cycle estimate and shows its own terms', async () => {
