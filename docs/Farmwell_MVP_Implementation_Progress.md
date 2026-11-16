@@ -1,6 +1,6 @@
 # Farmwell MVP Implementation Progress
 
-Last updated: 2026-11-13
+Last updated: 2026-11-16
 
 ## Status Legend
 
@@ -329,6 +329,14 @@ The fresh staging backup succeeded in run `43583888046`. Production backup crede
 Live health returned 200 with Laravel's expected body. The root opens phone sign-in; the email alternative also loads. Regular Chrome checks passed at desktop and 390-pixel mobile widths, including the Nigerian numeric field with a ten-digit limit and no horizontal overflow. The production monitor version `ce0beeb0-cfc1-44b6-916b-32bee0d3683b` passed gateway, application, failed-job and backup checks with delivery enabled. The application scheduler is configured to run every minute. KudiSMS and the fourteen-day authenticated idle policy remain in place.
 
 **Participant follow-up:** Suleiman must complete one fresh SMS sign-in at the production hostname and confirm his diary entries and photos there. His successful staging sign-in and physical-phone photo checks do not constitute this new production confirmation. Chrome remains his supported access path; installation on his older handset is not claimed as resolved.
+
+### Investor photo viewer production acceptance, 16 November 2026
+
+**Accepted.** Aminu Hussain tested the photo viewer on his Redmi in the production MDSxclusive Farms investor portal. He confirmed pinch-to-zoom, one-finger panning while zoomed in, and swiping between photos after returning to normal size.
+
+The production check in touch-enabled Chrome at 390 × 844 verified those gestures on all three of Suleiman Musa's photos. The earlier full-screen viewer check also verified that **Download** saved the selected JPEG. [Full-screen viewer release](https://github.com/hussain4real/Farmwell/pull/42)
+
+The zoom change merged into `dev` as `35bc952`. All three CI checks passed on the merge commit. Cloudflare deployed it to `app.farmwell.app` as version `b8b72ec1-07ad-4c63-84a5-9b7a1970e9a7`, and the production health endpoint returned HTTP 200. [Zoom pull request](https://github.com/hussain4real/Farmwell/pull/43) · [Tests](https://github.com/hussain4real/Farmwell/actions/runs/43848399141) · [Lint](https://github.com/hussain4real/Farmwell/actions/runs/43848399188)
 
 ### Phase 8 staging acceptance and recovery
 
