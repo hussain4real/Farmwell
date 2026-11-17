@@ -88,7 +88,7 @@ class BuildInvestorPageData
                 'team', 'investor', 'farm', 'productionCycle', 'approvalRequests.investorAgreement.investor', 'investorComments.author',
                 'approvalRequests.subject' => fn (MorphTo $subject) => $subject->morphWith([
                     Expense::class => ['expenseCategory'],
-                    FundingPhase::class => ['media'],
+                    FundingPhase::class => ['media', 'productionCycle'],
                     DistributionRecord::class => ['saleRecord'],
                     HarvestRecord::class => ['commodity'],
                 ]),
@@ -107,7 +107,7 @@ class BuildInvestorPageData
                 return [
                     ...$this->agreementPayload($agreement),
                     'summary' => $this->agreementSummary($agreement, $fundingPhases, $expenses, $saleRecords, $distributionRecords),
-                    'fundingPhases' => $fundingPhases->map(fn (FundingPhase $phase) => $this->fundingPhasePayload($phase)),
+                    'fundingTimeline' => $this->fundingTimeline($agreement, $fundingPhases, $expenses),
                     'expenses' => $expenses->map(fn (Expense $expense) => $this->expensePayload($expense, $agreement)),
                     'externalTransfers' => $this->approvedExternalTransfers($agreement)->map(fn (ExternalTransfer $transfer) => $this->externalTransferPayload($transfer, $agreement)),
                     'harvestRecords' => $this->approvedHarvestRecords($agreement)->map(fn (HarvestRecord $harvest) => $this->harvestPayload($harvest, $agreement)),
@@ -343,9 +343,108 @@ class BuildInvestorPageData
     private function approvedFundingPhases(InvestorAgreement $agreement): Collection
     {
         return $agreement->fundingPhases()
+            ->with('productionCycle')
             ->where('investor_visibility_status', InvestorVisibilityStatus::Approved->value)
             ->orderBy('expected_on')
             ->get();
+    }
+
+    /**
+     * @param  Collection<int, FundingPhase>  $sharedPhases
+     * @param  Collection<int, Expense>  $sharedExpenses
+     * @return list<array{cycleId: int|null, cycleName: string|null, season: string|null, milestones: list<array{id: int, name: string, milestone: string|null, expectedOn: string|null, events: list<array<string, mixed>>}>}>
+     */
+    private function fundingTimeline(InvestorAgreement $agreement, Collection $sharedPhases, Collection $sharedExpenses): array
+    {
+        $phases = $sharedPhases->keyBy('id');
+        $requests = [];
+
+        foreach ($agreement->approvalRequests->sortBy('id') as $request) {
+            if ($request->request_type !== ApprovalRequestType::FundingRelease || $request->team_id !== $agreement->team_id) {
+                continue;
+            }
+
+            $subject = $request->subject;
+            if ($subject instanceof FundingPhase && $subject->investor_agreement_id === $agreement->id
+                && ($request->farm_id === null || $request->farm_id === $agreement->farm_id)) {
+                $phases->put($subject->id, $subject);
+                $requests[$subject->id] = $request;
+            }
+        }
+
+        $expensesByPhase = $sharedExpenses->filter(fn (Expense $expense): bool => $expense->funding_phase_id !== null
+            && $expense->team_id === $agreement->team_id && $expense->farm_id === $agreement->farm_id)
+            ->sortBy('incurred_on')->groupBy('funding_phase_id');
+
+        $groups = [];
+        foreach ($phases->sortBy([['expected_on', 'asc'], ['id', 'asc']]) as $phase) {
+            if ($phase->team_id !== $agreement->team_id || $phase->farm_id !== $agreement->farm_id) {
+                continue;
+            }
+
+            $cycle = $phase->productionCycle ?? $agreement->productionCycle;
+            if ($cycle !== null && ($cycle->team_id !== $agreement->team_id || $cycle->farm_id !== $agreement->farm_id)) {
+                continue;
+            }
+
+            $cycleKey = $cycle?->id ?? 0;
+            $groups[$cycleKey] ??= ['cycleId' => $cycle?->id, 'cycleName' => $cycle?->name, 'season' => $cycle?->season, 'milestones' => []];
+            $groups[$cycleKey]['milestones'][] = [
+                'id' => $phase->id,
+                'name' => $phase->name,
+                'milestone' => $phase->milestone,
+                'expectedOn' => $phase->expected_on?->toDateString(),
+                'events' => $this->fundingTimelineEvents($agreement, $phase, $requests[$phase->id] ?? null, $expensesByPhase->get($phase->id, collect())),
+            ];
+        }
+
+        return array_values($groups);
+    }
+
+    /**
+     * @param  iterable<Expense>  $expenses
+     * @return list<array{id: string, label: string, detail: string|null, date: string|null, amount: string|null, currency: string, files: list<array<string, mixed>>}>
+     */
+    private function fundingTimelineEvents(InvestorAgreement $agreement, FundingPhase $phase, ?ApprovalRequest $request, iterable $expenses): array
+    {
+        $events = [];
+
+        if ($request !== null) {
+            $canDownloadEvidence = in_array($request->status, [ApprovalRequestStatus::Pending, ApprovalRequestStatus::Approved, ApprovalRequestStatus::ClarificationRequested], true);
+            $events[] = [
+                'id' => 'request', 'label' => 'Funding requested', 'detail' => null,
+                'date' => $request->requested_at->toISOString(), 'amount' => Money::toDecimal($request->requested_amount_minor), 'currency' => $request->currency,
+                'files' => $canDownloadEvidence ? $phase->getMedia(FundingPhase::EvidenceCollection)
+                    ->map(fn (Media $media) => $this->mediaPayload($media, $agreement->team))->values()->all() : [],
+            ];
+
+            $events[] = [
+                'id' => 'decision', 'label' => $request->status === ApprovalRequestStatus::Pending ? 'Awaiting investor decision' : $request->status->label(),
+                'detail' => null, 'date' => $request->decided_at?->toISOString(), 'currency' => $request->currency,
+                'amount' => $request->status === ApprovalRequestStatus::Approved && $request->approved_amount_minor !== null
+                    ? Money::toDecimal($request->approved_amount_minor) : null,
+                'files' => [],
+            ];
+        }
+
+        if ($phase->investor_visibility_status === InvestorVisibilityStatus::Approved && $phase->externally_released_amount_minor > 0) {
+            $events[] = [
+                'id' => 'release', 'label' => 'Release recorded', 'detail' => null, 'date' => $phase->released_on?->toDateString(),
+                'amount' => Money::toDecimal($phase->externally_released_amount_minor), 'currency' => $phase->currency, 'files' => [],
+            ];
+        }
+
+        foreach ($expenses as $expense) {
+            $events[] = [
+                'id' => 'expense-'.$expense->id, 'label' => 'Expense recorded',
+                'detail' => $expense->farmActivity?->investor_safe_summary ?: $expense->description,
+                'date' => $expense->incurred_on->toDateString(), 'amount' => Money::toDecimal($expense->amount_minor), 'currency' => $expense->currency,
+                'files' => $expense->getMedia(Expense::ReceiptsCollection)
+                    ->map(fn (Media $media) => $this->mediaPayload($media, $agreement->team))->values()->all(),
+            ];
+        }
+
+        return $events;
     }
 
     /**
@@ -530,25 +629,6 @@ class BuildInvestorPageData
             'decisionComment' => $approvalRequest->decision_comment,
             'requestedAt' => $approvalRequest->requested_at->toISOString(),
             'decidedAt' => $approvalRequest->decided_at?->toISOString(),
-        ];
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function fundingPhasePayload(FundingPhase $phase): array
-    {
-        return [
-            'id' => $phase->id,
-            'name' => $phase->name,
-            'milestone' => $phase->milestone,
-            'status' => $phase->status->value,
-            'statusLabel' => $phase->status->label(),
-            'plannedAmount' => Money::toDecimal($phase->planned_amount_minor),
-            'approvedAmount' => Money::toDecimal($phase->approved_amount_minor),
-            'externallyReleasedAmount' => Money::toDecimal($phase->externally_released_amount_minor),
-            'expectedOn' => $phase->expected_on?->toDateString(),
-            'releasedOn' => $phase->released_on?->toDateString(),
         ];
     }
 

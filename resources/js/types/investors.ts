@@ -101,17 +101,25 @@ export type InvestorApprovalRequest = {
     decidedAt: string | null;
 };
 
-export type InvestorFundingPhase = {
-    id: number;
-    name: string;
-    milestone: string | null;
-    status: string;
-    statusLabel: string;
-    plannedAmount: string;
-    approvedAmount: string;
-    externallyReleasedAmount: string;
-    expectedOn: string | null;
-    releasedOn: string | null;
+export type InvestorFundingGroup = {
+    cycleId: number | null;
+    cycleName: string | null;
+    season: string | null;
+    milestones: {
+        id: number;
+        name: string;
+        milestone: string | null;
+        expectedOn: string | null;
+        events: {
+            id: string;
+            label: string;
+            detail: string | null;
+            date: string | null;
+            amount: string | null;
+            currency: string;
+            files: Pick<Evidence, 'id' | 'fileName' | 'downloadUrl'>[];
+        }[];
+    }[];
 };
 
 export type InvestorExpense = {
@@ -225,7 +233,7 @@ export type InvestorComment = {
 
 export type InvestorPortalAgreement = InvestorAgreement & {
     summary: InvestorAgreementSummary;
-    fundingPhases: InvestorFundingPhase[];
+    fundingTimeline: InvestorFundingGroup[];
     expenses: InvestorExpense[];
     externalTransfers: InvestorExternalTransfer[];
     harvestRecords: InvestorHarvestRecord[];
