@@ -1,5 +1,14 @@
 import { DurableObject } from 'cloudflare:workers';
 
+const queueWakeHeader = 'X-Farmwell-Wake-Queue';
+
+function queueForVersion(env) {
+    return env.FARMWELL_QUEUE.getByName(
+        `staging-queue-${env.CF_VERSION_METADATA.id}`,
+        { locationHint: 'weur' },
+    );
+}
+
 function verificationActive(env) {
     const start = Number(env.PRODUCTION_VERIFICATION_STARTED_AT);
     const end = Number(env.PRODUCTION_VERIFICATION_UNTIL);
@@ -167,6 +176,20 @@ export class FarmwellWeb extends DurableObject {
 export class FarmwellQueue extends DurableObject {
     currentRun;
 
+    async wake() {
+        if (await this.ctx.storage.getAlarm() === null) {
+            await this.ctx.storage.setAlarm(Date.now());
+        }
+    }
+
+    async alarm() {
+        while (this.currentRun) {
+            await this.currentRun;
+        }
+
+        await this.run(true);
+    }
+
     async failedJobWatermark() {
         const connection = new URL(this.env.DB_URL);
 
@@ -206,15 +229,15 @@ export class FarmwellQueue extends DurableObject {
         return String(latest);
     }
 
-    run() {
-        this.currentRun ??= this.runOnce().finally(() => {
+    run(waitForRetries = false) {
+        this.currentRun ??= this.runOnce(waitForRetries).finally(() => {
             this.currentRun = undefined;
         });
 
         return this.currentRun;
     }
 
-    async runOnce() {
+    async runOnce(waitForRetries) {
         const container = this.ctx.container;
 
         if (!container.running) {
@@ -228,7 +251,7 @@ export class FarmwellQueue extends DurableObject {
                     'artisan',
                     'queue:work',
                     'database',
-                    '--stop-when-empty',
+                    waitForRetries ? '--stop-when-empty-for=35' : '--stop-when-empty',
                     '--timeout=110',
                     '--tries=3',
                     '--no-interaction',
@@ -241,7 +264,7 @@ export class FarmwellQueue extends DurableObject {
 }
 
 export default {
-    async fetch(request, env) {
+    async fetch(request, env, ctx) {
         if (env.REDIRECT_HOST && new URL(request.url).hostname === env.REDIRECT_HOST) {
             if (!['GET', 'HEAD'].includes(request.method)) {
                 return new Response('Farmwell has moved. Reopen the app before saving.', { status: 409, headers: { 'Cache-Control': 'no-store' } });
@@ -351,7 +374,15 @@ export default {
                 const timings = await web.ready();
                 forwarded = true;
                 const forwardStartedAt = Date.now();
-                const response = await web.fetch(request);
+                let response = await web.fetch(request);
+
+                if (response.headers?.get(queueWakeHeader) === '1') {
+                    response = new Response(response.body, response);
+                    response.headers.delete(queueWakeHeader);
+                    ctx.waitUntil(queueForVersion(env).wake().catch(() => {
+                        console.error('Farmwell queue wake-up failed');
+                    }));
+                }
 
                 if (env.REHEARSAL_MODE === 'true' && env.STARTUP_TIMING_ENABLED === 'true' && timings) {
                     const measured = new Response(response.body, response);
@@ -388,9 +419,6 @@ export default {
             return;
         }
 
-        await env.FARMWELL_QUEUE.getByName(
-            `staging-queue-${env.CF_VERSION_METADATA.id}`,
-            { locationHint: 'weur' },
-        ).run();
+        await queueForVersion(env).run();
     },
 };

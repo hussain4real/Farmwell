@@ -140,7 +140,7 @@ test('production monitoring keeps credentials on the private service and waits f
 
 
 test('production cutover configuration isolates live storage and freezes the source farm', async () => {
-    const parse = async name => JSON.parse((await readFile(new URL('../' + name, import.meta.url), 'utf8')).replace(/,\s*([}\]])/g, '$1'));
+    const parse = async name => JSON.parse((await readFile(new URL('../' + name, import.meta.url), 'utf8')).replace(/^\s*\/\/.*$/gm, '').replace(/,\s*([}\]])/g, '$1'));
     const app = await parse('wrangler.production.jsonc');
     const alerts = await parse('wrangler.production-alerts.jsonc');
     assert.equal(app.name, 'farmwell-production');
@@ -149,7 +149,8 @@ test('production cutover configuration isolates live storage and freezes the sou
     assert.equal(app.vars.AWS_BUCKET, 'farmwell-production-live-private');
     assert.equal(app.vars.PHONE_PILOT_HOST, 'app.farmwell.app');
     assert.equal(app.vars.REDIRECT_HOST, 'pilot.farmwell.app');
-    assert.deepEqual(app.triggers.crons, ['* * * * *']);
+    assert.deepEqual(app.triggers.crons, ['*/30 * * * *']);
+    assert.deepEqual(alerts.triggers.crons, app.triggers.crons);
     assert.deepEqual(app.routes.map(route => route.pattern), ['app.farmwell.app', 'pilot.farmwell.app']);
     assert.deepEqual(app.tail_consumers, [{service: alerts.name}]);
     assert.equal(alerts.vars.ALERT_DELIVERY_ENABLED, 'true');
@@ -157,6 +158,9 @@ test('production cutover configuration isolates live storage and freezes the sou
     assert.equal(alerts.services[0].service, app.name);
     assert.equal(alerts.r2_buckets[0].bucket_name, 'farmwell-production-live-backups');
     const staging = await parse('wrangler.jsonc');
+    const stagingAlerts = await parse('wrangler.alerts.jsonc');
+    assert.deepEqual(staging.triggers.crons, ['0 * * * *']);
+    assert.deepEqual(stagingAlerts.triggers.crons, staging.triggers.crons);
     assert.equal(staging.vars.FROZEN_TEAM_SLUG, 'mdsxclusive-farms');
     assert.equal(staging.vars.FROZEN_TEAM_ID, '4');
     assert.equal(staging.vars.MOVED_TEAM_ORIGIN, app.vars.APP_URL);

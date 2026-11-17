@@ -4,6 +4,7 @@ use App\Http\Middleware\EnsurePilotPhoneAccess;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\SetTeamUrlDefaults;
+use App\Http\Middleware\SignalQueuedWork;
 use App\Http\Middleware\StartFarmwellSession;
 use App\Models\User;
 use Illuminate\Foundation\Application;
@@ -28,6 +29,7 @@ return Application::configure(basePath: dirname(__DIR__))
             headers: Request::HEADER_X_FORWARDED_FOR | Request::HEADER_X_FORWARDED_HOST | Request::HEADER_X_FORWARDED_PROTO,
         );
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
+        $middleware->append(SignalQueuedWork::class);
 
         $middleware->redirectUsersTo(function (Request $request): string {
             $user = $request->user();

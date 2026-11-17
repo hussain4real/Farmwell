@@ -266,6 +266,75 @@ test('each deployed version processes reports with its own queue container', asy
     assert.deepEqual(runs, ['staging-queue-first', 'staging-queue-second']);
 });
 
+test('only an internal queue signal schedules work and is removed before serving the response', async () => {
+    const worker = vm.runInNewContext(`${source}\nworker;`, { DurableObject: class {}, URL, Response });
+    const wakeups = [];
+    const work = [];
+    let readingQueue = false;
+    const env = {
+        CF_VERSION_METADATA: { id: 'release' },
+        FARMWELL_WEB: {
+            idFromName: name => name,
+            get: () => ({
+                ready: async () => {},
+                fetch: async () => new Response(null, {
+                    status: 303,
+                    headers: readingQueue ? { 'X-Farmwell-Wake-Queue': '1' } : {},
+                }),
+            }),
+        },
+        FARMWELL_QUEUE: {
+            getByName: name => ({ wake: async () => wakeups.push(name) }),
+        },
+    };
+    const ctx = { waitUntil: promise => work.push(promise) };
+    const request = new Request('https://staging.example/', { headers: { 'X-Farmwell-Wake-Queue': '1' } });
+
+    await worker.fetch(request, env, ctx);
+    assert.deepEqual(wakeups, []);
+
+    readingQueue = true;
+    const response = await worker.fetch(request, env, ctx);
+    await Promise.all(work);
+    assert.equal(response.status, 303);
+    assert.equal(response.headers.has('X-Farmwell-Wake-Queue'), false);
+    assert.deepEqual(wakeups, ['staging-queue-release']);
+});
+
+test('queue wake-ups share an alarm and keep the worker alive for short Laravel retries', async () => {
+    const Queue = vm.runInNewContext(`${source}\nFarmwellQueue;`, {
+        URL,
+        DurableObject: class {
+            constructor(ctx, env) {
+                this.ctx = ctx;
+                this.env = env;
+            }
+        },
+    });
+    const alarms = [];
+    const runs = [];
+    const queue = new Queue({
+        storage: {
+            getAlarm: async () => alarms[0] ?? null,
+            setAlarm: async time => alarms.push(time),
+        },
+        container: {
+            images: { base: 'test-image' },
+            start: options => runs.push(options.entrypoint),
+            monitor: async () => {},
+        },
+    }, { DB_URL: 'postgres://db.example/test' });
+
+    await queue.wake();
+    await queue.wake();
+    assert.equal(alarms.length, 1);
+    await queue.alarm();
+    await queue.run();
+    assert.equal(runs.length, 2);
+    assert.ok(runs[0].includes('--stop-when-empty-for=35'));
+    assert.ok(runs[1].includes('--stop-when-empty'));
+});
+
 test('failed-job probe returns only the newest ID and refuses unexpected database hosts', async () => {
     let calls = 0;
     const Queue = vm.runInNewContext(source + '\nFarmwellQueue;', {
