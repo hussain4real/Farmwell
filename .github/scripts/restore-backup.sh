@@ -3,6 +3,11 @@
 set -euo pipefail
 umask 077
 : "${BACKUP_ARCHIVE_PASSWORD:?}"
+profile=${FARMWELL_BACKUP_DATABASE_PROFILE:-postgres}
+case "$profile" in
+    postgres|supabase) ;;
+    *) echo 'Unknown backup database profile.' >&2; exit 1 ;;
+esac
 archive=${1:?}
 source=${2:?}
 work=$(mktemp -d)
@@ -20,8 +25,26 @@ php .github/scripts/extract-backup.php "$archive" "$work/recovered" "$source"
 initdb -D "$work/cluster" -U drill -A trust >/dev/null
 pg_ctl -D "$work/cluster" -l "$work/postgres.log" -o "-k '$work' -c listen_addresses='' -p 5432" -w start >/dev/null
 createdb "$PGDATABASE"
-pg_restore --exit-on-error --single-transaction --no-owner --no-privileges \
-    --dbname="$PGDATABASE" "$work/recovered/database.dump" > "$work/restore.log" 2>&1 || {
+restore_database() {
+    local dump="$work/recovered/database.dump"
+    if [[ "$profile" == postgres ]]; then
+        pg_restore --exit-on-error --single-transaction --no-owner --no-privileges --dbname="$PGDATABASE" "$dump"
+        return
+    fi
+
+    local section
+    for section in pre-data data post-data; do
+        pg_restore --exit-on-error --schema=public --no-owner --no-privileges --no-comments \
+            --section="$section" --file="$work/$section.sql" "$dump" || return
+    done
+    # Supabase can add a private column option that standard PostgreSQL rejects.
+    sed -E '/^ALTER TABLE ONLY public\.[[:alnum:]_]+ ALTER COLUMN [[:alnum:]_]+ SET \(pg_attver=[[:digit:]]+\);$/d' \
+        "$work/pre-data.sql" > "$work/portable-pre-data.sql" || return
+    psql -Xq -v ON_ERROR_STOP=1 --single-transaction \
+        -f "$work/portable-pre-data.sql" -f "$work/data.sql" -f "$work/post-data.sql"
+}
+
+restore_database > "$work/restore.log" 2>&1 || {
     echo 'Database restoration failed; no application or worker was started.' >&2
     exit 1
 }

@@ -7,6 +7,7 @@ export PATH="${PG_BINDIR:-$(pg_config --bindir)}:$PATH"
 export PGHOST="$work" PGPORT=5432 PGDATABASE=farmwell_source PGUSER=drill
 export PGSSLMODE=disable PGPASSWORD= DB_URL= DB_CONNECTION=pgsql DB_HOST="$work" DB_PORT=5432 DB_USERNAME=drill DB_PASSWORD= DB_DATABASE="$PGDATABASE"
 export APP_ENV=testing CACHE_STORE=array FARMWELL_BACKUP_DISK=local
+export FARMWELL_BACKUP_DATABASE_PROFILE="${1:-postgres}"
 export FARMWELL_PRIVATE_ROOT="$work/private" FARMWELL_BACKUP_ROOT="$work/vault"
 export BACKUP_ARCHIVE_PASSWORD="$(openssl rand -hex 32)"
 export FARMWELL_BACKUP_RESTORE_DRILL=true FARMWELL_RESTORE_TEAM=drill
@@ -45,7 +46,11 @@ php -r '
     $zip->setPassword(getenv("BACKUP_ARCHIVE_PASSWORD"));
     if (!$zip->extractTo($argv[2], ["database.dump", "media/1/receipt.txt"])) { exit(4); }
 ' "${archives[0]}" "$work/recovered"
-pg_restore --exit-on-error --single-transaction --no-owner --no-privileges --dbname=farmwell_restored "$work/recovered/database.dump"
+restore_scope=()
+if [[ "$FARMWELL_BACKUP_DATABASE_PROFILE" == supabase ]]; then
+    restore_scope+=(--schema=public)
+fi
+pg_restore "${restore_scope[@]}" --exit-on-error --single-transaction --no-owner --no-privileges --dbname=farmwell_restored "$work/recovered/database.dump"
 query="SELECT f.name, m.id || '/' || m.file_name, m.size FROM farms f JOIN media m ON m.model_id = f.id WHERE f.team_id = 1 AND m.disk = 'farmwell_private'"
 [[ "$(psql -XAt -d farmwell_restored -c "$query")" == 'Recovery farm|1/receipt.txt|22' ]]
 [[ "$(psql -XAt -c 'SELECT count(*) FROM migrations')" == "$(psql -XAt -d farmwell_restored -c 'SELECT count(*) FROM migrations')" ]]
