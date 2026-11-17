@@ -19,10 +19,14 @@ function verificationActive(env) {
         Date.now() >= start && Date.now() < end;
 }
 
-function containerEnvironment(env) {
-    const databaseUrl = new URL(env.DB_URL);
-    databaseUrl.hostname = databaseUrl.hostname.replace('-pooler.', '.');
+function databaseUrl(env) {
+    const connection = new URL(env.DB_URL);
+    connection.hostname = connection.hostname.replace('-pooler.', '.');
 
+    return connection.toString();
+}
+
+function containerEnvironment(env) {
     return {
         APP_NAME: env.APP_NAME ?? 'Farmwell Staging',
         APP_ENV: 'production',
@@ -31,7 +35,7 @@ function containerEnvironment(env) {
         APP_KEY: env.APP_KEY,
         APP_URL: env.APP_URL,
         DB_CONNECTION: 'pgsql',
-        DB_URL: databaseUrl.toString(),
+        DB_URL: databaseUrl(env),
         SESSION_DRIVER: 'database',
         SESSION_SECURE_COOKIE: 'true',
         ...(env.SESSION_COOKIE ? { SESSION_COOKIE: env.SESSION_COOKIE } : {}),
@@ -191,42 +195,35 @@ export class FarmwellQueue extends DurableObject {
     }
 
     async failedJobWatermark() {
-        const connection = new URL(this.env.DB_URL);
+        const container = this.ctx.container;
+        const url = databaseUrl(this.env);
 
-        if (!['pgsql:', 'postgresql:', 'postgres:'].includes(connection.protocol) || !connection.hostname.endsWith('.neon.tech')) {
-            console.error('Unsupported staging database host or scheme');
-
-            throw new Error('Unsupported staging database host');
+        if (!container.running) {
+            container.start({
+                image: container.images.base,
+                instance: 'lite',
+                enableInternet: true,
+                entrypoint: ['sleep', '60'],
+            });
         }
 
-        connection.protocol = 'postgresql:';
-        connection.search = '';
-        const apiHost = connection.hostname.replace(/^[^.]+\./, 'api.');
-        const result = await fetch(`https://${apiHost}/sql`, {
-            method: 'POST',
-            redirect: 'manual',
-            signal: AbortSignal.timeout(15000),
-            headers: { 'Content-Type': 'application/json', 'Neon-Connection-String': connection.toString() },
-            body: JSON.stringify({ query: 'SELECT COALESCE(MAX(id), 0)::text AS latest FROM failed_jobs', params: [] }),
-        });
+        // The monitor uses a dedicated object and shares no container with job processing.
+        const process = await container.exec(
+            ['timeout', '--kill-after=2', '15', 'php', 'artisan', 'ops:failed-job-watermark', '--no-interaction'],
+            {
+                cwd: '/var/www/html',
+                env: { APP_ENV: 'production', APP_DEBUG: 'false', DB_CONNECTION: 'pgsql', DB_URL: url },
+                stderr: 'ignore',
+            },
+        );
+        const { exitCode, stdout } = await process.output();
+        const latest = new TextDecoder().decode(stdout).trim();
 
-        if (!result.ok) {
-            const problem = await result.json().catch(() => ({}));
-            const code = /^[0-9A-Z]{5}$/.test(problem?.code) ? problem.code : 'unknown';
-            console.error('Failed-job SQL endpoint returned', result.status, code);
-
-            throw new Error(`Failed-job check unavailable HTTP ${result.status}`);
+        if (exitCode !== 0 || !/^\d+$/.test(latest)) {
+            throw new Error('Failed-job watermark unavailable');
         }
 
-        const latest = (await result.json()).rows?.[0]?.latest;
-
-        if (!/^\d+$/.test(latest)) {
-            console.error('Invalid failed-job watermark');
-
-            throw new Error('Invalid failed-job watermark');
-        }
-
-        return String(latest);
+        return latest;
     }
 
     run(waitForRetries = false) {
