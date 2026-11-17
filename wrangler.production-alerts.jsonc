@@ -6,7 +6,7 @@
     "preview_urls": false,
     "observability": { "enabled": true },
     "triggers": {
-        "crons": ["*/10 * * * *"]
+        "crons": ["*/30 * * * *"]
     },
     "services": [
         {

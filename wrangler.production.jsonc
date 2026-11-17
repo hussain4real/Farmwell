@@ -36,7 +36,7 @@
         }
     ],
     "triggers": {
-        "crons": ["* * * * *"]
+        "crons": ["*/30 * * * *"]
     },
     "containers": [
         {
