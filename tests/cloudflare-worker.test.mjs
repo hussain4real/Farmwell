@@ -335,6 +335,45 @@ test('queue wake-ups share an alarm and keep the worker alive for short Laravel 
     assert.ok(runs[1].includes('--stop-when-empty'));
 });
 
+test('queue container retries exit code one once and surfaces a second failure', async () => {
+    const delays = [];
+    const Queue = vm.runInNewContext(source + '\nFarmwellQueue;', {
+        URL, DurableObject: class {},
+        scheduler: { wait: async (milliseconds) => delays.push(milliseconds) },
+    });
+    const exit = Object.assign(new Error('Container exited'), { exitCode: 1 });
+    const starts = [];
+    let errors = [exit];
+    const queue = new Queue();
+    queue.env = { DB_URL: 'postgres://staging.example/test' };
+    queue.ctx = { container: {
+        images: { base: 'test-image' },
+        running: false,
+        start: (options) => starts.push(options.entrypoint),
+        monitor: async () => {
+            const error = errors.shift();
+
+            if (error) {
+                throw error;
+            }
+        },
+    } };
+
+    await queue.run(true);
+    assert.equal(starts.length, 2);
+    assert.deepEqual(delays, [500]);
+    assert.ok(starts.every((entrypoint) => entrypoint.includes('--stop-when-empty-for=35')));
+
+    errors = [exit, exit, exit];
+    await assert.rejects(queue.run(), (error) => error === exit);
+    assert.equal(starts.length, 4);
+    assert.equal(errors.length, 1);
+
+    errors = [Object.assign(new Error('Overloaded'), { overloaded: true, retryable: true })];
+    await assert.rejects(queue.run(), /Overloaded/);
+    assert.equal(starts.length, 5);
+});
+
 test('failed-job probe uses the private PostgreSQL connection and returns only a successful ID', async () => {
     const Queue = vm.runInNewContext(source + '\nFarmwellQueue;', {
         URL, TextDecoder, DurableObject: class {},

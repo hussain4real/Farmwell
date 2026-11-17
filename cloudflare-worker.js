@@ -237,26 +237,39 @@ export class FarmwellQueue extends DurableObject {
     async runOnce(waitForRetries) {
         const container = this.ctx.container;
 
-        if (!container.running) {
-            container.start({
-                image: container.images.base,
-                instance: 'lite',
-                enableInternet: true,
-                env: containerEnvironment(this.env),
-                entrypoint: [
-                    'php',
-                    'artisan',
-                    'queue:work',
-                    'database',
-                    waitForRetries ? '--stop-when-empty-for=35' : '--stop-when-empty',
-                    '--timeout=110',
-                    '--tries=3',
-                    '--no-interaction',
-                ],
-            });
-        }
+        for (let attempt = 1; ; attempt++) {
+            try {
+                if (!container.running) {
+                    container.start({
+                        image: container.images.base,
+                        instance: 'lite',
+                        enableInternet: true,
+                        env: containerEnvironment(this.env),
+                        entrypoint: [
+                            'php',
+                            'artisan',
+                            'queue:work',
+                            'database',
+                            waitForRetries ? '--stop-when-empty-for=35' : '--stop-when-empty',
+                            '--timeout=110',
+                            '--tries=3',
+                            '--no-interaction',
+                        ],
+                    });
+                }
 
-        await container.monitor();
+                await container.monitor();
+
+                return;
+            } catch (error) {
+                if (attempt === 2 || error?.overloaded || !(error?.exitCode === 1 || error?.retryable)) {
+                    throw error;
+                }
+
+                console.warn('Retrying Farmwell queue container', { exitCode: error.exitCode ?? null });
+                await scheduler.wait(500);
+            }
+        }
     }
 }
 
