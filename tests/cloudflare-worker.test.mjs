@@ -335,26 +335,81 @@ test('queue wake-ups share an alarm and keep the worker alive for short Laravel 
     assert.ok(runs[1].includes('--stop-when-empty'));
 });
 
-test('failed-job probe returns only the newest ID and refuses unexpected database hosts', async () => {
-    let calls = 0;
+test('queue container retries exit code one once and surfaces a second failure', async () => {
+    const delays = [];
     const Queue = vm.runInNewContext(source + '\nFarmwellQueue;', {
-        URL, AbortSignal, DurableObject: class {},
-        fetch: async (url, options) => {
-            calls++;
-            assert.equal(url, 'https://api.us-east-1.aws.neon.tech/sql');
-            assert.equal(options.redirect, 'manual');
-            assert.equal(options.headers['Neon-Connection-String'], 'postgresql://ep-staging.us-east-1.aws.neon.tech/staging');
-            assert.match(JSON.parse(options.body).query, /MAX\(id\).*FROM failed_jobs/);
-
-            return Response.json({rows: [{latest: '42'}]});
-        },
+        URL, DurableObject: class {},
+        scheduler: { wait: async (milliseconds) => delays.push(milliseconds) },
     });
+    const exit = Object.assign(new Error('Container exited'), { exitCode: 1 });
+    const starts = [];
+    let errors = [exit];
     const queue = new Queue();
-    queue.env = {DB_URL: 'pgsql://ep-staging.us-east-1.aws.neon.tech/staging?sslmode=require'};
-    assert.equal(await queue.failedJobWatermark(), '42');
-    queue.env.DB_URL = 'postgresql://untrusted.example/staging';
-    await assert.rejects(queue.failedJobWatermark(), /Unsupported staging database host/);
-    assert.equal(calls, 1);
+    queue.env = { DB_URL: 'postgres://staging.example/test' };
+    queue.ctx = { container: {
+        images: { base: 'test-image' },
+        running: false,
+        start: (options) => starts.push(options.entrypoint),
+        monitor: async () => {
+            const error = errors.shift();
+
+            if (error) {
+                throw error;
+            }
+        },
+    } };
+
+    await queue.run(true);
+    assert.equal(starts.length, 2);
+    assert.deepEqual(delays, [500]);
+    assert.ok(starts.every((entrypoint) => entrypoint.includes('--stop-when-empty-for=35')));
+
+    errors = [exit, exit, exit];
+    await assert.rejects(queue.run(), (error) => error === exit);
+    assert.equal(starts.length, 4);
+    assert.equal(errors.length, 1);
+
+    errors = [Object.assign(new Error('Overloaded'), { overloaded: true, retryable: true })];
+    await assert.rejects(queue.run(), /Overloaded/);
+    assert.equal(starts.length, 5);
+});
+
+test('failed-job probe uses the private PostgreSQL connection and returns only a successful ID', async () => {
+    const Queue = vm.runInNewContext(source + '\nFarmwellQueue;', {
+        URL, TextDecoder, DurableObject: class {},
+    });
+    const connection = 'postgresql://readonly@region.pooler.supabase.com/postgres?sslmode=verify-full';
+    const queue = new Queue();
+    let exitCode = 0;
+    let stdout = '9223372036854775807\n';
+    let started = false;
+    queue.env = { DB_URL: connection };
+    queue.ctx = { container: {
+        images: { base: 'test-image' },
+        get running() {
+            return started;
+        },
+        start: (options) => {
+            assert.equal(options.image, 'test-image');
+            assert.equal(options.enableInternet, true);
+            started = true;
+        },
+        exec: async (command, options) => {
+            assert.equal(started, true);
+            assert.ok(command.includes('ops:failed-job-watermark'));
+            assert.equal(options.env.DB_URL, connection);
+            assert.equal(options.stderr, 'ignore');
+
+            return { output: async () => ({ exitCode, stdout: new TextEncoder().encode(stdout) }) };
+        },
+    } };
+
+    assert.equal(await queue.failedJobWatermark(), '9223372036854775807');
+    exitCode = 1;
+    await assert.rejects(queue.failedJobWatermark(), /^Error: Failed-job watermark unavailable$/);
+    exitCode = 0;
+    stdout = 'unexpected output';
+    await assert.rejects(queue.failedJobWatermark(), /^Error: Failed-job watermark unavailable$/);
 });
 
 test('only the web container receives phone verification settings and credentials', async () => {
