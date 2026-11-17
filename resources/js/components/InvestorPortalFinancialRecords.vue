@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import Heading from '@/components/Heading.vue';
+import InvestorPortalFundingTimeline from '@/components/InvestorPortalFundingTimeline.vue';
 import { Badge } from '@/components/ui/badge';
 import { formatCurrency } from '@/lib/currency';
 import type { InvestorPortalAgreement } from '@/types';
@@ -9,41 +10,10 @@ defineProps<{ agreement: InvestorPortalAgreement }>();
 
 <template>
     <div class="grid gap-x-8 gap-y-6 lg:grid-cols-2">
-        <section class="space-y-3">
-            <Heading
-                variant="small"
-                title="Funding phases"
-                description="Approved release milestones"
-            />
-            <div v-if="agreement.fundingPhases.length" class="space-y-3">
-                <div
-                    v-for="phase in agreement.fundingPhases"
-                    :key="phase.id"
-                    class="rounded-lg border p-3 text-sm"
-                >
-                    <div class="flex items-start justify-between gap-3">
-                        <p class="font-medium">
-                            {{ phase.name }}
-                        </p>
-                        <Badge variant="secondary">
-                            {{ phase.statusLabel }}
-                        </Badge>
-                    </div>
-                    <p class="mt-1 text-muted-foreground">
-                        Released
-                        {{
-                            formatCurrency(
-                                phase.externallyReleasedAmount,
-                                agreement.currency,
-                            )
-                        }}
-                    </p>
-                </div>
-            </div>
-            <p v-else class="text-sm text-muted-foreground">
-                No approved funding phases yet.
-            </p>
-        </section>
+        <InvestorPortalFundingTimeline
+            :groups="agreement.fundingTimeline"
+            class="lg:col-span-2"
+        />
         <section class="space-y-3">
             <Heading
                 variant="small"

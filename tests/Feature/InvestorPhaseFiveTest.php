@@ -82,7 +82,7 @@ test('investor portal reuses approved financial records for its totals and lists
         ->assertInertia(fn (Assert $page) => $page
             ->where('agreements.0.summary.releasedMinor', 0)
             ->where('agreements.0.summary.spentMinor', 0)
-            ->where('agreements.0.fundingPhases', [])
+            ->where('agreements.0.fundingTimeline', [])
             ->where('agreements.0.expenses', []));
 
     $queries = collect(DB::getQueryLog())->pluck('query');
