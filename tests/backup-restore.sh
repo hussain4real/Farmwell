@@ -9,6 +9,7 @@ export PGSSLMODE=disable PGPASSWORD= DB_URL= DB_CONNECTION=pgsql DB_HOST="$work"
 export APP_ENV=testing CACHE_STORE=array FARMWELL_BACKUP_DISK=local
 export FARMWELL_PRIVATE_ROOT="$work/private" FARMWELL_BACKUP_ROOT="$work/vault"
 export BACKUP_ARCHIVE_PASSWORD="$(openssl rand -hex 32)"
+export FARMWELL_BACKUP_RESTORE_DRILL=true FARMWELL_RESTORE_TEAM=drill
 cleanup() {
     pg_ctl -D "$work/cluster" -m immediate stop >/dev/null 2>&1 || true
     rm -rf -- "$work"
@@ -53,6 +54,13 @@ query="SELECT f.name, m.id || '/' || m.file_name, m.size FROM farms f JOIN media
 [[ "$(psql -XAt -c 'SELECT count(*) FROM migrations')" == "$(psql -XAt -d farmwell_restored -c 'SELECT count(*) FROM migrations')" ]]
 [[ "$(psql -XAt -d farmwell_restored -c "SELECT convert_from(decode(document, 'base64'), 'UTF8') FROM report_artifacts WHERE status = 'ready' AND farm_id = 1")" == drill ]]
 cmp "$FARMWELL_PRIVATE_ROOT/1/receipt.txt" "$work/recovered/media/1/receipt.txt"
+if BACKUP_ARCHIVE_PASSWORD=incorrect php .github/scripts/extract-backup.php "${archives[0]}" "$work/rejected" "$work/recovered" > "$work/rejected.log" 2>&1; then
+    echo 'Restore verification accepted an incorrect archive password.' >&2; exit 1
+fi
+printf 'changed receipt bytes\n' > "$work/recovered/media/1/receipt.txt"
+if php .github/scripts/extract-backup.php "${archives[0]}" "$work/rejected" "$work/recovered" > "$work/rejected.log" 2>&1; then
+    echo 'Restore verification accepted changed source bytes.' >&2; exit 1
+fi
 stale="$FARMWELL_BACKUP_ROOT/Farmwell/2000-01-01-00-00-00.zip"
 mv "${archives[0]}" "$stale"
 if php artisan backup:monitor --no-interaction > /dev/null 2>&1; then

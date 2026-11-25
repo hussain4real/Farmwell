@@ -82,7 +82,7 @@ test('investor portal reuses approved financial records for its totals and lists
         ->assertInertia(fn (Assert $page) => $page
             ->where('agreements.0.summary.releasedMinor', 0)
             ->where('agreements.0.summary.spentMinor', 0)
-            ->where('agreements.0.fundingPhases', [])
+            ->where('agreements.0.fundingTimeline', [])
             ->where('agreements.0.expenses', []));
 
     $queries = collect(DB::getQueryLog())->pluck('query');
@@ -721,6 +721,76 @@ test('investor portal denies unrelated inactive and private records while allowi
         ->assertRedirect();
 });
 
+test('investors can preview shared diary photos without a public summary', function () {
+    [, $investor, $team, $farm, $cycle] = farmwellInvestorContext();
+    Storage::fake('farmwell_private');
+
+    $agreement = InvestorAgreement::factory()->create([
+        'team_id' => $team->id,
+        'investor_id' => $investor->id,
+        'farm_id' => $farm->id,
+        'production_cycle_id' => $cycle->id,
+        'status' => InvestorAgreementStatus::Active,
+    ]);
+    $activity = FarmActivity::factory()->create([
+        'team_id' => $team->id,
+        'farm_id' => $farm->id,
+        'production_cycle_id' => $cycle->id,
+        'activity_type' => 'Private operations title',
+        'description' => 'Private diary description',
+        'investor_safe_summary' => null,
+    ]);
+    $photo = $activity->addMedia(UploadedFile::fake()->image('shared.jpg'))
+        ->withCustomProperties(['visibility' => 'investor_visible'])
+        ->toMediaCollection(FarmActivity::EvidenceCollection);
+    $private = $activity->addMedia(UploadedFile::fake()->image('private.jpg'))
+        ->withCustomProperties(['visibility' => 'private'])
+        ->toMediaCollection(FarmActivity::EvidenceCollection);
+    $document = $activity->addMedia(UploadedFile::fake()->create('record.pdf', 20, 'application/pdf'))
+        ->withCustomProperties(['visibility' => 'investor_visible'])
+        ->toMediaCollection(FarmActivity::EvidenceCollection);
+    $privateActivity = FarmActivity::factory()->create([
+        'team_id' => $team->id,
+        'farm_id' => $farm->id,
+        'production_cycle_id' => $cycle->id,
+        'investor_safe_summary' => null,
+    ]);
+    $privateActivity->addMedia(UploadedFile::fake()->image('private-update.jpg'))
+        ->withCustomProperties(['visibility' => 'private'])
+        ->toMediaCollection(FarmActivity::EvidenceCollection);
+    $preview = farmwellInvestorRoute('investor-evidence.show', $team, ['media' => $photo, 'preview' => 1]);
+
+    $this->actingAs($investor)->get(farmwellInvestorRoute('investor-portal.index', $team))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('agreements.0.activities', 1)
+            ->where('agreements.0.activities.0.activityType', 'Shared field photos')
+            ->where('agreements.0.activities.0.summary', null)
+            ->missing('agreements.0.activities.0.description')
+            ->has('agreements.0.activities.0.evidence', 1)
+            ->where('agreements.0.activities.0.evidence.0.previewUrl', $preview));
+
+    $response = $this->get($preview)->assertOk()
+        ->assertHeader('Content-Type', 'image/jpeg')
+        ->assertHeader('Content-Disposition', 'inline; filename="shared.jpg"')
+        ->assertHeader('Cache-Control', 'no-store, private')
+        ->assertHeader('X-Content-Type-Options', 'nosniff');
+    expect($response->streamedContent())->toBe(Storage::disk('farmwell_private')->get($photo->getPathRelativeToRoot()));
+
+    $this->get(farmwellInvestorRoute('investor-evidence.show', $team, ['media' => $private, 'preview' => 1]))->assertNotFound();
+    $this->get(farmwellInvestorRoute('investor-evidence.show', $team, ['media' => $document]))->assertNotFound();
+
+    $otherInvestor = User::factory()->create();
+    $team->members()->attach($otherInvestor, ['role' => TeamRole::Investor->value]);
+    $this->actingAs($otherInvestor)->get($preview)->assertNotFound();
+
+    $activity->update(['investor_safe_summary' => 'Reviewed update']);
+    $this->actingAs($investor)->get(farmwellInvestorRoute('investor-evidence.show', $team, ['media' => $document]))->assertDownload('record.pdf');
+    $this->get(farmwellInvestorRoute('investor-evidence.show', $team, ['media' => $document, 'preview' => 1]))->assertNotFound();
+
+    $agreement->update(['status' => InvestorAgreementStatus::Suspended]);
+    $this->get($preview)->assertNotFound();
+});
+
 test('cross-team investor references and private evidence downloads are denied', function () {
     Storage::fake('farmwell_private');
 
@@ -861,4 +931,61 @@ test('an existing requested phase can be submitted once for investor approval', 
     expect($phase->getMedia(FundingPhase::EvidenceCollection))->toHaveCount(1);
     $this->post($url)->assertSessionHasErrors('milestone_evidence');
     expect(ApprovalRequest::query()->where('subject_id', $phase->id)->count())->toBe(1);
+});
+
+test('an investor in two workspaces receives only each farms public agreement terms', function () {
+    [, $investor, $cropTeam, $cropFarm] = farmwellInvestorContext();
+    $fishTeam = Team::factory()->create();
+    $fishTeam->members()->attach($investor, ['role' => TeamRole::Investor->value]);
+    $fishFarm = Farm::factory()->create(['team_id' => $fishTeam->id]);
+
+    $cropAgreement = InvestorAgreement::factory()->create([
+        'team_id' => $cropTeam->id,
+        'farm_id' => $cropFarm->id,
+        'investor_id' => $investor->id,
+        'production_cycle_id' => null,
+        'status' => InvestorAgreementStatus::Active,
+        'amount_committed_minor' => 114_450_000,
+        'amount_funded_minor' => 0,
+        'investor_profit_share_percentage' => 30,
+        'farm_profit_share_percentage' => 70,
+        'public_notes' => "Rice, separate season: NGN 606,500.\nDry Season Pepper: NGN 538,000.",
+        'internal_notes' => 'Private crop-farm terms.',
+        'funding_model' => 'Phased funding.',
+    ]);
+    $fishAgreement = InvestorAgreement::factory()->create([
+        'team_id' => $fishTeam->id,
+        'farm_id' => $fishFarm->id,
+        'investor_id' => $investor->id,
+        'production_cycle_id' => null,
+        'status' => InvestorAgreementStatus::Active,
+        'amount_committed_minor' => 24_850_000,
+        'amount_funded_minor' => 0,
+        'investor_profit_share_percentage' => 35,
+        'farm_profit_share_percentage' => 65,
+        'public_notes' => 'Initial 1,500-fish batch; estimated cycle budget NGN 887,800.',
+        'internal_notes' => 'Private fish-farm terms.',
+        'funding_model' => 'First-month pledge; later instalments agreed in writing.',
+    ]);
+    InvestorAgreement::factory()->create([
+        'team_id' => $cropTeam->id,
+        'farm_id' => $cropFarm->id,
+        'status' => InvestorAgreementStatus::Active,
+    ]);
+
+    foreach ([[$cropTeam, $cropAgreement], [$fishTeam, $fishAgreement]] as [$team, $agreement]) {
+        $this->actingAs($investor)->get(farmwellInvestorRoute('investor-portal.index', $team))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('agreements', 1)
+                ->where('agreements.0.id', $agreement->id)
+                ->where('agreements.0.farmId', $agreement->farm_id)
+                ->where('agreements.0.amountCommittedMinor', $agreement->amount_committed_minor)
+                ->where('agreements.0.amountFunded', '0.00')
+                ->where('agreements.0.investorProfitSharePercentage', $agreement->investor_profit_share_percentage)
+                ->where('agreements.0.farmProfitSharePercentage', $agreement->farm_profit_share_percentage)
+                ->where('agreements.0.publicNotes', $agreement->public_notes)
+                ->where('agreements.0.fundingModel', $agreement->funding_model)
+                ->where('agreements.0.internalNotes', null));
+    }
 });

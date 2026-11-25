@@ -1,6 +1,6 @@
 # Farmwell MVP Implementation Progress
 
-Last updated: 2026-11-13
+Last updated: 2026-11-16
 
 ## Status Legend
 
@@ -9,8 +9,6 @@ Last updated: 2026-11-13
 - `[ ]` Not started
 
 ## Current Assessment
-
-MDSxclusive Farms passed the Chrome photo and returning-session pilot checks on November 13, based on staging records and Suleiman's confirmation relayed by the user. Later that day, the scheduled backup repair and an isolated restore of a fresh R2 archive passed, including Suleiman's account, both diary entries and all three photos. Production migration remains pending: prepare an isolated production deployment and rehearse the farm-scoped cutover. The installed app still fails to launch on Suleiman's Huawei; Chrome is his working pilot access path.
 
 Phase 8 passed private staging acceptance on November 3. Phases 0 through 7 were previously completed against the approved MVP plan. Phase 7 includes queued progress, weekly, risk/decision, and intake-cleanup drafts, with separate review and investor publication controls. Phase 6 achieves its stated goal: harvest/output records, sales, capital-first recovery, investor distributions, partial recovery, loss handling, multiple-sale recovery, and investor acknowledgement visibility are implemented with audit, authorization, browser smoke, static analysis, and 100% coverage gates.
 
@@ -220,46 +218,8 @@ Staging application revision `15f6295` served five successful warm portal reques
 | --- | --- |
 | Operator on the intended phone | Passed on 5 November 2026. The user confirmed that Chrome on their Redmi phone downloaded `PILOT-20261105-01.jpg` from diary entry #2 and that the opened image displayed “Synthetic field inspection.” |
 | Pilot farms | On 5 November 2026 the user confirmed MDSxclusive Farms and Muhammed Sanni’s fish farm, identified in the fish farming investment agreement dated 1 November 2026. |
-| Participants and sponsors | The user confirmed all four role assignments for each farm, as listed below. |
-| Launch decisions | On 5 November 2026 the user relayed that Suleiman Musa approved starting at MDSxclusive Farms and Muhammed Sanni approved starting at his fish farm. Both want to start as soon as possible. The user reported no conditions. |
-| Operational activity | MDSxclusive Farms has a persisted “Land clearing” entry from 11 November and “Pepper nursery watering” from 12 November. These establish recorded pilot use, not the farm's actual operating start date. First recorded activity for the fish-farm pilot has not been verified in this review. |
-
-| Pilot farm | Field operator | Finance lead | Investor representative | Pilot sponsor |
-| --- | --- | --- | --- | --- |
-| MDSxclusive Farms | Suleiman Musa | Suleiman Musa | Aminu Hussain | Suleiman Musa |
-| Muhammed Sanni’s fish farm | Muhammed Sanni | Muhammed Sanni | Aminu Hussain | Muhammed Sanni |
-
-### MDSxclusive Farms Chrome pilot acceptance, 13 November 2026
-
-**Photo and returning-session checks passed.** A read-only staging query on 13 November found diary entry #3, “Land clearing,” and entry #4, “Pepper nursery watering.” Entry #4 was saved on 12 November at 18:00:13 UTC (19:00 Nigeria time) with three JPEG evidence records (#5, #6 and #7). Suleiman's messages and the user's subsequent confirmation provide the physical-phone acceptance evidence below; they are separate from automated tests and database checks.
-
-| Check | Evidence and decision |
-| --- | --- |
-| Save diary with photos | Passed. Staging contains entry #4 and all three photo records after the upload fix. |
-| Retrieve and view photos | Passed by user-reported physical-phone verification. Suleiman confirmed that tapping each photo downloads it; the user then explicitly confirmed that he can open and view the downloaded photos. |
-| Return without another SMS | Passed by user-reported Chrome verification. Closing the page and returning without signing out keeps him signed in. This does not establish an elapsed 14-day idle test. |
-| Sign in after explicit logout | Expected behavior confirmed: signing out requires a fresh SMS code to sign back in. KudiSMS remains the Nigerian OTP provider. |
-| Installed home-screen app | Still unresolved on his Huawei Y7 Prime 2018, Android 8.0: it blinks and closes, including after reinstalling. Chrome works. The cause has not been established; this report does not establish that the phone is rooted or compromised. |
-
-**Release context.** PR #28 and then PR #29 merged into `dev`; the final revision was `45876074be35dd2d6e0596b397578b2996886b40`. Merge-revision [tests](https://github.com/hussain4real/Farmwell/actions/runs/43218849103) and [lint](https://github.com/hussain4real/Farmwell/actions/runs/43218849031) passed. The revision was deployed on 12 November as Cloudflare version `54122988-e99a-4f2e-8323-8762c8824e8a`. These release checks support, but do not replace, the subsequent physical-phone confirmation.
-
-### MDSxclusive Farms production readiness review, 13 November 2026
-
-**Decision: continue the staging pilot; production cutover is not yet ready.** Both sponsors already approved starting their pilots. That approval is recorded above and need not be repeated; it is distinct from approving the production migration and its cutover window. No production migration was performed during this review.
-
-| Readiness item | Current evidence and completion criterion |
-| --- | --- |
-| Repair and verify backups | Completed on 13 November. The [failed scheduled run](https://github.com/hussain4real/Farmwell/actions/runs/43389386993) hit a `libpq-dev` / `postgresql-common` conflict over `/usr/bin/pg_config`. [PR #30](https://github.com/hussain4real/Farmwell/pull/30) removes the unused runner development headers before installing PostgreSQL 18 and tests the same setup in CI. A [fresh backup and restore run](https://github.com/hussain4real/Farmwell/actions/runs/43468528940) passed on merged `main` revision `5019e4d2ff016fa81070abe43929c3e15069611e`; backup health and retention also passed. |
-| Restore the real pilot data | Completed on 13 November at 17:02 UTC. The fresh encrypted archive was downloaded from R2 and restored into a disposable PostgreSQL 18 cluster listening only on a private Unix socket. The recovered database dump and all seven private files matched the backup source by SHA-256. PostgreSQL restored the complete dump, including its constraints, and the restored media inventory matched the files. MDSxclusive team #4 retained owner #8 and Suleiman #13 (Admin, verified phone), one farm, diary entries #3/#4 and all three evidence photos #5/#6/#7. No app, queue worker, SMS or email process ran against the restored database; temporary restored data was deleted after verification. This closes the pilot account/record/photo recovery gap left by the 3 November drill. |
-| Prepare the production environment and release | The checked Cloudflare account has `farmwell-staging` and its alert worker; both `staging.farmwell.app` and `pilot.farmwell.app` route to the staging app. Neon has a branch named `production`, but its name is not proof of a configured production application. Provision and verify the chosen production hostname, runtime, scoped database role, private media and backup storage, secrets, mail, KudiSMS, queue, scheduler and alerts. Review the release promotion: `dev` is 82 commits ahead of `main` at this review, so deploying the default branch would not reproduce the current pilot build. Require CI on the selected production revision. |
-| Rehearse a farm-scoped migration | Inventory MDSxclusive's team, farm, users, verified phone identities, memberships, diary/evidence, related business records and audit links. Preserve identifiers or use an explicit mapping, copy private objects, and handle any encrypted values with the correct application key or a verified re-encryption step. Exclude unrelated tenants and synthetic rehearsal fixtures. Do not transfer queued work, active OTP challenges or browser sessions as farm data. Compare source/destination counts, relationships and file hashes. Preserve Suleiman's account; expect one fresh SMS sign-in on the production hostname. |
-| Verify the production workflows | On the prepared destination, prove Suleiman's sign-in and correct farm access, diary save and photo retrieval, session persistence, intended finance/investor permissions, report reconciliation for migrated records, queue processing and alert delivery. Verify unauthorized users cannot retrieve the private evidence. Reuse the synthetic funding rehearsal as prior evidence, but verify the actual migrated configuration and totals separately. |
-| Agree cutover and rollback | Obtain approval for the production cutover window, briefly pause staging writes, take the final consistent database/media snapshot, reconcile the destination, and identify the authoritative system before reopening writes. Keep staging and a tested rollback path available; specify how any new production writes would be preserved if rollback is needed. |
-| Resolve the phone access exception | Either fix and verify the installed app on Suleiman's phone or explicitly accept Chrome as his supported production access path with clear instructions. His confirmed Chrome checks close the photo/session blockers; they do not close the installed-app issue. |
-
-**Validation of the backup repair.** Merge-revision [tests](https://github.com/hussain4real/Farmwell/actions/runs/43468512529) and [lint](https://github.com/hussain4real/Farmwell/actions/runs/43468512750) passed: 146 application tests, 1,516 assertions and 100% coverage on the backup workflow's `main` branch, plus the PostgreSQL setup and encrypted restore regression. The regression also rejects an incorrect archive password and changed source bytes. These are the backup branch's checks, not a new deployment or acceptance run for the newer application on `dev`. During GitHub's pull-request merge incident, the tested changes were merged through a normal non-forced Git push; GitHub records PR #30 as merged at `5019e4d`.
-
-**Next action:** prepare the isolated production environment and a farm-scoped migration rehearsal, including the application key and scoped database/storage permissions required to run the restored app. The database/file restore above does not establish a production login or application deployment. Continue preserving MDSxclusive's staging records while Suleiman uses the pilot; production cutover still requires the separate approval and rollback plan described above.
+| Participants and sponsor | Awaiting the user’s confirmation of the field operator, finance lead, investor representative and sponsor. |
+| Launch decision | Record the sponsor’s explicit decision, date and any conditions after checking the device result and participant roster. |
 
 ### Phase 8 staging acceptance and recovery
 

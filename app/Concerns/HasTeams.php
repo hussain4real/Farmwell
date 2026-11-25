@@ -6,6 +6,7 @@ use App\Enums\TeamPermission;
 use App\Enums\TeamRole;
 use App\Models\Membership;
 use App\Models\Team;
+use App\Support\PlatformAccess;
 use App\Support\TeamPermissions;
 use App\Support\UserTeam;
 use Closure;
@@ -178,9 +179,10 @@ trait HasTeams
         }
 
         $role = $this->teamRole($team);
-        $permissions = $this->inTeamPermissionContext($team, function () use ($role): TeamPermissions {
-            $can = fn (TeamPermission $permission): bool => $role !== null
-                && ($role->hasPermission($permission) || $this->can($permission->value, 'web'));
+        $permissions = $this->inTeamPermissionContext($team, function () use ($role, $team): TeamPermissions {
+            $can = fn (TeamPermission $permission): bool => PlatformAccess::activeFor($this, $team)
+                ? PlatformAccess::allows($this, $team, $permission)
+                : $role !== null && ($role->hasPermission($permission) || $this->can($permission->value, 'web'));
 
             return new TeamPermissions(
                 canUpdateTeam: $can(TeamPermission::UpdateTeam),
@@ -234,6 +236,9 @@ trait HasTeams
      */
     public function hasTeamPermission(Team $team, TeamPermission $permission): bool
     {
+        if (PlatformAccess::activeFor($this, $team)) {
+            return PlatformAccess::allows($this, $team, $permission);
+        }
         $role = $this->teamRole($team);
 
         if ($role === null) {

@@ -1,20 +1,44 @@
 import { DurableObject } from 'cloudflare:workers';
 
-function containerEnvironment(env) {
-    const databaseUrl = new URL(env.DB_URL);
-    databaseUrl.hostname = databaseUrl.hostname.replace('-pooler.', '.');
+const queueWakeHeader = 'X-Farmwell-Wake-Queue';
 
+function queueForVersion(env) {
+    return env.FARMWELL_QUEUE.getByName(
+        `staging-queue-${env.CF_VERSION_METADATA.id}`,
+        { locationHint: 'weur' },
+    );
+}
+
+function verificationActive(env) {
+    const start = Number(env.PRODUCTION_VERIFICATION_STARTED_AT);
+    const end = Number(env.PRODUCTION_VERIFICATION_UNTIL);
+
+    return env.REHEARSAL_MODE === 'true' &&
+        env.APP_URL === 'https://production-preview.farmwell.app' &&
+        start > 0 && end > start && end - start <= 7200000 &&
+        Date.now() >= start && Date.now() < end;
+}
+
+function databaseUrl(env) {
+    const connection = new URL(env.DB_URL);
+    connection.hostname = connection.hostname.replace('-pooler.', '.');
+
+    return connection.toString();
+}
+
+function containerEnvironment(env) {
     return {
-        APP_NAME: 'Farmwell Staging',
+        APP_NAME: env.APP_NAME ?? 'Farmwell Staging',
         APP_ENV: 'production',
         APP_DEBUG: 'false',
         APP_TRUSTED_PROXIES: '*',
         APP_KEY: env.APP_KEY,
         APP_URL: env.APP_URL,
         DB_CONNECTION: 'pgsql',
-        DB_URL: databaseUrl.toString(),
+        DB_URL: databaseUrl(env),
         SESSION_DRIVER: 'database',
         SESSION_SECURE_COOKIE: 'true',
+        ...(env.SESSION_COOKIE ? { SESSION_COOKIE: env.SESSION_COOKIE } : {}),
         CACHE_STORE: 'database',
         QUEUE_CONNECTION: 'database',
         FARMWELL_PRIVATE_DISK: 'r2',
@@ -23,12 +47,12 @@ function containerEnvironment(env) {
         AWS_DEFAULT_REGION: 'auto',
         AWS_ENDPOINT: env.AWS_ENDPOINT,
         AWS_BUCKET: env.AWS_BUCKET,
-        MAIL_MAILER: 'cloudflare',
+        MAIL_MAILER: env.REHEARSAL_MODE === 'true' && !verificationActive(env) ? 'array' : 'cloudflare',
         CLOUDFLARE_ACCOUNT_ID: env.CLOUDFLARE_ACCOUNT_ID,
-        CLOUDFLARE_KEY: env.CLOUDFLARE_KEY,
-        MAIL_FROM_ADDRESS: 'noreply@staging-mail.farmwell.app',
-        MAIL_FROM_NAME: 'Farmwell Staging',
-        OPENAI_API_KEY: env.OPENAI_API_KEY,
+        CLOUDFLARE_KEY: env.REHEARSAL_MODE === 'true' && !verificationActive(env) ? '' : env.CLOUDFLARE_KEY,
+        MAIL_FROM_ADDRESS: env.MAIL_FROM_ADDRESS ?? 'noreply@staging-mail.farmwell.app',
+        MAIL_FROM_NAME: env.APP_NAME ?? 'Farmwell Staging',
+        OPENAI_API_KEY: env.REHEARSAL_MODE === 'true' ? '' : env.OPENAI_API_KEY,
         AI_PROVIDER: 'openai',
         OPENAI_STORE: 'false',
         LOG_CHANNEL: 'stderr',
@@ -42,7 +66,8 @@ export class FarmwellWeb extends DurableObject {
         this.starting ??= this.startAndWait().finally(() => {
             this.starting = undefined;
         });
-        await this.starting;
+
+        return this.starting;
     }
 
     async fetch(request) {
@@ -68,8 +93,11 @@ export class FarmwellWeb extends DurableObject {
 
     async startAndWait() {
         const container = this.ctx.container;
+        const startedAt = Date.now();
+        const cold = !container.running;
+        let httpReadyAt = cold ? undefined : startedAt;
 
-        if (!container.running) {
+        if (cold) {
             container.start({
                 image: container.images.base,
                 instance: 'standard-1',
@@ -77,15 +105,16 @@ export class FarmwellWeb extends DurableObject {
                 env: {
                     ...containerEnvironment(this.env),
                     PHONE_PILOT_HOST: this.env.PHONE_PILOT_HOST ?? '',
+                    PHONE_PILOT_FULL_WORKSPACE: this.env.PHONE_PILOT_FULL_WORKSPACE ?? 'false',
                     PHONE_PILOT_SMS_DAILY_LIMIT: this.env.PHONE_PILOT_SMS_DAILY_LIMIT ?? '5',
-                    PHONE_LOGIN_ENABLED: this.env.PHONE_LOGIN_ENABLED ?? 'false',
+                    PHONE_LOGIN_ENABLED: this.env.REHEARSAL_MODE === 'true' && !verificationActive(this.env) ? 'false' : (this.env.PHONE_LOGIN_ENABLED ?? 'false'),
                     PHONE_OTP_ALLOWED_NUMBER: this.env.PHONE_OTP_ALLOWED_NUMBER ?? '',
                     INFOBIP_BASE_URL: this.env.INFOBIP_BASE_URL ?? '',
-                    INFOBIP_API_KEY: this.env.INFOBIP_API_KEY ?? '',
+                    INFOBIP_API_KEY: this.env.REHEARSAL_MODE === 'true' ? '' : (this.env.INFOBIP_API_KEY ?? ''),
                     INFOBIP_2FA_APP_ID: this.env.INFOBIP_2FA_APP_ID ?? '',
                     INFOBIP_2FA_MESSAGE_ID: this.env.INFOBIP_2FA_MESSAGE_ID ?? '',
                     PHONE_PILOT_NIGERIA_OTP_PROVIDER: this.env.PHONE_PILOT_NIGERIA_OTP_PROVIDER ?? 'infobip',
-                    KUDISMS_API_KEY: this.env.KUDISMS_API_KEY ?? '',
+                    KUDISMS_API_KEY: this.env.REHEARSAL_MODE === 'true' && !verificationActive(this.env) ? '' : (this.env.KUDISMS_API_KEY ?? ''),
                     KUDISMS_SENDER_ID: this.env.KUDISMS_SENDER_ID ?? 'Farmwell',
                     KUDISMS_OTP_APP_CODE: this.env.KUDISMS_OTP_APP_CODE ?? '',
                     KUDISMS_OTP_TEMPLATE_CODE: this.env.KUDISMS_OTP_TEMPLATE_CODE ?? '',
@@ -113,14 +142,29 @@ export class FarmwellWeb extends DurableObject {
             }
 
             try {
-                const response = await port.fetch('http://container/up', {
+                const response = await port.fetch(httpReadyAt === undefined ? 'http://container/favicon.svg' : 'http://container/up', {
                     signal: AbortSignal.timeout(1000),
                 });
                 await response.body?.cancel();
                 lastStatus = response.status;
 
                 if (response.ok) {
-                    return;
+                    if (httpReadyAt === undefined) {
+                        httpReadyAt = Date.now();
+                        continue;
+                    }
+
+                    const timings = {
+                        cold,
+                        http_ready_ms: httpReadyAt - startedAt,
+                        laravel_ready_ms: Date.now() - httpReadyAt,
+                    };
+
+                    if (this.env.STARTUP_TIMING_ENABLED === 'true') {
+                        console.info('Farmwell readiness', timings);
+                    }
+
+                    return timings;
                 }
             } catch {
                 /* Wait for Apache to start. */
@@ -136,81 +180,184 @@ export class FarmwellWeb extends DurableObject {
 export class FarmwellQueue extends DurableObject {
     currentRun;
 
+    async wake() {
+        if (await this.ctx.storage.getAlarm() === null) {
+            await this.ctx.storage.setAlarm(Date.now());
+        }
+    }
+
+    async alarm() {
+        while (this.currentRun) {
+            await this.currentRun;
+        }
+
+        await this.run(true);
+    }
+
     async failedJobWatermark() {
-        const connection = new URL(this.env.DB_URL);
-
-        if (!['pgsql:', 'postgresql:', 'postgres:'].includes(connection.protocol) || !connection.hostname.endsWith('.neon.tech')) {
-            console.error('Unsupported staging database host or scheme');
-
-            throw new Error('Unsupported staging database host');
-        }
-
-        connection.protocol = 'postgresql:';
-        connection.search = '';
-        const apiHost = connection.hostname.replace(/^[^.]+\./, 'api.');
-        const result = await fetch(`https://${apiHost}/sql`, {
-            method: 'POST',
-            redirect: 'manual',
-            signal: AbortSignal.timeout(15000),
-            headers: { 'Content-Type': 'application/json', 'Neon-Connection-String': connection.toString() },
-            body: JSON.stringify({ query: 'SELECT COALESCE(MAX(id), 0)::text AS latest FROM failed_jobs', params: [] }),
-        });
-
-        if (!result.ok) {
-            const problem = await result.json().catch(() => ({}));
-            const code = /^[0-9A-Z]{5}$/.test(problem?.code) ? problem.code : 'unknown';
-            console.error('Failed-job SQL endpoint returned', result.status, code);
-
-            throw new Error(`Failed-job check unavailable HTTP ${result.status}`);
-        }
-
-        const latest = (await result.json()).rows?.[0]?.latest;
-
-        if (!/^\d+$/.test(latest)) {
-            console.error('Invalid failed-job watermark');
-
-            throw new Error('Invalid failed-job watermark');
-        }
-
-        return String(latest);
-    }
-
-    run() {
-        this.currentRun ??= this.runOnce().finally(() => {
-            this.currentRun = undefined;
-        });
-
-        return this.currentRun;
-    }
-
-    async runOnce() {
         const container = this.ctx.container;
+        const url = databaseUrl(this.env);
 
         if (!container.running) {
             container.start({
                 image: container.images.base,
                 instance: 'lite',
                 enableInternet: true,
-                env: containerEnvironment(this.env),
-                entrypoint: [
-                    'php',
-                    'artisan',
-                    'queue:work',
-                    'database',
-                    '--stop-when-empty',
-                    '--timeout=110',
-                    '--tries=3',
-                    '--no-interaction',
-                ],
+                entrypoint: ['sleep', '60'],
             });
         }
 
-        await container.monitor();
+        // The monitor uses a dedicated object and shares no container with job processing.
+        const process = await container.exec(
+            ['timeout', '--kill-after=2', '15', 'php', 'artisan', 'ops:failed-job-watermark', '--no-interaction'],
+            {
+                cwd: '/var/www/html',
+                env: { APP_ENV: 'production', APP_DEBUG: 'false', DB_CONNECTION: 'pgsql', DB_URL: url },
+                stderr: 'ignore',
+            },
+        );
+        const { exitCode, stdout } = await process.output();
+        const latest = new TextDecoder().decode(stdout).trim();
+
+        if (exitCode !== 0 || !/^\d+$/.test(latest)) {
+            throw new Error('Failed-job watermark unavailable');
+        }
+
+        return latest;
+    }
+
+    run(waitForRetries = false) {
+        this.currentRun ??= this.runOnce(waitForRetries).finally(() => {
+            this.currentRun = undefined;
+        });
+
+        return this.currentRun;
+    }
+
+    async runOnce(waitForRetries) {
+        const container = this.ctx.container;
+
+        for (let attempt = 1; ; attempt++) {
+            try {
+                if (!container.running) {
+                    container.start({
+                        image: container.images.base,
+                        instance: 'lite',
+                        enableInternet: true,
+                        env: containerEnvironment(this.env),
+                        entrypoint: [
+                            'php',
+                            'artisan',
+                            'queue:work',
+                            'database',
+                            waitForRetries ? '--stop-when-empty-for=35' : '--stop-when-empty',
+                            '--timeout=110',
+                            '--tries=3',
+                            '--no-interaction',
+                        ],
+                    });
+                }
+
+                await container.monitor();
+
+                return;
+            } catch (error) {
+                if (attempt === 2 || error?.overloaded || !(error?.exitCode === 1 || error?.retryable)) {
+                    throw error;
+                }
+
+                console.warn('Retrying Farmwell queue container', { exitCode: error.exitCode ?? null });
+                await scheduler.wait(500);
+            }
+        }
     }
 }
 
 export default {
-    async fetch(request, env) {
+    async fetch(request, env, ctx) {
+        if (env.REDIRECT_HOST && new URL(request.url).hostname === env.REDIRECT_HOST) {
+            if (!['GET', 'HEAD'].includes(request.method)) {
+                return new Response('Farmwell has moved. Reopen the app before saving.', { status: 409, headers: { 'Cache-Control': 'no-store' } });
+            }
+
+            const url = new URL(request.url);
+            const target = new URL(env.APP_URL);
+            target.pathname = url.pathname;
+            target.search = url.search;
+
+            return request.headers.has('x-inertia')
+                ? new Response(null, { status: 409, headers: { 'X-Inertia-Location': target.toString(), 'Cache-Control': 'no-store' } })
+                : new Response(null, { status: 302, headers: { Location: target.toString(), 'Cache-Control': 'no-store' } });
+        }
+
+        if (env.FROZEN_TEAM_SLUG && env.FROZEN_TEAM_ID) {
+            const url = new URL(request.url);
+            let path;
+
+            try {
+                path = decodeURIComponent(url.pathname).replace(/\/{2,}/g, '/');
+            } catch {
+                return new Response('Not found', { status: 404 });
+            }
+
+            const teamPaths = [`/${env.FROZEN_TEAM_SLUG}`, `/settings/teams/${env.FROZEN_TEAM_SLUG}`, `/settings/teams/${env.FROZEN_TEAM_ID}`];
+
+            if (teamPaths.some(prefix => path === prefix || path.startsWith(prefix + '/'))) {
+                if (env.MOVED_TEAM_ORIGIN && ['GET', 'HEAD'].includes(request.method)) {
+                    const target = new URL(env.MOVED_TEAM_ORIGIN);
+                    target.pathname = url.pathname;
+                    target.search = url.search;
+
+                    if (request.headers.has('x-inertia')) {
+                        return new Response(null, { status: 409, headers: { 'X-Inertia-Location': target.toString(), 'Cache-Control': 'no-store' } });
+                    }
+
+                    return new Response(null, { status: 302, headers: { Location: target.toString(), 'Cache-Control': 'no-store' } });
+                }
+
+                return env.MOVED_TEAM_ORIGIN
+                    ? new Response('This farm has moved to production. Reopen Farmwell before saving.', { status: 409, headers: { 'Cache-Control': 'no-store' } })
+                    : new Response('This farm is moving to production. Reopen Farmwell before saving.', { status: 503, headers: { 'Retry-After': '300', 'Cache-Control': 'no-store' } });
+            }
+        }
+
+        if (env.REHEARSAL_MODE === 'true') {
+            const verifying = verificationActive(env);
+
+            if (!env.REHEARSAL_TOKEN || request.headers.get('x-farmwell-rehearsal') !== env.REHEARSAL_TOKEN || (!['GET', 'HEAD'].includes(request.method) && !verifying)) {
+                return new Response('Production rehearsal is private', { status: 403 });
+            }
+
+            let path;
+
+            try {
+                path = decodeURIComponent(new URL(request.url).pathname).replace(/\/{2,}/g, '/').replace(/\/$/, '');
+            } catch {
+                return new Response('Not found', { status: 404 });
+            }
+
+            if (path === '/__verification/error') {
+                if (!verifying) {
+                    return new Response('Not found', { status: 404 });
+                }
+
+                throw new Error('Controlled production verification error');
+            }
+
+            if (verifying && request.method === 'POST' && path === '/login/phone/code') {
+                const json = request.headers.get('content-type')?.includes('application/json');
+                const data = await (json ? request.clone().json() : request.clone().formData()).catch(() => null);
+                const phone = json ? data?.phone : data?.get('phone');
+
+                if (!env.PHONE_OTP_ALLOWED_NUMBER || phone !== env.PHONE_OTP_ALLOWED_NUMBER) {
+                    return new Response('Production verification recipient is restricted', { status: 403 });
+                }
+            }
+
+            request = new Request(request);
+            request.headers.delete('x-farmwell-rehearsal');
+        }
+
         if (env.APP_URL) {
             const url = new URL(request.url);
 
@@ -225,7 +372,8 @@ export default {
             }
         }
 
-        const id = env.FARMWELL_WEB.idFromName(`staging-web-${env.CF_VERSION_METADATA.id}`);
+        const verificationSuffix = verificationActive(env) ? '-verification' : '';
+        const id = env.FARMWELL_WEB.idFromName(`staging-web-${env.CF_VERSION_METADATA.id}${verificationSuffix}`);
         const connect = () => env.FARMWELL_WEB.get(id, { locationHint: 'weur' });
         const safeRead = ['GET', 'HEAD'].includes(request.method);
         let web = connect();
@@ -233,10 +381,29 @@ export default {
 
         for (let attempt = 1; ; attempt++) {
             try {
-                await web.ready();
+                const timings = await web.ready();
                 forwarded = true;
+                const forwardStartedAt = Date.now();
+                let response = await web.fetch(request);
 
-                return await web.fetch(request);
+                if (response.headers?.get(queueWakeHeader) === '1') {
+                    response = new Response(response.body, response);
+                    response.headers.delete(queueWakeHeader);
+                    ctx.waitUntil(queueForVersion(env).wake().catch(() => {
+                        console.error('Farmwell queue wake-up failed');
+                    }));
+                }
+
+                if (env.REHEARSAL_MODE === 'true' && env.STARTUP_TIMING_ENABLED === 'true' && timings) {
+                    const measured = new Response(response.body, response);
+                    measured.headers.set('Server-Timing', `http_ready;dur=${timings.http_ready_ms}, laravel_ready;dur=${timings.laravel_ready_ms}, forward;dur=${Date.now() - forwardStartedAt}`);
+                    measured.headers.set('X-Farmwell-Cold-Start', timings.cold ? '1' : '0');
+                    measured.headers.set('X-Farmwell-Deployment', env.CF_VERSION_METADATA.id);
+
+                    return measured;
+                }
+
+                return response;
             } catch (error) {
                 const transient = error?.retryable ||
                     /Container port connection closed unexpectedly|Container exited during startup|Farmwell container did not become ready/.test(error?.message ?? '');
@@ -258,9 +425,10 @@ export default {
         }
     },
     async scheduled(_event, env) {
-        await env.FARMWELL_QUEUE.getByName(
-            `staging-queue-${env.CF_VERSION_METADATA.id}`,
-            { locationHint: 'weur' },
-        ).run();
+        if (env.REHEARSAL_MODE === 'true' && !verificationActive(env)) {
+            return;
+        }
+
+        await queueForVersion(env).run();
     },
 };

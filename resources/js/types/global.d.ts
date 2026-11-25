@@ -20,6 +20,15 @@ declare module '@inertiajs/core' {
             name: string;
             auth: Auth;
             sidebarOpen: boolean;
+            canManagePlatform: boolean;
+            platformAccess: {
+                id: string;
+                team_id: number;
+                team_name: string;
+                team_slug: string;
+                reason: string;
+                expires_at: number;
+            } | null;
             currentTeam: Team | null;
             currentTeamPermissions: TeamPermissions | null;
             teams: Team[];

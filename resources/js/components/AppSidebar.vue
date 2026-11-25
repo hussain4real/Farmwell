@@ -1,9 +1,7 @@
 <script setup lang="ts">
 import { Link, usePage } from '@inertiajs/vue3';
 import {
-    BookOpen,
     ClipboardList,
-    FolderGit2,
     FileText,
     Handshake,
     Landmark,
@@ -16,7 +14,6 @@ import {
 } from 'lucide-vue-next';
 import { computed } from 'vue';
 import AppLogo from '@/components/AppLogo.vue';
-import NavFooter from '@/components/NavFooter.vue';
 import NavMain from '@/components/NavMain.vue';
 import NavUser from '@/components/NavUser.vue';
 import TeamSwitcher from '@/components/TeamSwitcher.vue';
@@ -39,6 +36,8 @@ import { index as harvestsIndex } from '@/routes/harvests';
 import { index as investorPortalIndex } from '@/routes/investor-portal';
 import { index as investorsIndex } from '@/routes/investors';
 import { index as investorApprovalsIndex } from '@/routes/investors/approvals';
+import { index as myInvestments } from '@/routes/my-investments';
+import { index as platformIndex } from '@/routes/platform';
 import { index as whatsappIntakesIndex } from '@/routes/whatsapp-intakes';
 import type { NavItem } from '@/types';
 
@@ -104,14 +103,51 @@ const investorOnly = computed(
         currentPermissions.value.canViewInvestorAgreements !== true,
 );
 const homeUrl = computed(() =>
-    investorOnly.value ? investorPortalUrl.value : dashboardUrl.value,
+    investorOnly.value ? myInvestments.url() : dashboardUrl.value,
 );
+const investmentsNavItem: NavItem = {
+    title: 'My Investments',
+    href: myInvestments.url(),
+    icon: LayoutGrid,
+};
 
 const mainNavItems = computed<NavItem[]>(() => {
     const permissions = currentPermissions.value;
+    const access = page.props.platformAccess;
+
+    if (access) {
+        return [
+            {
+                title: 'Dashboard',
+                href: dashboard(access.team_slug).url,
+                icon: LayoutGrid,
+            },
+            {
+                title: 'Field Diary',
+                href: fieldDiaryIndex(access.team_slug).url,
+                icon: ClipboardList,
+            },
+            {
+                title: 'Finance',
+                href: financeIndex(access.team_slug).url,
+                icon: Landmark,
+            },
+            {
+                title: 'Investors',
+                href: investorsIndex(access.team_slug).url,
+                icon: Handshake,
+            },
+            {
+                title: 'Approvals',
+                href: investorApprovalsIndex(access.team_slug).url,
+                icon: ShieldCheck,
+            },
+        ];
+    }
 
     if (investorOnly.value) {
         return [
+            investmentsNavItem,
             {
                 title: 'Investor Portal',
                 href: investorPortalUrl.value,
@@ -127,6 +163,10 @@ const mainNavItems = computed<NavItem[]>(() => {
             icon: LayoutGrid,
         },
     ];
+
+    if (page.props.teams?.some((team) => team.role === 'investor')) {
+        items.push(investmentsNavItem);
+    }
 
     if (permissions?.canViewFarmOperations) {
         items.push(
@@ -199,19 +239,6 @@ const mainNavItems = computed<NavItem[]>(() => {
 
     return items;
 });
-
-const footerNavItems: NavItem[] = [
-    {
-        title: 'Repository',
-        href: 'https://github.com/hussain4real/Farmwell',
-        icon: FolderGit2,
-    },
-    {
-        title: 'Documentation',
-        href: 'https://github.com/hussain4real/Farmwell/tree/dev/docs/user-guides',
-        icon: BookOpen,
-    },
-];
 </script>
 
 <template>
@@ -228,17 +255,35 @@ const footerNavItems: NavItem[] = [
             </SidebarMenu>
             <SidebarMenu>
                 <SidebarMenuItem>
-                    <TeamSwitcher />
+                    <p
+                        v-if="page.props.platformAccess"
+                        class="px-2 py-3 text-sm font-medium"
+                    >
+                        {{ page.props.platformAccess.team_name
+                        }}<span class="block text-xs text-muted-foreground"
+                            >Admin session · read only</span
+                        >
+                    </p>
+                    <TeamSwitcher v-else />
                 </SidebarMenuItem>
             </SidebarMenu>
         </SidebarHeader>
 
         <SidebarContent>
             <NavMain :items="mainNavItems" />
+            <NavMain
+                v-if="page.props.canManagePlatform"
+                :items="[
+                    {
+                        title: 'Platform admin',
+                        href: platformIndex().url,
+                        icon: ShieldCheck,
+                    },
+                ]"
+            />
         </SidebarContent>
 
         <SidebarFooter>
-            <NavFooter :items="footerNavItems" />
             <NavUser />
         </SidebarFooter>
     </Sidebar>
