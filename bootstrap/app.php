@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\EnsurePilotPhoneAccess;
+use App\Http\Middleware\EnsurePlatformImpersonationValid;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\SetTeamUrlDefaults;
@@ -47,6 +48,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->web(append: [
             EnsurePilotPhoneAccess::class,
+            EnsurePlatformImpersonationValid::class,
             HandleAppearance::class,
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,

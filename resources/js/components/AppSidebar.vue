@@ -127,9 +127,24 @@ const mainNavItems = computed<NavItem[]>(() => {
                 icon: LayoutGrid,
             },
             {
+                title: 'Farms',
+                href: farmsIndex(access.team_slug).url,
+                icon: Tractor,
+            },
+            {
                 title: 'Field Diary',
                 href: fieldDiaryIndex(access.team_slug).url,
                 icon: ClipboardList,
+            },
+            {
+                title: 'Inventory',
+                href: inventoryIndex(access.team_slug).url,
+                icon: Package,
+            },
+            {
+                title: 'Health & Vet',
+                href: healthIndex(access.team_slug).url,
+                icon: HeartPulse,
             },
             {
                 title: 'Finance',

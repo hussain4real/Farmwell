@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Actions\Teams\ResolveInvestorMode;
 use App\Support\PlatformAccess;
+use App\Support\PlatformImpersonation;
 use App\Support\UserTeam;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -49,6 +50,7 @@ class HandleInertiaRequests extends Middleware
             'canManagePlatform' => fn () => $user?->can('managePlatform') ?? false,
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'platformAccess' => fn () => PlatformAccess::context($request),
+            'platformImpersonation' => fn () => PlatformImpersonation::context($request),
             'currentTeam' => function () use ($request, $user) {
                 $team = $request->attributes->get('platform_access_team');
 

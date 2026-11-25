@@ -29,6 +29,17 @@ declare module '@inertiajs/core' {
                 reason: string;
                 expires_at: number;
             } | null;
+            platformImpersonation: {
+                id: string;
+                impersonator_id: number;
+                impersonator_name: string;
+                target_user_id: number;
+                target_user_name: string;
+                target_user_email: string | null;
+                reason: string;
+                started_at: number;
+                expires_at: number;
+            } | null;
             currentTeam: Team | null;
             currentTeamPermissions: TeamPermissions | null;
             currentTeamFeatures: TeamFeatures | null;

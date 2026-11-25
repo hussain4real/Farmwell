@@ -15,7 +15,11 @@ class PlatformAccess
     public const string SessionKey = 'platform_access';
 
     private const array ReadRoutes = [
-        'dashboard', 'farms.index', 'farm-tasks.index', 'whatsapp-intakes.index', 'harvests.index', 'field-diary.index', 'finance.index', 'finance.budgets.index',
+        'dashboard', 'onboarding.index', 'farms.index', 'farms.show',
+        'farms.production-cycles.show', 'farms.production-cycles.summary-pdf',
+        'inventory.index', 'health.index',
+        'farm-tasks.index', 'whatsapp-intakes.index', 'harvests.index', 'field-diary.index',
+        'finance.index', 'finance.budgets.index',
         'finance.expenses.index', 'finance.funding-phases.index', 'finance.external-transfers.index',
         'investors.index', 'investors.approvals.index', 'farm-evidence.show',
         'finance.evidence.show', 'investor-evidence.show',

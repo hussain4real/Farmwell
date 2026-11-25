@@ -5,6 +5,7 @@ import {
     Search,
     ShieldCheck,
     Tractor,
+    UserCheck,
     Users,
 } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
@@ -25,6 +26,7 @@ import {
     store as storeFarm,
     update as updateFarm,
 } from '@/routes/platform/farms';
+import { store as startImpersonation } from '@/routes/platform/impersonate';
 import { update as updateMembership } from '@/routes/platform/memberships';
 import { update as updateUser } from '@/routes/platform/users';
 
@@ -81,6 +83,24 @@ function openWorkspace(workspace: Workspace) {
 }
 function enterWorkspaceRecords() {
     accessForm.post(enterWorkspace().url);
+}
+const impersonateTarget = ref<User | null>(null);
+const impersonateOpen = ref(false);
+const impersonateForm = useForm({ user_id: 0, reason: '' });
+function openImpersonate(user: User) {
+    impersonateTarget.value = user;
+    impersonateForm.reset();
+    impersonateForm.clearErrors();
+    impersonateForm.user_id = user.id;
+    impersonateOpen.value = true;
+}
+function submitImpersonation() {
+    impersonateForm.post(startImpersonation().url, {
+        preserveScroll: true,
+        onSuccess: () => {
+            impersonateOpen.value = false;
+        },
+    });
 }
 const tab = ref('farms');
 const search = ref(props.search);
@@ -377,12 +397,19 @@ function filter() {
                         >
                     </div>
                 </div>
-                <Button
-                    variant="outline"
-                    class="self-start sm:self-center"
-                    @click="editUser(user)"
-                    >Manage user</Button
-                >
+                <div class="flex flex-wrap gap-2 self-start sm:self-center">
+                    <Button
+                        v-if="user.platform_role !== 'super_admin'"
+                        variant="secondary"
+                        @click="openImpersonate(user)"
+                    >
+                        <UserCheck class="mr-1.5 size-4" />
+                        Impersonate
+                    </Button>
+                    <Button variant="outline" @click="editUser(user)">
+                        Manage user
+                    </Button>
+                </div>
             </article>
             <nav class="flex gap-3" aria-label="User pages">
                 <Link
@@ -459,6 +486,42 @@ function filter() {
                     <Button :disabled="accessForm.processing"
                         >Open read-only session</Button
                     >
+                </form>
+            </DialogContent>
+        </Dialog>
+        <Dialog v-model:open="impersonateOpen">
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>
+                        Impersonate {{ impersonateTarget?.name }}
+                    </DialogTitle>
+                    <DialogDescription>
+                        Sign in directly as this user for up to 60 minutes to
+                        verify or troubleshoot their workspace view. You can
+                        return to Platform administration at any time from the
+                        top banner.
+                    </DialogDescription>
+                </DialogHeader>
+                <form class="grid gap-4" @submit.prevent="submitImpersonation">
+                    <Label for="impersonate-reason"
+                        >Reason for impersonation</Label
+                    >
+                    <Input
+                        id="impersonate-reason"
+                        v-model="impersonateForm.reason"
+                        placeholder="e.g., Verify onboarding flow for brother's poultry farm"
+                        required
+                        maxlength="1000"
+                    />
+                    <InputError
+                        :message="
+                            impersonateForm.errors.reason ||
+                            impersonateForm.errors.user_id
+                        "
+                    />
+                    <Button :disabled="impersonateForm.processing">
+                        Start impersonation session
+                    </Button>
                 </form>
             </DialogContent>
         </Dialog>
