@@ -3,6 +3,8 @@
 namespace App\Http\Requests\FarmOperations;
 
 use App\Enums\CommodityRole;
+use App\Enums\CropGrowthStage;
+use App\Enums\EnterpriseSubtype;
 use App\Enums\FarmType;
 use App\Enums\ProductionCycleStatus;
 use App\Models\Commodity;
@@ -48,11 +50,17 @@ class StoreProductionCycleRequest extends FormRequest
             ],
             'season' => ['nullable', 'string', 'max:100'],
             'farm_type' => ['required', Rule::enum(FarmType::class)],
+            'enterprise_subtype' => ['nullable', Rule::enum(EnterpriseSubtype::class)],
+            'breed_or_variety' => ['nullable', 'string', 'max:150'],
             'production_method' => ['nullable', 'string', 'max:255'],
             'planned_start_on' => ['required', 'date'],
             'planned_end_on' => ['nullable', 'date', 'after_or_equal:planned_start_on'],
             'expected_output_quantity' => ['nullable', 'numeric', 'min:0'],
             'expected_output_unit' => ['nullable', 'string', 'max:50'],
+            'initial_stock_count' => ['nullable', 'integer', 'min:0'],
+            'initial_average_weight_g' => ['nullable', 'numeric', 'min:0'],
+            'target_weight_g' => ['nullable', 'numeric', 'min:0'],
+            'current_growth_stage' => ['nullable', Rule::enum(CropGrowthStage::class)],
             'status' => ['sometimes', 'filled', Rule::enum(ProductionCycleStatus::class)],
             'plan_summary' => ['nullable', 'string', 'max:4000'],
             'production_unit_ids' => ['required', 'array', 'min:1'],

@@ -47,6 +47,8 @@ class StoreProductionUnitRequest extends FormRequest
             'capacity' => ['nullable', 'string', 'max:255'],
             'status' => ['sometimes', 'filled', 'string', 'max:50'],
             'gps_coordinates' => ['nullable', 'string', 'max:255'],
+            'water_source' => ['nullable', 'string', 'max:100'],
+            'housing_system' => ['nullable', 'string', 'max:100'],
             'suitability_notes' => ['nullable', 'string', 'max:2000'],
             'history_notes' => ['nullable', 'string', 'max:2000'],
         ];

@@ -261,7 +261,7 @@ test('the pilot hostname only forwards SMS, assets and farm paths', async () => 
         FARMWELL_WEB: { idFromName: name => name, get: () => ({ ready: async () => {}, fetch: async () => new Response('forwarded') }) },
     };
 
-    for (const path of ['/login/phone', '/login/phone/code', '/login/phone/verify', '/manifest.webmanifest', '/farmwell-192.png', '/farmwell-512.png', '/build/assets/login-A123.js', '/my-team/field-diary']) {
+    for (const path of ['/login/phone', '/login/phone/code', '/login/phone/verify', '/manifest.webmanifest', '/sw.js', '/offline.html', '/farmwell-192.png', '/farmwell-512.png', '/build/assets/login-A123.js', '/my-team/onboarding', '/my-team/field-diary', '/my-team/inventory', '/my-team/health']) {
         assert.equal(await (await worker.fetch(new Request('https://pilot.example' + path), env)).text(), 'forwarded');
     }
 
@@ -271,4 +271,30 @@ test('the pilot hostname only forwards SMS, assets and farm paths', async () => 
 
     assert.equal((await worker.fetch(new Request('https://other.example/login/phone'), env)).status, 404);
     assert.equal(await (await worker.fetch(new Request('https://staging.example/register'), env)).text(), 'forwarded');
+});
+
+test('the queue container runs scheduled tasks before draining queued jobs', async () => {
+    const Queue = vm.runInNewContext(`${source}\nFarmwellQueue;`, {
+        URL,
+        DurableObject: class {},
+    });
+    const started = [];
+    const queue = new Queue();
+    queue.ctx = {
+        container: {
+            images: { base: 'farmwell:test' },
+            running: false,
+            start: (opts) => started.push(opts),
+            monitor: async () => {},
+        },
+    };
+    queue.env = { DB_URL: 'postgresql://ep-staging.us-east-1.aws.neon.tech/staging' };
+
+    await queue.run();
+
+    assert.equal(started.length, 1);
+    assert.equal(started[0].entrypoint[0], 'sh');
+    assert.equal(started[0].entrypoint[1], '-c');
+    assert.match(started[0].entrypoint[2], /schedule:run/);
+    assert.match(started[0].entrypoint[2], /queue:work/);
 });

@@ -318,6 +318,46 @@ class Team extends Model
     }
 
     /**
+     * Get all production logs for this team.
+     *
+     * @return HasMany<ProductionLog, $this>
+     */
+    public function productionLogs(): HasMany
+    {
+        return $this->hasMany(ProductionLog::class);
+    }
+
+    /**
+     * Get all inventory items for this team.
+     *
+     * @return HasMany<InventoryItem, $this>
+     */
+    public function inventoryItems(): HasMany
+    {
+        return $this->hasMany(InventoryItem::class);
+    }
+
+    /**
+     * Get all inventory movements for this team.
+     *
+     * @return HasMany<InventoryMovement, $this>
+     */
+    public function inventoryMovements(): HasMany
+    {
+        return $this->hasMany(InventoryMovement::class);
+    }
+
+    /**
+     * Get all health events for this team.
+     *
+     * @return HasMany<HealthEvent, $this>
+     */
+    public function healthEvents(): HasMany
+    {
+        return $this->hasMany(HealthEvent::class);
+    }
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>

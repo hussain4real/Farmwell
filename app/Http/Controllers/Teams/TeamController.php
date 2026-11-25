@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Teams;
 
 use App\Actions\Teams\CreateTeam;
+use App\Actions\Teams\ResolveInvestorMode;
 use App\Enums\TeamRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Teams\DeleteTeamRequest;
@@ -10,6 +11,7 @@ use App\Http\Requests\Teams\SaveTeamRequest;
 use App\Models\Membership;
 use App\Models\Team;
 use App\Models\TeamInvitation;
+use App\Models\TeamSetting;
 use App\Models\User;
 use App\Services\InfobipVerification;
 use App\Support\PhoneCallingCode;
@@ -57,6 +59,12 @@ class TeamController extends Controller
 
         $permissions = $user->toTeamPermissions($team);
 
+        $dailyRemindersSetting = TeamSetting::query()
+            ->where('team_id', $team->id)
+            ->where('setting_group', 'operations')
+            ->where('setting_key', 'daily_reminders')
+            ->first();
+
         return Inertia::render('teams/Edit', [
             'team' => [
                 'id' => $team->id,
@@ -86,6 +94,8 @@ class TeamController extends Controller
                     'created_at' => $invitation->created_at->toISOString(),
                 ]),
             'permissions' => $permissions,
+            'investorMode' => app(ResolveInvestorMode::class)->handle($team),
+            'dailyRemindersEnabled' => (bool) ($dailyRemindersSetting?->value['enabled'] ?? true),
             'callingCode' => PhoneCallingCode::forRecipient(),
             'phoneCountries' => config('services.phone_login.pilot_host') ? PilotPhone::Countries : null,
             'phoneLoginEnabled' => InfobipVerification::enabled(),

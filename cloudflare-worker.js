@@ -193,14 +193,9 @@ export class FarmwellQueue extends DurableObject {
                 enableInternet: true,
                 env: containerEnvironment(this.env),
                 entrypoint: [
-                    'php',
-                    'artisan',
-                    'queue:work',
-                    'database',
-                    '--stop-when-empty',
-                    '--timeout=110',
-                    '--tries=3',
-                    '--no-interaction',
+                    'sh',
+                    '-c',
+                    'php artisan schedule:run --no-interaction && php artisan queue:work database --stop-when-empty --timeout=110 --tries=3 --no-interaction',
                 ],
             });
         }
@@ -215,9 +210,9 @@ export default {
             const url = new URL(request.url);
 
             if (url.hostname !== new URL(env.APP_URL).hostname) {
-                const publicPage = /^\/(?:|login(?:\/phone(?:\/(?:code|verify))?)?|logout|two-factor-challenge|favicon\.(?:ico|svg)|apple-touch-icon\.png|manifest\.webmanifest|farmwell-(?:192|512)\.png)$/;
+                const publicPage = /^\/(?:|login(?:\/phone(?:\/(?:code|verify))?)?|logout|two-factor-challenge|favicon\.(?:ico|svg)|apple-touch-icon\.png|manifest\.webmanifest|sw\.js|offline\.html|farmwell-(?:192|512)\.png)$/;
                 const asset = /^\/build\/(?:assets|fonts)\/[a-zA-Z0-9_.-]+$/;
-                const farmPage = /^\/[a-zA-Z0-9_-]+\/(?:dashboard|field-diary|farm-activities|farm-tasks|evidence|farms|finance|harvests|investors|investor-portal|investor-evidence|investor-agreements|ai-summaries|whatsapp-intakes|commodities)(?:\/[a-zA-Z0-9_-]+)*$/;
+                const farmPage = /^\/[a-zA-Z0-9_-]+\/(?:dashboard|onboarding|field-diary|farm-activities|farm-tasks|evidence|farms|inventory|health|finance|harvests|investors|investor-portal|investor-evidence|investor-agreements|ai-summaries|whatsapp-intakes|commodities)(?:\/[a-zA-Z0-9_-]+)*$/;
 
                 if (url.hostname !== env.PHONE_PILOT_HOST || !(publicPage.test(url.pathname) || asset.test(url.pathname) || farmPage.test(url.pathname))) {
                     return new Response('Not found', {status: 404});

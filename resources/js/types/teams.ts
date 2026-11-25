@@ -55,3 +55,8 @@ export type RoleOption = {
     value: TeamRole;
     label: string;
 };
+
+export type TeamFeatures = {
+    investorMode: boolean;
+    needsOnboarding: boolean;
+};

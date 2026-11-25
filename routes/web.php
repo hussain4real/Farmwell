@@ -3,7 +3,9 @@
 use App\Http\Controllers\AiSummaryController;
 use App\Http\Controllers\Auth\PhoneLoginController;
 use App\Http\Controllers\FarmOperations\ActivityExportController;
+use App\Http\Controllers\FarmOperations\AquacultureGradeTransferController;
 use App\Http\Controllers\FarmOperations\CommodityController;
+use App\Http\Controllers\FarmOperations\CycleSummaryExportController;
 use App\Http\Controllers\FarmOperations\EvidenceController;
 use App\Http\Controllers\FarmOperations\FarmActivityController;
 use App\Http\Controllers\FarmOperations\FarmController;
@@ -12,9 +14,12 @@ use App\Http\Controllers\FarmOperations\FarmOperationsController;
 use App\Http\Controllers\FarmOperations\FarmTaskCalendarController;
 use App\Http\Controllers\FarmOperations\FarmTaskController;
 use App\Http\Controllers\FarmOperations\FieldDiaryController;
+use App\Http\Controllers\FarmOperations\OnboardingController;
 use App\Http\Controllers\FarmOperations\ProductionCycleController;
+use App\Http\Controllers\FarmOperations\ProductionLogController;
 use App\Http\Controllers\FarmOperations\ProductionPlanChangeController;
 use App\Http\Controllers\FarmOperations\ProductionUnitController;
+use App\Http\Controllers\FarmOperations\QuickEggSaleController;
 use App\Http\Controllers\FarmOperations\WhatsappIntakeController;
 use App\Http\Controllers\FarmOperations\WhatsappIntakeReviewController;
 use App\Http\Controllers\Finance\BudgetController;
@@ -33,6 +38,10 @@ use App\Http\Controllers\Harvests\HarvestExportController;
 use App\Http\Controllers\Harvests\HarvestRecordController;
 use App\Http\Controllers\Harvests\SaleRecordController;
 use App\Http\Controllers\Harvests\SalesExportController;
+use App\Http\Controllers\Health\HealthEventController;
+use App\Http\Controllers\Health\HealthPresetController;
+use App\Http\Controllers\Inventory\InventoryItemController;
+use App\Http\Controllers\Inventory\InventoryMovementController;
 use App\Http\Controllers\Investors\InvestorAgreementController;
 use App\Http\Controllers\Investors\InvestorAgreementDocumentController;
 use App\Http\Controllers\Investors\InvestorApprovalController;
@@ -61,7 +70,26 @@ Route::prefix('{current_team}')
     ->scopeBindings()
     ->group(function () {
         Route::get('dashboard', FarmDashboardController::class)->name('dashboard');
+        Route::get('onboarding', [OnboardingController::class, 'index'])->name('onboarding.index');
+        Route::post('onboarding', [OnboardingController::class, 'store'])->name('onboarding.store');
         Route::get('farms', FarmOperationsController::class)->name('farms.index');
+        Route::get('farms/{farm}', [FarmController::class, 'show'])->name('farms.show');
+        Route::patch('farms/{farm}', [FarmController::class, 'update'])->name('farms.update');
+        Route::get('farms/{farm}/production-cycles/{production_cycle}', [ProductionCycleController::class, 'show'])->name('farms.production-cycles.show');
+        Route::get('farms/{farm}/production-cycles/{production_cycle}/summary-pdf', CycleSummaryExportController::class)->name('farms.production-cycles.summary-pdf');
+        Route::patch('farms/{farm}/production-cycles/{production_cycle}', [ProductionCycleController::class, 'update'])->name('farms.production-cycles.update');
+        Route::post('farms/{farm}/production-cycles/{production_cycle}/quick-egg-sale', QuickEggSaleController::class)->name('farms.production-cycles.quick-egg-sale.store');
+        Route::post('farms/{farm}/production-cycles/{production_cycle}/production-logs', [ProductionLogController::class, 'store'])->name('farms.production-cycles.production-logs.store');
+        Route::delete('farms/{farm}/production-cycles/{production_cycle}/production-logs/{production_log}', [ProductionLogController::class, 'destroy'])->name('farms.production-cycles.production-logs.destroy');
+        Route::post('farms/{farm}/production-cycles/{production_cycle}/grade-transfer', [AquacultureGradeTransferController::class, 'store'])->name('farms.production-cycles.grade-transfer.store');
+        Route::post('farms/{farm}/production-cycles/{production_cycle}/health-presets', [HealthPresetController::class, 'store'])->name('farms.production-cycles.health-presets.store');
+        Route::get('inventory', [InventoryItemController::class, 'index'])->name('inventory.index');
+        Route::post('inventory', [InventoryItemController::class, 'store'])->name('inventory.store');
+        Route::patch('inventory/{inventory_item}', [InventoryItemController::class, 'update'])->name('inventory.update');
+        Route::post('inventory/{inventory_item}/movements', [InventoryMovementController::class, 'store'])->name('inventory.movements.store');
+        Route::get('health', [HealthEventController::class, 'index'])->name('health.index');
+        Route::post('health', [HealthEventController::class, 'store'])->name('health.store');
+        Route::patch('health/{health_event}', [HealthEventController::class, 'update'])->name('health.update');
         Route::controller(ActivityExportController::class)->prefix('field-diary/exports')->name('activity-exports.')->group(function () {
             Route::get('/', 'index')->name('index');
             Route::post('/', 'store')->middleware('throttle:report-generation')->name('store');
@@ -116,6 +144,7 @@ Route::prefix('{current_team}')
         Route::post('commodities', [CommodityController::class, 'store'])->name('commodities.store');
         Route::post('farms', [FarmController::class, 'store'])->name('farms.store');
         Route::post('farms/{farm}/production-units', [ProductionUnitController::class, 'store'])->name('farms.production-units.store');
+        Route::patch('farms/{farm}/production-units/{production_unit}', [ProductionUnitController::class, 'update'])->name('farms.production-units.update');
         Route::post('farms/{farm}/production-cycles', [ProductionCycleController::class, 'store'])->name('farms.production-cycles.store');
         Route::post('farms/{farm}/production-cycles/{production_cycle}/plan-changes', [ProductionPlanChangeController::class, 'store'])
             ->name('farms.production-cycles.plan-changes.store');

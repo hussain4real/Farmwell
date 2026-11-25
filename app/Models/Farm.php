@@ -170,6 +170,36 @@ class Farm extends Model
     }
 
     /**
+     * Get production logs recorded on this farm.
+     *
+     * @return HasMany<ProductionLog, $this>
+     */
+    public function productionLogs(): HasMany
+    {
+        return $this->hasMany(ProductionLog::class);
+    }
+
+    /**
+     * Get inventory items scoped to this farm.
+     *
+     * @return HasMany<InventoryItem, $this>
+     */
+    public function inventoryItems(): HasMany
+    {
+        return $this->hasMany(InventoryItem::class);
+    }
+
+    /**
+     * Get health events recorded for this farm.
+     *
+     * @return HasMany<HealthEvent, $this>
+     */
+    public function healthEvents(): HasMany
+    {
+        return $this->hasMany(HealthEvent::class);
+    }
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>

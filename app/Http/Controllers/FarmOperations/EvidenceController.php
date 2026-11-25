@@ -4,6 +4,7 @@ namespace App\Http\Controllers\FarmOperations;
 
 use App\Http\Controllers\Controller;
 use App\Models\FarmActivity;
+use App\Models\ProductionLog;
 use App\Models\Team;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
@@ -24,7 +25,7 @@ class EvidenceController extends Controller
 
         abort_if(! $subject instanceof Model, 404);
         abort_unless((int) $subject->getAttribute('team_id') === $currentTeam->id, 404);
-        abort_unless($subject instanceof FarmActivity || Gate::allows('viewFarmOperations', $currentTeam), 403);
+        abort_unless($subject instanceof FarmActivity || $subject instanceof ProductionLog || Gate::allows('viewFarmOperations', $currentTeam), 403);
 
         return $media->toResponse($request);
     }

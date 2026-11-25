@@ -29,6 +29,7 @@ import {
 import { useInitials } from '@/composables/useInitials';
 import { edit, index, update } from '@/routes/teams';
 import { update as updateMember } from '@/routes/teams/members';
+import { update as updateTeamSetting } from '@/routes/teams/settings';
 import type {
     RoleOption,
     Team,
@@ -42,6 +43,8 @@ type Props = {
     members: TeamMember[];
     invitations: TeamInvitation[];
     permissions: TeamPermissions;
+    investorMode: boolean;
+    dailyRemindersEnabled: boolean;
     availableRoles: RoleOption[];
     phoneLoginEnabled: boolean;
     callingCode: string | null;
@@ -85,6 +88,50 @@ const updateMemberRole = (member: TeamMember, newRole: string) => {
         data: { role: newRole },
         preserveScroll: true,
     });
+};
+
+const togglingInvestorMode = ref(false);
+const toggleInvestorMode = () => {
+    togglingInvestorMode.value = true;
+    router.patch(
+        updateTeamSetting.url([props.team.slug, 'workspace', 'investor_mode']),
+        {
+            value: { enabled: !props.investorMode },
+            reason: !props.investorMode
+                ? 'Enabled investor transparency mode'
+                : 'Switched to standalone farm mode',
+        },
+        {
+            preserveScroll: true,
+            onFinish: () => {
+                togglingInvestorMode.value = false;
+            },
+        },
+    );
+};
+
+const togglingDailyReminders = ref(false);
+const toggleDailyReminders = () => {
+    togglingDailyReminders.value = true;
+    router.patch(
+        updateTeamSetting.url([
+            props.team.slug,
+            'operations',
+            'daily_reminders',
+        ]),
+        {
+            value: { enabled: !props.dailyRemindersEnabled },
+            reason: !props.dailyRemindersEnabled
+                ? 'Enabled daily farm operational reminders'
+                : 'Paused daily farm operational reminders',
+        },
+        {
+            preserveScroll: true,
+            onFinish: () => {
+                togglingDailyReminders.value = false;
+            },
+        },
+    );
 };
 
 const confirmRemoveMember = (member: TeamMember) => {
@@ -158,6 +205,95 @@ const copyInvitationLink = async (url: string | null | undefined) => {
 
         <div v-else class="space-y-6">
             <Heading variant="small" :title="team.name" />
+        </div>
+
+        <!-- Workspace Mode Section -->
+        <div
+            v-if="permissions.canManageSettings"
+            class="space-y-4 rounded-xl border p-5"
+        >
+            <div class="flex flex-wrap items-center justify-between gap-4">
+                <div class="space-y-1">
+                    <div class="flex items-center gap-2">
+                        <h3 class="text-base font-medium">
+                            Investor Transparency Mode
+                        </h3>
+                        <Badge
+                            :variant="investorMode ? 'default' : 'secondary'"
+                        >
+                            {{
+                                investorMode
+                                    ? 'Enabled'
+                                    : 'Standalone Farm Mode'
+                            }}
+                        </Badge>
+                    </div>
+                    <p class="text-sm text-muted-foreground">
+                        {{
+                            investorMode
+                                ? 'Investor agreements, approvals, and investor-safe visibility fields are shown across the workspace.'
+                                : 'Optimized for standalone farmers. Enable this if you raise external farm capital and need investor approvals and statements.'
+                        }}
+                    </p>
+                </div>
+                <Button
+                    type="button"
+                    variant="outline"
+                    data-test="toggle-investor-mode"
+                    :disabled="togglingInvestorMode"
+                    @click="toggleInvestorMode"
+                >
+                    {{
+                        investorMode
+                            ? 'Switch to Standalone Mode'
+                            : 'Enable Investor Mode'
+                    }}
+                </Button>
+            </div>
+        </div>
+
+        <!-- Daily Reminders Section -->
+        <div
+            v-if="permissions.canManageSettings"
+            class="space-y-4 rounded-xl border p-5"
+        >
+            <div class="flex flex-wrap items-center justify-between gap-4">
+                <div class="space-y-1">
+                    <div class="flex items-center gap-2">
+                        <h3 class="text-base font-medium">
+                            Daily Farm Alert Emails
+                        </h3>
+                        <Badge
+                            :variant="
+                                dailyRemindersEnabled ? 'default' : 'secondary'
+                            "
+                        >
+                            {{ dailyRemindersEnabled ? 'Enabled' : 'Paused' }}
+                        </Badge>
+                    </div>
+                    <p class="text-sm text-muted-foreground">
+                        {{
+                            dailyRemindersEnabled
+                                ? 'Owners, admins, and operators receive a morning email digest when vaccinations, withdrawal periods, low stock, or water-quality alerts need attention.'
+                                : 'Morning operational email reminders are currently paused for this team.'
+                        }}
+                    </p>
+                </div>
+                <Button
+                    type="button"
+                    variant="outline"
+                    data-test="toggle-daily-reminders"
+                    class="min-h-11 w-full sm:min-h-9 sm:w-auto"
+                    :disabled="togglingDailyReminders"
+                    @click="toggleDailyReminders"
+                >
+                    {{
+                        dailyRemindersEnabled
+                            ? 'Pause Daily Alerts'
+                            : 'Enable Daily Alerts'
+                    }}
+                </Button>
+            </div>
         </div>
 
         <!-- Members Section -->

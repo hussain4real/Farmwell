@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Enums\CropGrowthStage;
+use App\Enums\EnterpriseSubtype;
 use App\Enums\FarmType;
 use App\Enums\ProductionCycleStatus;
 use Database\Factories\ProductionCycleFactory;
@@ -20,6 +22,8 @@ use Illuminate\Support\Carbon;
  * @property string $name
  * @property string|null $season
  * @property FarmType $farm_type
+ * @property EnterpriseSubtype|null $enterprise_subtype
+ * @property string|null $breed_or_variety
  * @property string|null $production_method
  * @property Carbon $planned_start_on
  * @property Carbon|null $planned_end_on
@@ -27,6 +31,11 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $actual_end_on
  * @property string|null $expected_output_quantity
  * @property string|null $expected_output_unit
+ * @property int|null $initial_stock_count
+ * @property int|null $current_stock_count
+ * @property string|null $initial_average_weight_g
+ * @property string|null $target_weight_g
+ * @property CropGrowthStage|null $current_growth_stage
  * @property ProductionCycleStatus $status
  * @property int $plan_version
  * @property string|null $plan_summary
@@ -39,6 +48,8 @@ use Illuminate\Support\Carbon;
     'name',
     'season',
     'farm_type',
+    'enterprise_subtype',
+    'breed_or_variety',
     'production_method',
     'planned_start_on',
     'planned_end_on',
@@ -46,6 +57,11 @@ use Illuminate\Support\Carbon;
     'actual_end_on',
     'expected_output_quantity',
     'expected_output_unit',
+    'initial_stock_count',
+    'current_stock_count',
+    'initial_average_weight_g',
+    'target_weight_g',
+    'current_growth_stage',
     'status',
     'plan_version',
     'plan_summary',
@@ -209,6 +225,36 @@ class ProductionCycle extends Model
     }
 
     /**
+     * Get daily production logs recorded for this cycle.
+     *
+     * @return HasMany<ProductionLog, $this>
+     */
+    public function productionLogs(): HasMany
+    {
+        return $this->hasMany(ProductionLog::class);
+    }
+
+    /**
+     * Get health events scheduled or recorded for this cycle.
+     *
+     * @return HasMany<HealthEvent, $this>
+     */
+    public function healthEvents(): HasMany
+    {
+        return $this->hasMany(HealthEvent::class);
+    }
+
+    /**
+     * Get inventory movements linked to this cycle.
+     *
+     * @return HasMany<InventoryMovement, $this>
+     */
+    public function inventoryMovements(): HasMany
+    {
+        return $this->hasMany(InventoryMovement::class);
+    }
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>
@@ -217,11 +263,17 @@ class ProductionCycle extends Model
     {
         return [
             'farm_type' => FarmType::class,
+            'enterprise_subtype' => EnterpriseSubtype::class,
+            'current_growth_stage' => CropGrowthStage::class,
             'planned_start_on' => 'date',
             'planned_end_on' => 'date',
             'actual_start_on' => 'date',
             'actual_end_on' => 'date',
             'expected_output_quantity' => 'decimal:2',
+            'initial_stock_count' => 'integer',
+            'current_stock_count' => 'integer',
+            'initial_average_weight_g' => 'decimal:2',
+            'target_weight_g' => 'decimal:2',
             'status' => ProductionCycleStatus::class,
             'plan_version' => 'integer',
         ];

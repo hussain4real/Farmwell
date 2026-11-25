@@ -2,8 +2,13 @@
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}"  @class(['dark' => ($appearance ?? 'system') == 'dark'])>
     <head>
         <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <meta name="theme-color" content="#214d40">
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+        <meta name="apple-mobile-web-app-title" content="Farmwell">
+        <meta name="theme-color" content="#1b4d3e" media="(prefers-color-scheme: light)">
+        <meta name="theme-color" content="#0f2920" media="(prefers-color-scheme: dark)">
         <link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials">
 
         {{-- Inline script to detect system dark mode preference and apply it immediately --}}
@@ -49,7 +54,7 @@
             id="farmwell-install"
             aria-label="Install Farmwell"
             hidden
-            class="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-40 mx-auto max-w-sm rounded-xl border bg-background p-4 text-foreground shadow-lg"
+            class="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+5rem)] z-50 mx-auto max-w-sm rounded-xl border bg-background p-4 text-foreground shadow-lg md:bottom-4"
         >
             <div class="flex items-center gap-3">
                 <img src="/farmwell-192.png" alt="" width="40" height="40" class="rounded-lg">

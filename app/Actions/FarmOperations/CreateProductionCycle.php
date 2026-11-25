@@ -32,6 +32,10 @@ class CreateProductionCycle
         array $commodities,
     ): ProductionCycle {
         return DB::transaction(function () use ($team, $farm, $actor, $attributes, $productionUnitIds, $commodities) {
+            if (array_key_exists('initial_stock_count', $attributes) && $attributes['initial_stock_count'] !== null && ! array_key_exists('current_stock_count', $attributes)) {
+                $attributes['current_stock_count'] = $attributes['initial_stock_count'];
+            }
+
             $productionCycle = ProductionCycle::create([
                 ...$attributes,
                 'team_id' => $team->id,

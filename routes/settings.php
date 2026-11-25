@@ -40,8 +40,8 @@ Route::middleware(['auth', EnsureContactIsVerified::class])->group(function () {
         Route::delete('settings/teams/{team}', [TeamController::class, 'destroy'])->name('teams.destroy');
         Route::post('settings/teams/{team}/switch', [TeamController::class, 'switch'])->name('teams.switch');
         Route::patch('settings/teams/{team}/settings/{settingGroup}/{settingKey}', [TeamSettingController::class, 'update'])
-            ->whereAlphaNumeric('settingGroup')
-            ->whereAlphaNumeric('settingKey')
+            ->where('settingGroup', '[A-Za-z0-9_-]+')
+            ->where('settingKey', '[A-Za-z0-9_-]+')
             ->name('teams.settings.update');
 
         Route::patch('settings/teams/{team}/members/{user}', [TeamMemberController::class, 'update'])->name('teams.members.update');

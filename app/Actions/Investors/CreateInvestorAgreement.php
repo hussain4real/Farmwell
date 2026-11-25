@@ -3,10 +3,12 @@
 namespace App\Actions\Investors;
 
 use App\Actions\Audit\RecordAuditEvent;
+use App\Actions\Teams\ResolveInvestorMode;
 use App\Enums\CapitalRecoveryRule;
 use App\Enums\InvestorAgreementStatus;
 use App\Models\InvestorAgreement;
 use App\Models\Team;
+use App\Models\TeamSetting;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -31,6 +33,18 @@ class CreateInvestorAgreement
                 'status' => InvestorAgreementStatus::tryFrom((string) ($attributes['status'] ?? InvestorAgreementStatus::Active->value)) ?? InvestorAgreementStatus::Active,
                 'capital_recovery_rule' => CapitalRecoveryRule::tryFrom((string) ($attributes['capital_recovery_rule'] ?? CapitalRecoveryRule::CapitalFirst->value)) ?? CapitalRecoveryRule::CapitalFirst,
             ]);
+
+            TeamSetting::query()->updateOrCreate(
+                [
+                    'team_id' => $team->id,
+                    'setting_group' => ResolveInvestorMode::SettingGroup,
+                    'setting_key' => ResolveInvestorMode::SettingKey,
+                ],
+                [
+                    'value' => ['enabled' => true],
+                    'updated_by' => $actor->id,
+                ],
+            );
 
             if ($document instanceof UploadedFile) {
                 $agreement

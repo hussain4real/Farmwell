@@ -6,6 +6,7 @@ use App\Actions\Finance\ResolveTeamFinanceCurrency;
 use App\Enums\DistributionStatus;
 use App\Enums\HarvestRecordStatus;
 use App\Enums\HarvestStage;
+use App\Enums\HealthEventStatus;
 use App\Enums\InvestorAgreementStatus;
 use App\Enums\InvestorVisibilityStatus;
 use App\Enums\SalePaymentStatus;
@@ -13,6 +14,7 @@ use App\Models\Commodity;
 use App\Models\DistributionRecord;
 use App\Models\Farm;
 use App\Models\HarvestRecord;
+use App\Models\HealthEvent;
 use App\Models\InvestorAgreement;
 use App\Models\SaleRecord;
 use App\Models\Team;
@@ -51,6 +53,19 @@ class BuildHarvestPageData
             'distributionRecords' => $canViewFinance
                 ? $this->distributionRecords($team)->map(fn (DistributionRecord $distribution) => $this->distributionPayload($distribution))
                 : [],
+            'activeWithdrawals' => $team->healthEvents()
+                ->with(['farm', 'productionCycle'])
+                ->where('status', HealthEventStatus::Completed->value)
+                ->get()
+                ->filter(fn (HealthEvent $event): bool => $event->isUnderWithdrawal())
+                ->map(fn (HealthEvent $event): array => [
+                    'id' => $event->id,
+                    'title' => $event->title,
+                    'productName' => $event->product_name,
+                    'farmName' => $event->farm->name,
+                    'cycleName' => $event->productionCycle?->name,
+                    'withdrawalEndsOn' => $event->withdrawalEndsOn()?->toDateString(),
+                ])->values(),
             'options' => $this->options(),
         ];
     }

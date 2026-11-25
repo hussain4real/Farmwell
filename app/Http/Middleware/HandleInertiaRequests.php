@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Actions\Teams\ResolveInvestorMode;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -47,6 +48,10 @@ class HandleInertiaRequests extends Middleware
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'currentTeam' => fn () => $currentTeam ? $user?->toUserTeam($currentTeam) : null,
             'currentTeamPermissions' => fn () => $user && $currentTeam ? $user->toTeamPermissions($currentTeam) : null,
+            'currentTeamFeatures' => fn () => $currentTeam ? [
+                'investorMode' => app(ResolveInvestorMode::class)->handle($currentTeam),
+                'needsOnboarding' => $currentTeam->farms()->doesntExist(),
+            ] : null,
             'teams' => fn () => $user?->toUserTeams(includeCurrent: true) ?? [],
         ];
     }
