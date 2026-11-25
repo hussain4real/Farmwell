@@ -218,3 +218,8 @@ Vue components must have a single root element.
 - Always activate the `medialibrary-development` skill when working with media uploads, conversions, collections, responsive images, or any code that uses the `HasMedia` interface or `InteractsWithMedia` trait.
 
 </laravel-boost-guidelines>
+
+## Local Development Server
+
+- When starting the local development server for Farmwell, run `pa dev` instead of `php artisan serve`.
+- Always open and test the local application at `https://farmwell.test` instead of `127.0.0.1` or `localhost`.
