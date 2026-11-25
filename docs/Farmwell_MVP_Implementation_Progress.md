@@ -1,6 +1,6 @@
 # Farmwell MVP Implementation Progress
 
-Last updated: 2026-11-03
+Last updated: 2026-11-16
 
 ## Status Legend
 
@@ -212,7 +212,7 @@ Staging application revision `15f6295` served five successful warm portal reques
 | Investor statement | The investor downloaded PDF #8 for 5 November. Opening ₦77.66 + released ₦90.00 − approved spend ₦30.00 = closing ₦137.66. The investor portal also showed ₦137.66. |
 | Finance workbook | The owner downloaded budget variance export #9 for the same day. The approved ₦30.00 expense row contained the rehearsal reference and linked activity “#2 Milestone inspection.” Against the ₦1,000.00 full budget, the workbook showed ₦30.00 period spend and ₦970.00 variance. |
 
-**The staging rehearsal passed. Pilot sign-off is pending.** The operator reopened the diary image on the intended phone after desktop Chrome Incognito returned `ERR_BLOCKED_BY_CLIENT`. Launch awaits confirmation of the participants and sponsor, followed by the sponsor’s approval.
+**The staging rehearsal passed, and both sponsors approved starting the pilot.** The operator reopened the diary image on the intended phone after desktop Chrome Incognito returned `ERR_BLOCKED_BY_CLIENT`.
 
 | Acceptance item | Result or next action |
 | --- | --- |

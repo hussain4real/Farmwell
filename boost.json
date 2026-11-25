@@ -10,18 +10,27 @@
     "nightwatch": false,
     "packages": [
         "spatie/laravel-permission",
-        "spatie/laravel-medialibrary"
+        "spatie/laravel-medialibrary",
+        "maatwebsite/excel",
+        "spatie/laravel-backup",
+        "spatie/laravel-pdf"
     ],
     "sail": false,
     "skills": [
+        "infer-conventions",
+        "deploying-to-cloud",
         "ai-sdk-development",
         "fortify-development",
         "laravel-best-practices",
+        "testing-best-practices",
         "wayfinder-development",
-        "pest-testing",
+        "mcp-development",
         "inertia-vue-development",
         "tailwindcss-development",
+        "laravel-excel",
+        "laravel-backup",
         "medialibrary-development",
+        "laravel-pdf",
         "laravel-permission-development",
         "deploying-laravel-cloud"
     ]

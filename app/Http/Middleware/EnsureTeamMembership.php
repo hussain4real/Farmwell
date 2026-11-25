@@ -2,9 +2,11 @@
 
 namespace App\Http\Middleware;
 
+use App\Actions\Audit\RecordAuditEvent;
 use App\Enums\TeamRole;
 use App\Models\Team;
 use App\Models\User;
+use App\Support\PlatformAccess;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -20,7 +22,12 @@ class EnsureTeamMembership
     {
         [$user, $team] = [$request->user(), $this->team($request)];
 
-        abort_if(! $user || ! $team || ! $user->belongsToTeam($team), 403);
+        abort_if(! $user || ! $team, 403);
+
+        if (app(PlatformAccess::class)->enterRequest($request, $team, app(RecordAuditEvent::class))) {
+            return $next($request);
+        }
+        abort_unless($user->belongsToTeam($team), 403);
 
         $this->ensureTeamMemberHasRequiredRole($user, $team, $minimumRole);
         $user->activatePermissionsTeam($team);

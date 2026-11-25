@@ -2,14 +2,20 @@
 
 namespace App\Providers;
 
+use App\Enums\PlatformRole;
+use App\Http\Middleware\SignalQueuedWork;
+use App\Models\User;
 use App\Support\AuthenticatedDatabaseSessionHandler;
 use Aws\CommandInterface;
 use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Filesystem\AwsS3V3Adapter;
 use Illuminate\Http\Request;
+use Illuminate\Queue\Events\JobQueued;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Storage;
@@ -33,6 +39,17 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Gate::define('managePlatform', fn (User $user): bool => $user->platform_role === PlatformRole::SuperAdmin);
+
+        Event::listen(function (JobQueued $event): void {
+            if ($event->connectionName === 'database' && $this->app->bound('request')) {
+                $request = request();
+                DB::connection(config('queue.connections.database.connection'))->afterCommit(
+                    fn () => $request->attributes->set(SignalQueuedWork::Attribute, true),
+                );
+            }
+        });
+
         Session::extend('database', fn ($app) => new AuthenticatedDatabaseSessionHandler(
             DB::connection(config('session.connection')),
             (string) config('session.table'),
@@ -40,7 +57,7 @@ class AppServiceProvider extends ServiceProvider
             $app,
         ));
 
-        foreach (['invitations' => 10, 'approval-decisions' => 20, 'report-generation' => 10, 'report-downloads' => 60, 'ai-generation' => 10] as $name => $attempts) {
+        foreach (['platform-admin' => 20, 'invitations' => 10, 'approval-decisions' => 20, 'report-generation' => 10, 'report-downloads' => 60, 'ai-generation' => 10] as $name => $attempts) {
             RateLimiter::for($name, fn (Request $request) => Limit::perMinute($attempts)->by((string) $request->user()->getAuthIdentifier()));
         }
 
