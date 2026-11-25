@@ -18,6 +18,14 @@ on:
         description: Optional team slug to include in the restored-records summary
         type: string
         default: ''
+      existing_archive:
+        description: Restore only this existing staging archive (Farmwell/YYYY-MM-DD-HH-MM-SS.zip)
+        type: string
+        default: ''
+      archive_sha256:
+        description: Expected SHA-256 of the existing archive (required for an existing archive)
+        type: string
+        default: ''
   schedule:
     - cron: '17 1 * * *'
     - cron: '17 13 * * *'
@@ -47,6 +55,7 @@ jobs:
           php-version: '8.5'
           extensions: zip, pdo_pgsql, gd, exif
       - run: composer install --no-dev --no-interaction --prefer-dist
+        if: inputs.existing_archive == ''
       - name: Check the age of the latest archive independently of the backup run
         if: github.event.schedule == '17 13 * * *'
         env:
@@ -60,8 +69,42 @@ jobs:
       - name: Install PostgreSQL 18 backup and restore tools
         if: github.event.schedule != '17 13 * * *'
         run: bash .github/scripts/setup-backup-postgres.sh
+      - name: Restore an existing staging archive locally
+        if: github.event_name == 'workflow_dispatch' && inputs.existing_archive != ''
+        env:
+          ARCHIVE_KEY: ${{ inputs.existing_archive }}
+          ARCHIVE_SHA256: ${{ inputs.archive_sha256 }}
+          AWS_DEFAULT_REGION: auto
+          AWS_ENDPOINT: ${{ vars.BACKUP_R2_ENDPOINT }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.BACKUP_R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_R2_SECRET_ACCESS_KEY }}
+          BACKUP_R2_BUCKET: ${{ vars.BACKUP_R2_BUCKET }}
+          BACKUP_ARCHIVE_PASSWORD: ${{ secrets.BACKUP_ARCHIVE_PASSWORD }}
+          FARMWELL_BACKUP_DATABASE_PROFILE: ${{ matrix.target == 'supabase' && 'supabase' || 'postgres' }}
+          FARMWELL_RESTORE_TEAM: ${{ inputs.verify_team }}
+        run: |
+          set -euo pipefail
+          umask 077
+          [[ "$ARCHIVE_KEY" =~ ^Farmwell/[0-9]{4}(-[0-9]{2}){5}\.zip$ ]]
+          [[ "$ARCHIVE_SHA256" =~ ^[a-f0-9]{64}$ ]]
+          case "$BACKUP_R2_BUCKET" in
+              farmwell-staging-backups|farmwell-supabase-rehearsal-backups) ;;
+              *) echo 'Expected a staging-only backup bucket.' >&2; exit 1 ;;
+          esac
+          work=$(mktemp -d)
+          trap 'rm -rf -- "$work"' EXIT
+          aws --endpoint-url "$AWS_ENDPOINT" s3 cp "s3://$BACKUP_R2_BUCKET/$ARCHIVE_KEY" "$work/archive.zip" --only-show-errors
+          printf '%s  %s\n' "$ARCHIVE_SHA256" "$work/archive.zip" | sha256sum --check --status
+          if ! bash .github/scripts/restore-backup.sh "$work/archive.zip" > "$work/result" 2>&1; then
+              echo 'Isolated archive restore or media inventory verification failed.' >&2
+              exit 1
+          fi
+          if [[ -n "$FARMWELL_RESTORE_TEAM" ]]; then
+              grep -E '^\{' "$work/result" | jq '{members, verified_phone_members, farms, activities, diary_photos}'
+          fi
+          grep -E 'AES-256 files decrypted|^Restore passed:' "$work/result"
       - name: Install the Supabase database CA for hostname verification
-        if: matrix.target == 'supabase' && github.event.schedule != '17 13 * * *'
+        if: matrix.target == 'supabase' && github.event.schedule != '17 13 * * *' && inputs.existing_archive == ''
         env:
           SUPABASE_CA_CERT: ${{ vars.SUPABASE_CA_CERT }}
         run: |
@@ -69,7 +112,7 @@ jobs:
           printf '%s\n' "$SUPABASE_CA_CERT" > "$RUNNER_TEMP/farmwell-postgres-ca.crt"
           openssl x509 -in "$RUNNER_TEMP/farmwell-postgres-ca.crt" -noout
       - name: Back up PostgreSQL and private uploads, check health and apply retention
-        if: github.event.schedule != '17 13 * * *'
+        if: github.event.schedule != '17 13 * * *' && inputs.existing_archive == ''
         env:
           CACHE_STORE: array
           FARMWELL_BACKUP_DISK: r2
