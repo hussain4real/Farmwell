@@ -42,5 +42,6 @@ COPY --from=build /var/www/html/storage ./storage
 COPY --from=build /var/www/html/vendor ./vendor
 COPY --from=build /var/www/html/artisan /var/www/html/composer.json /var/www/html/composer.lock ./
 RUN chown -R www-data:www-data storage bootstrap/cache
+COPY --chmod=644 config/certs/supabase-ca.crt /etc/ssl/certs/farmwell-supabase.crt
 EXPOSE 80
 CMD ["apache2-foreground"]
