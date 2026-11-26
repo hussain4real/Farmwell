@@ -520,15 +520,13 @@ function fundingPercentFor(
                         </div>
 
                         <dl
-                            class="grid grid-cols-3 gap-3 rounded-xl bg-muted/40 p-3"
+                            class="grid grid-cols-1 gap-3 rounded-xl bg-muted/40 p-3 sm:grid-cols-3"
                         >
                             <div class="min-w-0">
                                 <dt class="text-xs text-muted-foreground">
                                     Committed
                                 </dt>
-                                <dd
-                                    class="mt-0.5 font-semibold break-words tabular-nums"
-                                >
+                                <dd class="mt-0.5 font-semibold tabular-nums">
                                     {{
                                         formatCurrency(
                                             agreement.amountCommitted,
@@ -541,9 +539,7 @@ function fundingPercentFor(
                                 <dt class="text-xs text-muted-foreground">
                                     Funded
                                 </dt>
-                                <dd
-                                    class="mt-0.5 font-semibold break-words tabular-nums"
-                                >
+                                <dd class="mt-0.5 font-semibold tabular-nums">
                                     {{
                                         formatCurrency(
                                             agreement.amountFunded,

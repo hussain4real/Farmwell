@@ -268,7 +268,7 @@ const financialMetrics = computed(() => {
                     <select
                         id="portal-agreement"
                         v-model="selectedId"
-                        class="h-10 w-full min-w-0 rounded-md border bg-background px-3 text-sm"
+                        class="h-10 w-full min-w-0 rounded-md border bg-background ps-3 pe-8 text-sm"
                     >
                         <option
                             v-for="item in agreements"

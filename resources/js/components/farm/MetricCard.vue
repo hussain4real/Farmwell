@@ -64,7 +64,7 @@ const barClasses = computed(() => {
         </div>
         <div class="mt-3">
             <p
-                class="text-xl font-semibold tracking-tight break-words tabular-nums sm:text-2xl"
+                class="text-lg font-semibold tracking-tight tabular-nums sm:text-xl"
             >
                 {{ value }}
             </p>

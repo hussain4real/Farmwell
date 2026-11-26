@@ -102,7 +102,7 @@ function applyPreset(
 </script>
 
 <template>
-    <main class="mx-auto flex w-full max-w-4xl flex-col gap-6 p-4 md:p-8">
+    <div class="mx-auto flex w-full max-w-4xl flex-col gap-6 p-4 md:p-8">
         <Head title="Investor statements" />
 
         <PageHero
@@ -282,5 +282,5 @@ function applyPreset(
                 >
             </nav>
         </section>
-    </main>
+    </div>
 </template>

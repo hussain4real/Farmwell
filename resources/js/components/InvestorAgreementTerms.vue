@@ -170,17 +170,22 @@ const fundingPercent = computed(() => {
                     <div v-if="agreement.startsOn || agreement.endsOn">
                         <dt class="text-muted-foreground">Agreement period</dt>
                         <dd>
-                            {{
-                                agreement.startsOn
-                                    ? `${agreement.startsOn} (${formatInvestorDate(agreement.startsOn)})`
-                                    : 'Start not recorded'
-                            }}
+                            <time
+                                v-if="agreement.startsOn"
+                                :datetime="agreement.startsOn"
+                                >{{
+                                    formatInvestorDate(agreement.startsOn)
+                                }}</time
+                            >
+                            <template v-else>Start not recorded</template>
                             <span aria-hidden="true"> · </span>
-                            {{
-                                agreement.endsOn
-                                    ? `Ends ${agreement.endsOn} (${formatInvestorDate(agreement.endsOn)})`
-                                    : 'End not recorded'
-                            }}
+                            <template v-if="agreement.endsOn">
+                                Ends
+                                <time :datetime="agreement.endsOn">{{
+                                    formatInvestorDate(agreement.endsOn)
+                                }}</time>
+                            </template>
+                            <template v-else>End not recorded</template>
                         </dd>
                     </div>
                 </dl>
