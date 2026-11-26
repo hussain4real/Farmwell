@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useQueuedPolling } from '@/composables/useQueuedPolling';
+import { dashboard } from '@/routes';
+import { index as financeIndex } from '@/routes/finance';
 import { download, store } from '@/routes/finance/budget-exports';
 import { index as budgets } from '@/routes/finance/budgets';
 import type { Team } from '@/types';
@@ -32,6 +34,32 @@ const props = defineProps<{
         next_page_url: string | null;
     };
 }>();
+defineOptions({
+    layout: (props: { currentTeam?: Team | null }) => ({
+        breadcrumbs: [
+            {
+                title: 'Dashboard',
+                href: props.currentTeam
+                    ? dashboard(props.currentTeam.slug)
+                    : '/',
+            },
+            {
+                title: 'Finance',
+                href: props.currentTeam
+                    ? financeIndex(props.currentTeam.slug)
+                    : '/',
+            },
+            {
+                title: 'Budgets',
+                href: props.currentTeam ? budgets(props.currentTeam.slug) : '/',
+            },
+            {
+                title: 'Variance Exports',
+                href: '#',
+            },
+        ],
+    }),
+});
 useQueuedPolling('exports', () =>
     props.exports.data.some((item) => item.status === 'queued'),
 );

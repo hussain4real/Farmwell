@@ -445,3 +445,50 @@ test('expense validation rejects inconsistent accounting dimensions and unsuppor
 
     expect(Expense::query()->where('team_id', $team->id)->count())->toBe(1);
 });
+
+test('finance evidence serves cached thumbnails and previews for photos while rejecting non-image files', function () {
+    Storage::fake('farmwell_private');
+    [$owner, $team, $farm, $cycle, $category] = farmwellFinanceContext();
+
+    $expense = Expense::factory()->create([
+        'team_id' => $team->id,
+        'farm_id' => $farm->id,
+        'production_cycle_id' => $cycle->id,
+        'expense_category_id' => $category->id,
+    ]);
+
+    $receiptPhoto = $expense
+        ->addMedia(UploadedFile::fake()->image('receipt-wide.jpg', 2000, 1200))
+        ->toMediaCollection(Expense::ReceiptsCollection, 'farmwell_private');
+
+    $receiptPdf = $expense
+        ->addMedia(UploadedFile::fake()->create('receipt.pdf', 10, 'application/pdf'))
+        ->toMediaCollection(Expense::ReceiptsCollection, 'farmwell_private');
+
+    $thumbUrl = farmwellFinanceRoute('finance.evidence.show', $team, ['media' => $receiptPhoto, 'thumb' => 1]);
+    $previewUrl = farmwellFinanceRoute('finance.evidence.show', $team, ['media' => $receiptPhoto, 'preview' => 1]);
+
+    $this->actingAs($owner)
+        ->get(farmwellFinanceRoute('finance.expenses.index', $team))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('expenses.0.receipts.0.thumbnailUrl', $thumbUrl)
+            ->where('expenses.0.receipts.0.previewUrl', $previewUrl)
+            ->where('expenses.0.receipts.1.thumbnailUrl', null)
+            ->where('expenses.0.receipts.1.previewUrl', null));
+
+    $thumbResponse = $this->get($thumbUrl)
+        ->assertOk()
+        ->assertHeader('Content-Type', 'image/jpeg')
+        ->assertHeader('Cache-Control', 'max-age=3600, private');
+    expect(imagesx(imagecreatefromstring($thumbResponse->getContent())))->toBe(480);
+
+    $previewResponse = $this->get($previewUrl)
+        ->assertOk()
+        ->assertHeader('Content-Type', 'image/jpeg')
+        ->assertHeader('Cache-Control', 'max-age=3600, private');
+    expect(imagesx(imagecreatefromstring($previewResponse->getContent())))->toBe(1600);
+
+    $this->get(farmwellFinanceRoute('finance.evidence.show', $team, ['media' => $receiptPdf, 'thumb' => 1]))->assertNotFound();
+    $this->get(farmwellFinanceRoute('finance.evidence.show', $team, ['media' => $receiptPdf, 'preview' => 1]))->assertNotFound();
+});

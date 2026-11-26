@@ -239,28 +239,67 @@ const workspaceLinks = computed(() => {
                     <article
                         v-for="category in variance.byCategory"
                         :key="category.categoryId"
-                        class="grid gap-2 rounded-xl border p-3 text-sm md:grid-cols-4"
+                        class="space-y-2 rounded-xl border p-3 text-sm"
+                        :class="
+                            category.balanceMinor < 0
+                                ? 'border-rose-300/70 bg-rose-50/40 dark:border-rose-900/60 dark:bg-rose-950/20'
+                                : ''
+                        "
                     >
-                        <p class="font-medium">{{ category.categoryName }}</p>
-                        <p class="tabular-nums">
-                            Budgeted
-                            {{
-                                formatCurrency(
-                                    category.budgeted,
-                                    props.currency,
-                                )
-                            }}
-                        </p>
-                        <p class="tabular-nums">
-                            Spent
-                            {{ formatCurrency(category.spent, props.currency) }}
-                        </p>
-                        <p class="tabular-nums">
-                            Balance
-                            {{
-                                formatCurrency(category.balance, props.currency)
-                            }}
-                        </p>
+                        <div class="grid gap-2 md:grid-cols-4">
+                            <p class="font-medium">
+                                {{ category.categoryName }}
+                            </p>
+                            <p class="tabular-nums">
+                                Budgeted
+                                {{
+                                    formatCurrency(
+                                        category.budgeted,
+                                        props.currency,
+                                    )
+                                }}
+                            </p>
+                            <p class="tabular-nums">
+                                Spent
+                                {{
+                                    formatCurrency(
+                                        category.spent,
+                                        props.currency,
+                                    )
+                                }}
+                            </p>
+                            <p
+                                class="tabular-nums"
+                                :class="
+                                    category.balanceMinor < 0
+                                        ? 'font-medium text-rose-700 dark:text-rose-300'
+                                        : ''
+                                "
+                            >
+                                Balance
+                                {{
+                                    formatCurrency(
+                                        category.balance,
+                                        props.currency,
+                                    )
+                                }}
+                            </p>
+                        </div>
+                        <div
+                            class="h-1.5 w-full overflow-hidden rounded-full bg-muted"
+                        >
+                            <div
+                                class="h-full rounded-full transition-all"
+                                :class="
+                                    category.balanceMinor < 0
+                                        ? 'bg-rose-500'
+                                        : 'bg-primary'
+                                "
+                                :style="{
+                                    width: `${category.budgetedMinor > 0 ? Math.min(100, Math.round((category.spentMinor / category.budgetedMinor) * 100)) : category.spentMinor > 0 ? 100 : 0}%`,
+                                }"
+                            />
+                        </div>
                     </article>
                 </div>
                 <p v-else class="text-sm text-muted-foreground">
