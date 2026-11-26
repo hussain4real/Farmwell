@@ -312,9 +312,13 @@ const mainNavItems = computed<NavItem[]>(() => {
         </SidebarHeader>
 
         <SidebarContent>
-            <NavMain :items="mainNavItems" />
+            <NavMain
+                :items="mainNavItems"
+                :label="investorOnly ? 'Investments' : 'Platform'"
+            />
             <NavMain
                 v-if="page.props.canManagePlatform"
+                label="Administration"
                 :items="[
                     {
                         title: 'Platform admin',

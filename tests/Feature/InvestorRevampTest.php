@@ -1,6 +1,7 @@
 <?php
 
 use App\Actions\Investors\BuildInvestorCycleSnapshot;
+use App\Actions\Investors\RenderEvidenceThumbnail;
 use App\Enums\ApprovalRequestStatus;
 use App\Enums\CropGrowthStage;
 use App\Enums\FarmType;
@@ -14,6 +15,7 @@ use App\Models\Commodity;
 use App\Models\DistributionRecord;
 use App\Models\Expense;
 use App\Models\Farm;
+use App\Models\FarmActivity;
 use App\Models\FundingPhase;
 use App\Models\HarvestRecord;
 use App\Models\InvestorAgreement;
@@ -23,6 +25,9 @@ use App\Models\SaleRecord;
 use App\Models\Team;
 use App\Models\TeamInvitation;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
@@ -492,4 +497,98 @@ test('enriched portfolio and approvals include summary financials, cycle progres
         ->assertInertia(fn (Assert $page) => $page
             ->where('agreement.farmName', $farm->name)
             ->where('agreement.productionCycleName', $cycle->name));
+});
+
+test('investor evidence thumbnails resize wide photos, cache bytes, and fall back safely', function () {
+    Storage::fake('farmwell_private');
+
+    $owner = User::factory()->create();
+    $investor = User::factory()->create();
+    $otherInvestor = User::factory()->create();
+    $team = Team::factory()->create();
+    $team->members()->attach($owner, ['role' => TeamRole::Owner->value]);
+    $team->members()->attach($investor, ['role' => TeamRole::Investor->value]);
+    $team->members()->attach($otherInvestor, ['role' => TeamRole::Investor->value]);
+    $investor->switchTeam($team);
+
+    $farm = Farm::factory()->create(['team_id' => $team->id, 'farm_type' => FarmType::Crop]);
+    $agreement = InvestorAgreement::factory()->create([
+        'team_id' => $team->id,
+        'farm_id' => $farm->id,
+        'investor_id' => $investor->id,
+        'status' => InvestorAgreementStatus::Active,
+    ]);
+
+    $activity = FarmActivity::factory()->create([
+        'team_id' => $team->id,
+        'farm_id' => $farm->id,
+        'investor_safe_summary' => 'Shared field inspection',
+    ]);
+
+    $widePhoto = $activity
+        ->addMedia(UploadedFile::fake()->image('wide.jpg', 1200, 900))
+        ->withCustomProperties(['visibility' => 'investor_visible'])
+        ->toMediaCollection(FarmActivity::EvidenceCollection, 'farmwell_private');
+
+    $smallPhoto = $activity
+        ->addMedia(UploadedFile::fake()->image('small.jpg', 200, 150))
+        ->withCustomProperties(['visibility' => 'investor_visible'])
+        ->toMediaCollection(FarmActivity::EvidenceCollection, 'farmwell_private');
+
+    $pdf = $activity
+        ->addMedia(UploadedFile::fake()->create('notes.pdf', 10, 'application/pdf'))
+        ->withCustomProperties(['visibility' => 'investor_visible'])
+        ->toMediaCollection(FarmActivity::EvidenceCollection, 'farmwell_private');
+
+    $thumbUrl = route('investor-evidence.show', [$team, $widePhoto, 'thumb' => 1]);
+
+    $this->actingAs($investor)->get(route('investor-portal.index', $team))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('agreements.0.activities.0.evidence.0.thumbnailUrl', $thumbUrl));
+
+    $first = $this->actingAs($investor)->get($thumbUrl)
+        ->assertOk()
+        ->assertHeader('Content-Type', 'image/jpeg')
+        ->assertHeader('Cache-Control', 'max-age=3600, private')
+        ->assertHeader('X-Content-Type-Options', 'nosniff');
+
+    $gdImage = imagecreatefromstring($first->getContent());
+    expect($gdImage)->not->toBeFalse()
+        ->and(imagesx($gdImage))->toBe(480);
+
+    // Hit cache path on second request
+    $second = $this->actingAs($investor)->get($thumbUrl)->assertOk();
+    expect($second->getContent())->toBe($first->getContent());
+
+    // Small image preserves smaller dimensions without upscaling
+    $smallResponse = $this->actingAs($investor)
+        ->get(route('investor-evidence.show', [$team, $smallPhoto, 'thumb' => 1]))
+        ->assertOk();
+    $smallGd = imagecreatefromstring($smallResponse->getContent());
+    expect($smallGd)->not->toBeFalse()
+        ->and(imagesx($smallGd))->toBe(200);
+
+    // Non-photo and unauthorized requests are rejected
+    $this->actingAs($investor)
+        ->get(route('investor-evidence.show', [$team, $pdf, 'thumb' => 1]))
+        ->assertNotFound();
+    $this->actingAs($otherInvestor)
+        ->get($thumbUrl)
+        ->assertNotFound();
+
+    // Unreadable/corrupt image falls back cleanly to original inline response
+    Cache::flush();
+    Storage::disk('farmwell_private')->put($widePhoto->getPathRelativeToRoot(), 'not-valid-image-bytes');
+
+    $fallback = $this->actingAs($investor)->get($thumbUrl)
+        ->assertOk()
+        ->assertHeader('Cache-Control', 'no-store, private')
+        ->assertHeader('X-Content-Type-Options', 'nosniff');
+    expect($fallback->streamedContent())->toBe('not-valid-image-bytes');
+
+    // Missing disk file returns null from renderer
+    Cache::flush();
+    Storage::disk('farmwell_private')->delete($widePhoto->getPathRelativeToRoot());
+    expect(app(RenderEvidenceThumbnail::class)->handle($widePhoto))->toBeNull();
 });

@@ -991,6 +991,9 @@ class BuildInvestorPageData
                 ->filter(fn (Media $media): bool => $activity->sharesEvidenceWithInvestors($media))
                 ->map(fn (Media $media): array => [
                     ...$this->mediaPayload($media, $agreement->team),
+                    'thumbnailUrl' => in_array($media->mime_type, FarmActivity::InvestorPhotoMimeTypes, true)
+                        ? route('investor-evidence.show', [$agreement->team, $media, 'thumb' => 1])
+                        : null,
                     'previewUrl' => in_array($media->mime_type, FarmActivity::InvestorPhotoMimeTypes, true)
                         ? route('investor-evidence.show', [$agreement->team, $media, 'preview' => 1])
                         : null,

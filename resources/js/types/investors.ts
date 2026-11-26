@@ -255,7 +255,7 @@ export type InvestorDistributionRecord = {
 export type InvestorActivityEvidence = Pick<
     Evidence,
     'id' | 'fileName' | 'caption' | 'downloadUrl'
-> & { previewUrl: string | null };
+> & { previewUrl: string | null; thumbnailUrl?: string | null };
 
 export type InvestorActivity = {
     id: number;

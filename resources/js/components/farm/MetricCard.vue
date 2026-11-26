@@ -48,7 +48,7 @@ const barClasses = computed(() => {
 
 <template>
     <div
-        class="flex min-w-0 flex-col justify-between rounded-xl border bg-card p-4 shadow-xs transition-shadow hover:shadow-sm"
+        class="flex min-w-0 flex-col rounded-xl border bg-card p-4 shadow-xs transition-shadow hover:shadow-sm"
     >
         <div class="flex items-start justify-between gap-3">
             <span class="text-xs font-medium text-muted-foreground">
@@ -72,15 +72,16 @@ const barClasses = computed(() => {
                 {{ subtext }}
             </p>
         </div>
-        <div
-            v-if="progress !== null"
-            class="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-muted"
-        >
-            <div
-                class="h-full rounded-full transition-all"
-                :class="barClasses"
-                :style="{ width: `${Math.min(100, Math.max(0, progress))}%` }"
-            />
+        <div v-if="progress !== null" class="mt-auto pt-3">
+            <div class="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                <div
+                    class="h-full rounded-full transition-all"
+                    :class="barClasses"
+                    :style="{
+                        width: `${Math.min(100, Math.max(0, progress))}%`,
+                    }"
+                />
+            </div>
         </div>
     </div>
 </template>

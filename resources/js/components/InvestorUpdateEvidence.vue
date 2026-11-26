@@ -132,15 +132,17 @@ async function openPhoto(photoId: number) {
                     @click="openPhoto(file.id)"
                 >
                     <img
-                        :src="file.previewUrl"
+                        :src="file.thumbnailUrl ?? file.previewUrl"
                         alt=""
                         loading="lazy"
                         decoding="async"
                         class="aspect-[4/3] w-full bg-muted object-cover"
                     />
-                    <span class="px-2 py-1.5 break-all">{{
-                        file.fileName
-                    }}</span>
+                    <span
+                        class="w-full truncate px-2 py-1.5 text-xs text-muted-foreground"
+                        :title="file.caption || file.fileName"
+                        >{{ file.caption || file.fileName }}</span
+                    >
                 </button>
                 <a
                     v-else

@@ -1,27 +1,11 @@
 <script setup lang="ts">
-import { computed } from 'vue';
 import { formatCurrency } from '@/lib/currency';
 import { formatInvestorDate } from '@/lib/investor-portal';
 import type { InvestorAgreement } from '@/types';
 
-const props = defineProps<{
+defineProps<{
     agreement: InvestorAgreement;
 }>();
-
-const fundingPercent = computed(() => {
-    if (!(props.agreement.amountCommittedMinor > 0)) {
-        return null;
-    }
-
-    return Math.min(
-        100,
-        Math.round(
-            (props.agreement.amountFundedMinor /
-                props.agreement.amountCommittedMinor) *
-                100,
-        ),
-    );
-});
 </script>
 
 <template>
@@ -29,34 +13,16 @@ const fundingPercent = computed(() => {
         :aria-labelledby="`agreement-terms-${agreement.id}`"
         class="space-y-6 rounded-2xl border bg-card p-4 shadow-xs sm:p-6"
     >
-        <div class="flex flex-wrap items-start justify-between gap-4">
-            <div>
-                <h3
-                    :id="`agreement-terms-${agreement.id}`"
-                    class="text-base font-semibold tracking-tight"
-                >
-                    Your agreement
-                </h3>
-                <p class="mt-1 text-sm text-muted-foreground">
-                    Capital commitments, agreed scope and how profit is shared.
-                </p>
-            </div>
-            <div v-if="fundingPercent !== null" class="min-w-44 space-y-1.5">
-                <div
-                    class="flex items-center justify-between text-xs text-muted-foreground"
-                >
-                    <span>Commitment funded</span>
-                    <span class="font-semibold text-foreground tabular-nums">
-                        {{ fundingPercent }}%
-                    </span>
-                </div>
-                <div class="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                    <div
-                        class="h-full rounded-full bg-primary transition-all"
-                        :style="{ width: `${fundingPercent}%` }"
-                    />
-                </div>
-            </div>
+        <div>
+            <h3
+                :id="`agreement-terms-${agreement.id}`"
+                class="text-base font-semibold tracking-tight"
+            >
+                Your agreement
+            </h3>
+            <p class="mt-1 text-sm text-muted-foreground">
+                Capital commitments, agreed scope and how profit is shared.
+            </p>
         </div>
 
         <dl class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

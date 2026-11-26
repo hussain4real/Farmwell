@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Investors;
 
+use App\Actions\Investors\RenderEvidenceThumbnail;
 use App\Enums\ApprovalRequestStatus;
 use App\Enums\ApprovalRequestType;
 use App\Enums\InvestorAgreementStatus;
@@ -21,11 +22,11 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
-use Symfony\Component\HttpFoundation\StreamedResponse;
+use Symfony\Component\HttpFoundation\Response;
 
 class InvestorEvidenceController extends Controller
 {
-    public function show(Request $request, Team $currentTeam, Media $media): StreamedResponse
+    public function show(Request $request, Team $currentTeam, Media $media, RenderEvidenceThumbnail $renderThumbnail): Response
     {
         $user = $request->user();
         assert($user instanceof User);
@@ -38,6 +39,28 @@ class InvestorEvidenceController extends Controller
         if (! $user->can('viewInvestorAgreements', $currentTeam) && ! $user->can('viewFinance', $currentTeam)) {
             abort_unless($user->can('viewInvestorPortal', $currentTeam), 403);
             abort_unless($this->isInvestorVisible($currentTeam, $user, $media, $subject), 404);
+        }
+
+        if ($request->boolean('thumb')) {
+            abort_unless($subject instanceof FarmActivity && $subject->sharesEvidenceWithInvestors($media)
+                && in_array($media->mime_type, FarmActivity::InvestorPhotoMimeTypes, true), 404);
+
+            $thumbnail = $renderThumbnail->handle($media);
+            if ($thumbnail !== null) {
+                return response($thumbnail, 200, [
+                    'Content-Type' => 'image/jpeg',
+                    'Content-Disposition' => 'inline; filename="thumb-'.$media->id.'.jpg"',
+                    'Cache-Control' => 'private, max-age=3600',
+                    'X-Content-Type-Options' => 'nosniff',
+                ]);
+            }
+
+            $response = $media->toInlineResponse($request);
+            $response->headers->set('Cache-Control', 'private, no-store');
+            $response->headers->remove('Pragma');
+            $response->headers->set('X-Content-Type-Options', 'nosniff');
+
+            return $response;
         }
 
         if ($request->boolean('preview')) {

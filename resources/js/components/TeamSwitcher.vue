@@ -37,8 +37,8 @@ const currentTeam = computed(() => page.props.currentTeam);
 const teams = computed(() => page.props.teams ?? []);
 const menuContentClass = computed(() =>
     props.inHeader
-        ? 'w-56'
-        : 'w-(--reka-dropdown-menu-trigger-width) min-w-56 rounded-lg',
+        ? 'w-64'
+        : 'w-(--reka-dropdown-menu-trigger-width) min-w-64 rounded-lg',
 );
 const teamItemClass = computed(() =>
     props.inHeader ? 'cursor-pointer gap-2' : 'cursor-pointer gap-2 p-2',

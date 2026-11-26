@@ -558,3 +558,71 @@ test('portfolio renders consolidated summary totals and farm type badges without
     assert.ok(html.includes('50% of commitment'));
     assert.ok(html.includes('₦70,000.00 NGN total returned'));
 });
+
+test('updates prefer thumbnailUrl on grid images while preserving previewUrl for lightbox and render distinct sidebar labels', async () => {
+    const html = await renderToString(
+        createSSRApp({
+            render: () =>
+                h(Updates, {
+                    agreement: agreement({
+                        activities: [
+                            {
+                                id: 1,
+                                activityType: 'Shared field photos',
+                                activityDate: '2026-11-22',
+                                summary: null,
+                                evidence: [
+                                    {
+                                        id: 7,
+                                        fileName: 'IMG_20261122.jpg',
+                                        downloadUrl: '/farm/investor-evidence/7',
+                                        thumbnailUrl: '/farm/investor-evidence/7?thumb=1',
+                                        previewUrl: '/farm/investor-evidence/7?preview=1',
+                                        caption: null,
+                                    },
+                                ],
+                            },
+                        ],
+                    }),
+                }),
+        }),
+    );
+
+    assert.match(html, /src="\/farm\/investor-evidence\/7\?thumb=1"/);
+
+    const { default: AppSidebar } = await server.ssrLoadModule(
+        '/resources/js/components/AppSidebar.vue',
+    );
+    const { default: SidebarProvider } = await server.ssrLoadModule(
+        '/resources/js/components/ui/sidebar/SidebarProvider.vue',
+    );
+    const sidebarPage = await createInertiaApp({
+        page: {
+            component: 'SidebarLabelTest',
+            url: '/my-investments',
+            version: 'test',
+            props: {
+                auth: { user: { id: 1, name: 'Super Investor', email: 'super@example.test' } },
+                canManagePlatform: true,
+                currentTeam: { id: 1, name: 'Fish Farm', slug: 'fish-farm', role: 'investor' },
+                currentTeamPermissions: {
+                    canViewInvestorPortal: true,
+                    canViewFarmOperations: false,
+                    canViewFinance: false,
+                    canViewInvestorAgreements: false,
+                },
+                teams: [],
+                errors: {},
+            },
+            clearHistory: false,
+            encryptHistory: false,
+        },
+        resolve: () => ({ render: () => h(SidebarProvider, null, { default: () => h(AppSidebar) }) }),
+        setup: ({ App, props, plugin }) => createSSRApp({ render: () => h(App, props) }).use(plugin),
+        render: renderToString,
+    });
+
+    assert.match(sidebarPage.body, />Investments</);
+    assert.match(sidebarPage.body, />Administration</);
+    assert.doesNotMatch(sidebarPage.body, />Platform</);
+});

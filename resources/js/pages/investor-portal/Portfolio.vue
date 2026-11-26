@@ -293,7 +293,11 @@ const currencyTotals = computed(() => props.summary?.totalsByCurrency ?? []);
             </h2>
             <div
                 v-if="farms.length"
-                class="grid items-start gap-5 @3xl:grid-cols-2"
+                :class="
+                    farms.length > 1
+                        ? 'grid items-start gap-5 @3xl:grid-cols-2'
+                        : 'grid items-start gap-5'
+                "
             >
                 <article
                     v-for="farm in farms"

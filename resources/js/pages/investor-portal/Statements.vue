@@ -45,6 +45,38 @@ useQueuedPolling('statements', () =>
 const page = usePage();
 const slug = computed(() => (page.props.currentTeam as Team).slug);
 
+defineOptions({
+    layout: (props: { currentTeam?: Team | null }) => ({
+        breadcrumbs: [
+            {
+                title: 'Investor Portal',
+                href: props.currentTeam
+                    ? portal(props.currentTeam.slug).url
+                    : '/',
+            },
+            {
+                title: 'Investor Statements',
+                href: '',
+            },
+        ],
+    }),
+});
+
+const heroDescription = computed(() => {
+    const { title, farmName, productionCycleName } = props.agreement;
+    const parts = [title];
+
+    if (farmName && !title.toLowerCase().includes(farmName.toLowerCase())) {
+        parts.push(farmName);
+    }
+
+    if (productionCycleName) {
+        parts.push(productionCycleName);
+    }
+
+    return parts.join(' · ');
+});
+
 function toIsoDate(date: Date): string {
     return date.toISOString().slice(0, 10);
 }
@@ -108,7 +140,7 @@ function applyPreset(
         <PageHero
             eyebrow="Investor Reporting"
             title="Investor statements"
-            :description="`${agreement.title}${agreement.farmName ? ` · ${agreement.farmName}` : ''}${agreement.productionCycleName ? ` · ${agreement.productionCycleName}` : ''}`"
+            :description="heroDescription"
         >
             <template #actions>
                 <Button
