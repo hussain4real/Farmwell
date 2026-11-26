@@ -339,8 +339,34 @@ class BuildInvestorPageData
                 ];
             })->values()->all();
 
+        $agreementTeamIds = $agreements->pluck('team_id')->unique()->all();
+        $draftTeamIds = InvestorAgreement::query()
+            ->where('investor_id', $user->id)
+            ->where('status', InvestorAgreementStatus::Draft->value)
+            ->pluck('team_id')
+            ->unique()
+            ->all();
+
+        $pendingWorkspaces = $user->teams()
+            ->wherePivot('role', TeamRole::Investor->value)
+            ->whereNotIn('teams.id', $agreementTeamIds)
+            ->withCount('farms')
+            ->orderBy('teams.name')
+            ->get()
+            ->filter(fn (Team $team): bool => $user->can('viewInvestorPortal', $team))
+            ->map(fn (Team $team): array => [
+                'id' => $team->id,
+                'name' => $team->name,
+                'slug' => $team->slug,
+                'farmsCount' => (int) $team->getAttribute('farms_count'),
+                'hasDraftAgreement' => in_array($team->id, $draftTeamIds, true),
+            ])
+            ->values()
+            ->all();
+
         return [
             'farms' => $farms,
+            'pendingWorkspaces' => $pendingWorkspaces,
             'attention' => $attention,
             'summary' => [
                 'farmCount' => count($farms),

@@ -771,10 +771,10 @@ test('investors can preview shared diary photos without a public summary', funct
 
     $response = $this->get($preview)->assertOk()
         ->assertHeader('Content-Type', 'image/jpeg')
-        ->assertHeader('Content-Disposition', 'inline; filename="shared.jpg"')
-        ->assertHeader('Cache-Control', 'no-store, private')
+        ->assertHeader('Content-Disposition', 'inline; filename="preview-'.$photo->id.'.jpg"')
+        ->assertHeader('Cache-Control', 'max-age=3600, private')
         ->assertHeader('X-Content-Type-Options', 'nosniff');
-    expect($response->streamedContent())->toBe(Storage::disk('farmwell_private')->get($photo->getPathRelativeToRoot()));
+    expect(imagecreatefromstring($response->getContent()))->not->toBeFalse();
 
     $this->get(farmwellInvestorRoute('investor-evidence.show', $team, ['media' => $private, 'preview' => 1]))->assertNotFound();
     $this->get(farmwellInvestorRoute('investor-evidence.show', $team, ['media' => $document]))->assertNotFound();

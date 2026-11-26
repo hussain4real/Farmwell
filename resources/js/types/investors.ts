@@ -349,6 +349,14 @@ export type InvestorInviteContext = {
     }>;
 };
 
+export type InvestorPendingWorkspace = {
+    id: number;
+    name: string;
+    slug: string;
+    farmsCount: number;
+    hasDraftAgreement: boolean;
+};
+
 export type InvestorPortfolioSummary = {
     farmCount: number;
     agreementCount: number;

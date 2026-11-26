@@ -2,6 +2,7 @@
 import { Head, Link } from '@inertiajs/vue3';
 import {
     ArrowRight,
+    Clock,
     ClipboardCheck,
     FileSpreadsheet,
     Handshake,
@@ -22,7 +23,10 @@ import { formatInvestorDate } from '@/lib/investor-portal';
 import { index as investorPortal } from '@/routes/investor-portal';
 import { index as investorStatements } from '@/routes/investor-statements';
 import { index as myInvestments } from '@/routes/my-investments';
-import type { InvestorPortfolioSummary } from '@/types';
+import type {
+    InvestorPendingWorkspace,
+    InvestorPortfolioSummary,
+} from '@/types';
 
 type FarmInvestment = {
     id: number;
@@ -64,6 +68,7 @@ type PendingDecision = {
 
 const props = defineProps<{
     farms: FarmInvestment[];
+    pendingWorkspaces?: InvestorPendingWorkspace[];
     attention: PendingDecision[];
     summary?: InvestorPortfolioSummary;
 }>();
@@ -553,6 +558,71 @@ const currencyTotals = computed(() => props.summary?.totalsByCurrency ?? []);
                 title="No shared investments yet"
                 description="Farms appear here when an investor agreement is shared with you."
             />
+        </section>
+
+        <section
+            v-if="pendingWorkspaces?.length"
+            aria-labelledby="pending-workspaces"
+            class="space-y-3"
+        >
+            <div class="space-y-0.5">
+                <h2
+                    id="pending-workspaces"
+                    class="text-lg font-semibold tracking-tight"
+                >
+                    Awaiting agreement setup
+                </h2>
+                <p class="text-sm text-muted-foreground">
+                    Workspaces you have been invited to as an investor that do
+                    not have an active agreement shared yet.
+                </p>
+            </div>
+            <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <article
+                    v-for="workspace in pendingWorkspaces"
+                    :key="workspace.id"
+                    class="flex flex-col justify-between gap-4 rounded-2xl border bg-card p-4 text-card-foreground shadow-xs @xl:p-5"
+                >
+                    <div class="space-y-2">
+                        <div
+                            class="flex flex-wrap items-start justify-between gap-2"
+                        >
+                            <div class="flex min-w-0 items-center gap-2.5">
+                                <span
+                                    class="grid size-8 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground"
+                                >
+                                    <Clock aria-hidden="true" class="size-4" />
+                                </span>
+                                <h3 class="min-w-0 font-semibold break-words">
+                                    {{ workspace.name }}
+                                </h3>
+                            </div>
+                            <Badge variant="outline">
+                                {{
+                                    workspace.hasDraftAgreement
+                                        ? 'Draft agreement in progress'
+                                        : 'Awaiting agreement'
+                                }}
+                            </Badge>
+                        </div>
+                        <p class="text-xs text-muted-foreground">
+                            {{ workspace.farmsCount }}
+                            {{ workspace.farmsCount === 1 ? 'farm' : 'farms' }}
+                        </p>
+                    </div>
+                    <div>
+                        <Button variant="outline" size="sm" as-child>
+                            <Link
+                                :href="investorPortal(workspace.slug)"
+                                class="min-h-11 sm:min-h-9"
+                            >
+                                Open portal
+                                <ArrowRight aria-hidden="true" class="size-4" />
+                            </Link>
+                        </Button>
+                    </div>
+                </article>
+            </div>
         </section>
     </div>
 </template>

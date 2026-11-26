@@ -1,7 +1,7 @@
 <?php
 
 use App\Actions\Investors\BuildInvestorCycleSnapshot;
-use App\Actions\Investors\RenderEvidenceThumbnail;
+use App\Actions\Media\RenderMediaVariant;
 use App\Enums\ApprovalRequestStatus;
 use App\Enums\CropGrowthStage;
 use App\Enums\FarmType;
@@ -590,5 +590,82 @@ test('investor evidence thumbnails resize wide photos, cache bytes, and fall bac
     // Missing disk file returns null from renderer
     Cache::flush();
     Storage::disk('farmwell_private')->delete($widePhoto->getPathRelativeToRoot());
-    expect(app(RenderEvidenceThumbnail::class)->handle($widePhoto))->toBeNull();
+    expect(app(RenderMediaVariant::class)->handle($widePhoto))->toBeNull();
+});
+
+test('media variant renderer supports 1600px previews and normalizes JPEG EXIF orientation', function () {
+    Storage::fake('farmwell_private');
+
+    $owner = User::factory()->create();
+    $investor = User::factory()->create();
+    $team = Team::factory()->create();
+    $team->members()->attach($owner, ['role' => TeamRole::Owner->value]);
+    $team->members()->attach($investor, ['role' => TeamRole::Investor->value]);
+    $investor->switchTeam($team);
+
+    $farm = Farm::factory()->create(['team_id' => $team->id, 'farm_type' => FarmType::Crop]);
+    InvestorAgreement::factory()->create([
+        'team_id' => $team->id,
+        'farm_id' => $farm->id,
+        'investor_id' => $investor->id,
+        'status' => InvestorAgreementStatus::Active,
+    ]);
+
+    $activity = FarmActivity::factory()->create([
+        'team_id' => $team->id,
+        'farm_id' => $farm->id,
+        'investor_safe_summary' => 'Oriented photos',
+    ]);
+
+    $makeOrientedJpeg = function (int $width, int $height, int $orientation): string {
+        $img = imagecreatetruecolor($width, $height);
+        $red = imagecolorallocate($img, 255, 0, 0);
+        imagefilledrectangle($img, 0, 0, $width - 1, (int) ($height / 2) - 1, $red);
+        ob_start();
+        imagejpeg($img, null, 90);
+        $raw = (string) ob_get_clean();
+
+        $tiff = 'II'.pack('v', 42).pack('V', 8).pack('v', 1).pack('vvVV', 0x0112, 3, 1, $orientation).pack('V', 0);
+        $app1 = "Exif\x00\x00".$tiff;
+        $segment = "\xFF\xE1".pack('n', strlen($app1) + 2).$app1;
+
+        return substr($raw, 0, 2).$segment.substr($raw, 2);
+    };
+
+    $landscapeWide = $activity
+        ->addMedia(UploadedFile::fake()->image('huge.jpg', 2200, 1200))
+        ->withCustomProperties(['visibility' => 'investor_visible'])
+        ->toMediaCollection(FarmActivity::EvidenceCollection, 'farmwell_private');
+
+    $previewResponse = $this->actingAs($investor)
+        ->get(route('investor-evidence.show', [$team, $landscapeWide, 'preview' => 1]))
+        ->assertOk()
+        ->assertHeader('Content-Type', 'image/jpeg')
+        ->assertHeader('Content-Disposition', 'inline; filename="preview-'.$landscapeWide->id.'.jpg"')
+        ->assertHeader('Cache-Control', 'max-age=3600, private');
+
+    $previewGd = imagecreatefromstring($previewResponse->getContent());
+    expect($previewGd)->not->toBeFalse()
+        ->and(imagesx($previewGd))->toBe(1600);
+
+    $orient3 = $activity
+        ->addMediaFromString($makeOrientedJpeg(120, 60, 3))
+        ->usingFileName('orient-3.jpg')
+        ->toMediaCollection(FarmActivity::EvidenceCollection, 'farmwell_private');
+    $rendered3 = imagecreatefromstring((string) app(RenderMediaVariant::class)->handle($orient3, RenderMediaVariant::VariantPreview));
+    expect($rendered3)->not->toBeFalse()
+        ->and(imagesx($rendered3))->toBe(120)
+        ->and((imagecolorat($rendered3, 60, 5) >> 16) & 0xFF)->toBeLessThan(30);
+
+    foreach ([6, 8] as $orientation) {
+        $oriented = $activity
+            ->addMediaFromString($makeOrientedJpeg(120, 60, $orientation))
+            ->usingFileName("orient-{$orientation}.jpg")
+            ->toMediaCollection(FarmActivity::EvidenceCollection, 'farmwell_private');
+
+        $gd = imagecreatefromstring((string) app(RenderMediaVariant::class)->handle($oriented, RenderMediaVariant::VariantThumb));
+        expect($gd)->not->toBeFalse()
+            ->and(imagesx($gd))->toBe(60)
+            ->and(imagesy($gd))->toBe(120);
+    }
 });

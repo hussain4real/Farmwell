@@ -115,5 +115,54 @@ test('the portfolio requires a verified account and can show an empty portfolio'
     $this->actingAs(User::factory()->unverified()->create())->get($url)->assertRedirect(route('verification.notice'));
 
     $this->actingAs(User::factory()->create())->get($url)->assertOk()
-        ->assertInertia(fn (Assert $page) => $page->component('investor-portal/Portfolio')->where('farms', [])->where('attention', []));
+        ->assertInertia(fn (Assert $page) => $page->component('investor-portal/Portfolio')
+            ->where('farms', [])
+            ->where('pendingWorkspaces', [])
+            ->where('attention', []));
+});
+
+test('the portfolio lists investor workspaces awaiting agreement setup separately from active investments', function () {
+    $investor = User::factory()->create();
+    $activeTeam = Team::factory()->create(['name' => 'Alpha Farms']);
+    $draftTeam = Team::factory()->create(['name' => 'Bravo Aquaculture']);
+    $awaitingTeam = Team::factory()->create(['name' => 'Charlie Poultry']);
+    $operatorTeam = Team::factory()->create(['name' => 'Delta Operator Only']);
+
+    $activeTeam->members()->attach($investor, ['role' => TeamRole::Investor->value]);
+    $draftTeam->members()->attach($investor, ['role' => TeamRole::Investor->value]);
+    $awaitingTeam->members()->attach($investor, ['role' => TeamRole::Investor->value]);
+    $operatorTeam->members()->attach($investor, ['role' => TeamRole::Operator->value]);
+
+    $activeFarm = Farm::factory()->create(['team_id' => $activeTeam->id, 'name' => 'Alpha Farm']);
+    $draftFarm = Farm::factory()->create(['team_id' => $draftTeam->id, 'name' => 'Bravo Pond']);
+    Farm::factory()->create(['team_id' => $awaitingTeam->id, 'name' => 'Charlie Coop']);
+    Farm::factory()->create(['team_id' => $operatorTeam->id, 'name' => 'Delta Farm']);
+
+    InvestorAgreement::factory()->create([
+        'team_id' => $activeTeam->id,
+        'farm_id' => $activeFarm->id,
+        'investor_id' => $investor->id,
+        'status' => InvestorAgreementStatus::Active,
+    ]);
+
+    InvestorAgreement::factory()->create([
+        'team_id' => $draftTeam->id,
+        'farm_id' => $draftFarm->id,
+        'investor_id' => $investor->id,
+        'status' => InvestorAgreementStatus::Draft,
+    ]);
+
+    $this->actingAs($investor)->get(route('my-investments.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('investor-portal/Portfolio')
+            ->has('farms', 1)
+            ->where('farms.0.name', 'Alpha Farm')
+            ->has('pendingWorkspaces', 2)
+            ->where('pendingWorkspaces.0.name', 'Bravo Aquaculture')
+            ->where('pendingWorkspaces.0.farmsCount', 1)
+            ->where('pendingWorkspaces.0.hasDraftAgreement', true)
+            ->where('pendingWorkspaces.1.name', 'Charlie Poultry')
+            ->where('pendingWorkspaces.1.farmsCount', 1)
+            ->where('pendingWorkspaces.1.hasDraftAgreement', false));
 });

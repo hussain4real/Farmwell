@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Investors;
 
-use App\Actions\Investors\RenderEvidenceThumbnail;
+use App\Actions\Media\RenderMediaVariant;
 use App\Enums\ApprovalRequestStatus;
 use App\Enums\ApprovalRequestType;
 use App\Enums\InvestorAgreementStatus;
@@ -26,7 +26,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 class InvestorEvidenceController extends Controller
 {
-    public function show(Request $request, Team $currentTeam, Media $media, RenderEvidenceThumbnail $renderThumbnail): Response
+    public function show(Request $request, Team $currentTeam, Media $media, RenderMediaVariant $renderVariant): Response
     {
         $user = $request->user();
         assert($user instanceof User);
@@ -42,40 +42,42 @@ class InvestorEvidenceController extends Controller
         }
 
         if ($request->boolean('thumb')) {
-            abort_unless($subject instanceof FarmActivity && $subject->sharesEvidenceWithInvestors($media)
-                && in_array($media->mime_type, FarmActivity::InvestorPhotoMimeTypes, true), 404);
-
-            $thumbnail = $renderThumbnail->handle($media);
-            if ($thumbnail !== null) {
-                return response($thumbnail, 200, [
-                    'Content-Type' => 'image/jpeg',
-                    'Content-Disposition' => 'inline; filename="thumb-'.$media->id.'.jpg"',
-                    'Cache-Control' => 'private, max-age=3600',
-                    'X-Content-Type-Options' => 'nosniff',
-                ]);
-            }
-
-            $response = $media->toInlineResponse($request);
-            $response->headers->set('Cache-Control', 'private, no-store');
-            $response->headers->remove('Pragma');
-            $response->headers->set('X-Content-Type-Options', 'nosniff');
-
-            return $response;
+            return $this->serveImageVariant($request, $media, $subject, $renderVariant, RenderMediaVariant::VariantThumb);
         }
 
         if ($request->boolean('preview')) {
-            abort_unless($subject instanceof FarmActivity && $subject->sharesEvidenceWithInvestors($media)
-                && in_array($media->mime_type, FarmActivity::InvestorPhotoMimeTypes, true), 404);
-
-            $response = $media->toInlineResponse($request);
-            $response->headers->set('Cache-Control', 'private, no-store');
-            $response->headers->remove('Pragma');
-            $response->headers->set('X-Content-Type-Options', 'nosniff');
-
-            return $response;
+            return $this->serveImageVariant($request, $media, $subject, $renderVariant, RenderMediaVariant::VariantPreview);
         }
 
         return $media->toResponse($request);
+    }
+
+    private function serveImageVariant(
+        Request $request,
+        Media $media,
+        Model $subject,
+        RenderMediaVariant $renderVariant,
+        string $variant,
+    ): Response {
+        abort_unless($subject instanceof FarmActivity && $subject->sharesEvidenceWithInvestors($media)
+            && in_array($media->mime_type, FarmActivity::InvestorPhotoMimeTypes, true), 404);
+
+        $bytes = $renderVariant->handle($media, $variant);
+        if ($bytes !== null) {
+            return response($bytes, 200, [
+                'Content-Type' => 'image/jpeg',
+                'Content-Disposition' => 'inline; filename="'.$variant.'-'.$media->id.'.jpg"',
+                'Cache-Control' => 'private, max-age=3600',
+                'X-Content-Type-Options' => 'nosniff',
+            ]);
+        }
+
+        $response = $media->toInlineResponse($request);
+        $response->headers->set('Cache-Control', 'private, no-store');
+        $response->headers->remove('Pragma');
+        $response->headers->set('X-Content-Type-Options', 'nosniff');
+
+        return $response;
     }
 
     private function isInvestorVisible(Team $team, User $user, Media $media, Model $subject): bool
