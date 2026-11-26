@@ -267,14 +267,14 @@ watch(phaseCycleId, () => {
                         </Badge>
                     </div>
                     <dl
-                        class="grid grid-cols-2 gap-3 rounded-xl bg-muted/40 p-3.5 sm:grid-cols-4"
+                        class="grid grid-cols-2 gap-3 rounded-xl bg-muted/40 p-3.5"
                     >
                         <div class="min-w-0">
                             <dt class="text-xs text-muted-foreground">
                                 Planned
                             </dt>
                             <dd
-                                class="mt-0.5 font-semibold break-words tabular-nums"
+                                class="mt-0.5 font-semibold whitespace-nowrap tabular-nums"
                             >
                                 {{
                                     formatCurrency(
@@ -289,7 +289,7 @@ watch(phaseCycleId, () => {
                                 Requested
                             </dt>
                             <dd
-                                class="mt-0.5 font-semibold break-words tabular-nums"
+                                class="mt-0.5 font-semibold whitespace-nowrap tabular-nums"
                             >
                                 {{
                                     formatCurrency(
@@ -304,7 +304,7 @@ watch(phaseCycleId, () => {
                                 Approved
                             </dt>
                             <dd
-                                class="mt-0.5 font-semibold break-words tabular-nums"
+                                class="mt-0.5 font-semibold whitespace-nowrap tabular-nums"
                             >
                                 {{
                                     formatCurrency(
@@ -319,7 +319,7 @@ watch(phaseCycleId, () => {
                                 Released
                             </dt>
                             <dd
-                                class="mt-0.5 font-semibold break-words tabular-nums"
+                                class="mt-0.5 font-semibold whitespace-nowrap tabular-nums"
                             >
                                 {{
                                     formatCurrency(

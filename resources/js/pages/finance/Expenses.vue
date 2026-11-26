@@ -221,7 +221,9 @@ watch(expenseCycleId, () => {
                 </div>
                 <div class="border-s border-white/15 px-4 py-3 sm:px-6">
                     <p class="text-xs text-emerald-100/75">Total spent</p>
-                    <p class="mt-0.5 text-lg font-semibold tabular-nums">
+                    <p
+                        class="mt-0.5 text-base font-semibold whitespace-nowrap tabular-nums sm:text-lg"
+                    >
                         {{ formatCurrency(variance.spent, currency) }}
                     </p>
                 </div>
@@ -229,7 +231,9 @@ watch(expenseCycleId, () => {
                     class="col-span-2 border-t border-white/15 px-4 py-3 sm:col-span-2 sm:border-s sm:border-t-0 sm:px-6"
                 >
                     <p class="text-xs text-emerald-100/75">Remaining budget</p>
-                    <p class="mt-0.5 text-lg font-semibold tabular-nums">
+                    <p
+                        class="mt-0.5 text-base font-semibold whitespace-nowrap tabular-nums sm:text-lg"
+                    >
                         {{ formatCurrency(variance.balance, currency) }}
                     </p>
                 </div>

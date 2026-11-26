@@ -243,7 +243,7 @@ watch(
                         permissions.canManageFarmOperations && currentTeamSlug
                     "
                     :href="onboardingIndex(currentTeamSlug)"
-                    class="inline-flex h-10 items-center gap-2 rounded-lg bg-white px-4 text-sm font-medium text-[#1b4d3e] hover:bg-emerald-50"
+                    class="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-medium whitespace-nowrap text-[#1b4d3e] hover:bg-emerald-50"
                 >
                     <PlusCircle class="size-4" />
                     Guided farm setup

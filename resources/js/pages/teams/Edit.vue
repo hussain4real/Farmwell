@@ -323,10 +323,10 @@ const copyInvitationLink = async (url: string | null | undefined) => {
                     v-for="member in members"
                     :key="member.id"
                     data-test="member-row"
-                    class="flex items-center justify-between rounded-lg border p-4"
+                    class="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4"
                 >
-                    <div class="flex items-center gap-4">
-                        <Avatar class="h-10 w-10">
+                    <div class="flex min-w-0 items-center gap-3">
+                        <Avatar class="h-10 w-10 shrink-0">
                             <AvatarImage
                                 v-if="member.avatar"
                                 :src="member.avatar"
@@ -336,11 +336,11 @@ const copyInvitationLink = async (url: string | null | undefined) => {
                                 getInitials(member.name)
                             }}</AvatarFallback>
                         </Avatar>
-                        <div>
-                            <div class="font-medium">
+                        <div class="min-w-0">
+                            <div class="truncate font-medium">
                                 {{ member.name }}
                             </div>
-                            <div class="text-sm text-muted-foreground">
+                            <div class="truncate text-sm text-muted-foreground">
                                 {{ member.email }}
                             </div>
                         </div>
@@ -392,6 +392,7 @@ const copyInvitationLink = async (url: string | null | undefined) => {
                                 <TooltipTrigger as-child>
                                     <Button
                                         data-test="member-remove-button"
+                                        aria-label="Remove member"
                                         variant="ghost"
                                         size="sm"
                                         @click="confirmRemoveMember(member)"

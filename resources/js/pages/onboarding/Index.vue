@@ -315,7 +315,12 @@ const submit = () => {
                             class="mt-4 flex flex-wrap gap-1.5 text-[11px] text-muted-foreground"
                         >
                             <span class="rounded-md bg-muted px-2 py-0.5">
-                                {{ template.starterTasks.length }} starter tasks
+                                {{ template.starterTasks.length }}
+                                {{
+                                    template.starterTasks.length === 1
+                                        ? 'starter task'
+                                        : 'starter tasks'
+                                }}
                             </span>
                             <span
                                 v-if="template.starterInventory.length"

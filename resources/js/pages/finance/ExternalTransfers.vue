@@ -206,7 +206,9 @@ watch(transferCycleId, () => {
                 </div>
                 <div class="border-s border-white/15 px-4 py-3 sm:px-6">
                     <p class="text-xs text-emerald-100/75">Incoming</p>
-                    <p class="mt-0.5 text-lg font-semibold tabular-nums">
+                    <p
+                        class="mt-0.5 text-base font-semibold whitespace-nowrap tabular-nums sm:text-lg"
+                    >
                         {{ incomingTotal }}
                     </p>
                 </div>
@@ -214,7 +216,9 @@ watch(transferCycleId, () => {
                     class="col-span-2 border-t border-white/15 px-4 py-3 sm:col-span-2 sm:border-s sm:border-t-0 sm:px-6"
                 >
                     <p class="text-xs text-emerald-100/75">Outgoing</p>
-                    <p class="mt-0.5 text-lg font-semibold tabular-nums">
+                    <p
+                        class="mt-0.5 text-base font-semibold whitespace-nowrap tabular-nums sm:text-lg"
+                    >
                         {{ outgoingTotal }}
                     </p>
                 </div>
@@ -295,7 +299,10 @@ watch(transferCycleId, () => {
                                 <span v-if="transfer.productionCycleName">
                                     · {{ transfer.productionCycleName }}
                                 </span>
-                                · {{ transfer.transferredOn }}
+                                ·
+                                <span class="whitespace-nowrap">{{
+                                    transfer.transferredOn
+                                }}</span>
                             </p>
                         </div>
                         <div class="flex flex-wrap items-center gap-2">

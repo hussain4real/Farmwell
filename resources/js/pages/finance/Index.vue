@@ -246,12 +246,16 @@ const workspaceLinks = computed(() => {
                                 : ''
                         "
                     >
-                        <div class="grid gap-2 md:grid-cols-4">
+                        <div
+                            class="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_auto_auto_auto] lg:items-center lg:gap-4"
+                        >
                             <p class="font-medium">
                                 {{ category.categoryName }}
                             </p>
-                            <p class="tabular-nums">
-                                Budgeted
+                            <p class="whitespace-nowrap tabular-nums">
+                                <span class="text-xs text-muted-foreground"
+                                    >Budgeted</span
+                                >
                                 {{
                                     formatCurrency(
                                         category.budgeted,
@@ -259,8 +263,10 @@ const workspaceLinks = computed(() => {
                                     )
                                 }}
                             </p>
-                            <p class="tabular-nums">
-                                Spent
+                            <p class="whitespace-nowrap tabular-nums">
+                                <span class="text-xs text-muted-foreground"
+                                    >Spent</span
+                                >
                                 {{
                                     formatCurrency(
                                         category.spent,
@@ -269,14 +275,16 @@ const workspaceLinks = computed(() => {
                                 }}
                             </p>
                             <p
-                                class="tabular-nums"
+                                class="whitespace-nowrap tabular-nums"
                                 :class="
                                     category.balanceMinor < 0
                                         ? 'font-medium text-rose-700 dark:text-rose-300'
                                         : ''
                                 "
                             >
-                                Balance
+                                <span class="text-xs text-muted-foreground"
+                                    >Balance</span
+                                >
                                 {{
                                     formatCurrency(
                                         category.balance,
