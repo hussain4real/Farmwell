@@ -22,6 +22,7 @@ import { computed, ref } from 'vue';
 import { toast } from 'vue-sonner';
 import CropDailyLogForm from '@/components/farm/CropDailyLogForm.vue';
 import EmptyState from '@/components/farm/EmptyState.vue';
+import EvidenceGallery from '@/components/farm/EvidenceGallery.vue';
 import FarmTypeBadge from '@/components/farm/FarmTypeBadge.vue';
 import FishDailyLogForm from '@/components/farm/FishDailyLogForm.vue';
 import GradeFishModal from '@/components/farm/GradeFishModal.vue';
@@ -229,7 +230,14 @@ const props = defineProps<{
         inventoryItemName: string | null;
         notes: string | null;
         recordedBy: string | null;
-        evidence: { id: number; fileName: string; downloadUrl: string }[];
+        evidence: {
+            id: number;
+            fileName: string;
+            caption?: string | null;
+            downloadUrl: string;
+            thumbnailUrl?: string | null;
+            previewUrl?: string | null;
+        }[];
     }[];
     healthEvents: {
         id: number;
@@ -1074,19 +1082,13 @@ const shareSummaryWhatsapp = async () => {
                             </span>
                             {{ log.notes || 'Logged' }}
                         </p>
-                        <div
+                        <EvidenceGallery
                             v-if="log.evidence.length"
-                            class="flex flex-wrap gap-2 pt-1"
-                        >
-                            <a
-                                v-for="file in log.evidence"
-                                :key="file.id"
-                                :href="file.downloadUrl"
-                                class="rounded-md border px-2 py-0.5 text-xs text-primary"
-                            >
-                                {{ file.fileName }}
-                            </a>
-                        </div>
+                            :items="log.evidence"
+                            compact
+                            dialog-title="Cycle log photos"
+                            class="pt-1"
+                        />
                     </div>
                     <Form
                         v-if="permissions.canManageFarmOperations && teamSlug"

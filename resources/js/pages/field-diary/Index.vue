@@ -3,6 +3,7 @@ import { Form, Head, Link, usePage } from '@inertiajs/vue3';
 import { ClipboardList, Download, Plus } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
 import EmptyState from '@/components/farm/EmptyState.vue';
+import EvidenceGallery from '@/components/farm/EvidenceGallery.vue';
 import PageHero from '@/components/farm/PageHero.vue';
 import SlideOverForm from '@/components/farm/SlideOverForm.vue';
 import InputError from '@/components/InputError.vue';
@@ -73,6 +74,7 @@ const investorMode = computed(
 
 const drawerOpen = ref(false);
 const farmFilter = ref('all');
+const statusFilter = ref('all');
 const activityFarmId = ref(props.farms[0]?.id ? String(props.farms[0].id) : '');
 const activityUnitId = ref('');
 const activityCycleId = ref('');
@@ -90,8 +92,28 @@ const selectedActivityFarm = computed(() =>
 const filteredActivities = computed(() =>
     props.latestActivities.filter(
         (a) =>
-            farmFilter.value === 'all' || String(a.farmId) === farmFilter.value,
+            (farmFilter.value === 'all' ||
+                String(a.farmId) === farmFilter.value) &&
+            (statusFilter.value === 'all' || a.status === statusFilter.value),
     ),
+);
+
+const activitiesWithPhotosCount = computed(
+    () =>
+        props.latestActivities.filter((a) =>
+            a.evidence.some((file) => Boolean(file.previewUrl)),
+        ).length,
+);
+
+const investorSharedCount = computed(
+    () =>
+        props.latestActivities.filter(
+            (a) =>
+                Boolean(a.investorSafeSummary) ||
+                a.evidence.some(
+                    (file) => file.visibility === 'investor_visible',
+                ),
+        ).length,
 );
 
 const bumpFormKey = () => {
@@ -166,11 +188,35 @@ watch(activityFarmId, () => {
                     Record activity
                 </Button>
             </template>
+            <template #metrics>
+                <div class="px-4 py-3 sm:px-6">
+                    <p class="text-xs text-emerald-100/75">Activities</p>
+                    <p class="mt-0.5 text-lg font-semibold tabular-nums">
+                        {{ latestActivities.length }}
+                    </p>
+                </div>
+                <div class="border-s border-white/15 px-4 py-3 sm:px-6">
+                    <p class="text-xs text-emerald-100/75">With photos</p>
+                    <p class="mt-0.5 text-lg font-semibold tabular-nums">
+                        {{ activitiesWithPhotosCount }}
+                    </p>
+                </div>
+                <div
+                    v-if="investorMode"
+                    class="col-span-2 border-t border-white/15 px-4 py-3 sm:col-span-2 sm:border-s sm:border-t-0 sm:px-6"
+                >
+                    <p class="text-xs text-emerald-100/75">Investor-shared</p>
+                    <p class="mt-0.5 text-lg font-semibold tabular-nums">
+                        {{ investorSharedCount }}
+                    </p>
+                </div>
+            </template>
         </PageHero>
 
         <div class="flex flex-wrap items-center gap-2">
             <select
                 v-model="farmFilter"
+                aria-label="Filter activities by farm"
                 class="h-9 rounded-md border bg-card px-3 text-sm"
             >
                 <option value="all">All farms</option>
@@ -180,6 +226,20 @@ watch(activityFarmId, () => {
                     :value="String(farm.id)"
                 >
                     {{ farm.name }}
+                </option>
+            </select>
+            <select
+                v-model="statusFilter"
+                aria-label="Filter activities by status"
+                class="h-9 rounded-md border bg-card px-3 text-sm"
+            >
+                <option value="all">All statuses</option>
+                <option
+                    v-for="option in options.activityStatuses"
+                    :key="option.value"
+                    :value="option.value"
+                >
+                    {{ option.label }}
                 </option>
             </select>
         </div>
@@ -206,13 +266,29 @@ watch(activityFarmId, () => {
                             </span>
                         </p>
                     </div>
-                    <Badge variant="secondary">{{
-                        activity.statusLabel
-                    }}</Badge>
+                    <div class="flex flex-wrap items-center gap-1.5">
+                        <Badge
+                            v-if="
+                                investorMode &&
+                                (activity.investorSafeSummary ||
+                                    activity.evidence.some(
+                                        (file) =>
+                                            file.visibility ===
+                                            'investor_visible',
+                                    ))
+                            "
+                            variant="outline"
+                        >
+                            Investor visible
+                        </Badge>
+                        <Badge variant="secondary">{{
+                            activity.statusLabel
+                        }}</Badge>
+                    </div>
                 </div>
                 <p>{{ activity.description }}</p>
                 <div class="flex flex-wrap gap-4 text-xs text-muted-foreground">
-                    <span v-if="activity.cost">
+                    <span v-if="activity.cost" class="tabular-nums">
                         Cost: {{ formatCurrency(activity.cost, currency) }}
                     </span>
                     <span v-if="activity.nextActivity">
@@ -222,19 +298,11 @@ watch(activityFarmId, () => {
                         Recorded by {{ activity.recordedBy }}
                     </span>
                 </div>
-                <div
+                <EvidenceGallery
                     v-if="activity.evidence.length > 0"
-                    class="flex flex-wrap gap-2"
-                >
-                    <a
-                        v-for="evidence in activity.evidence"
-                        :key="evidence.id"
-                        :href="evidence.downloadUrl"
-                        class="rounded-md border px-2.5 py-1 text-xs font-medium text-primary hover:bg-accent"
-                    >
-                        {{ evidence.fileName }}
-                    </a>
-                </div>
+                    :items="activity.evidence"
+                    dialog-title="Field diary photos"
+                />
             </article>
         </section>
 

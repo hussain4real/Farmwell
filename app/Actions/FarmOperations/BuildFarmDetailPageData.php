@@ -270,11 +270,18 @@ class BuildFarmDetailPageData
             'inventoryItemName' => $log->inventoryItem?->name,
             'notes' => $log->notes,
             'recordedBy' => $log->recordedBy?->name,
-            'evidence' => $log->media->map(fn (Media $media): array => [
-                'id' => $media->id,
-                'fileName' => $media->file_name,
-                'downloadUrl' => route('farm-evidence.show', [$team, $media]),
-            ])->values(),
+            'evidence' => $log->media->map(function (Media $media) use ($team): array {
+                $isPhoto = in_array($media->mime_type, FarmActivity::InvestorPhotoMimeTypes, true);
+
+                return [
+                    'id' => $media->id,
+                    'fileName' => $media->file_name,
+                    'caption' => $media->getCustomProperty('caption'),
+                    'downloadUrl' => route('farm-evidence.show', [$team, $media]),
+                    'thumbnailUrl' => $isPhoto ? route('farm-evidence.show', [$team, $media, 'thumb' => 1]) : null,
+                    'previewUrl' => $isPhoto ? route('farm-evidence.show', [$team, $media, 'preview' => 1]) : null,
+                ];
+            })->values(),
         ];
     }
 }

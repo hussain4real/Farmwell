@@ -41,43 +41,18 @@ class InvestorEvidenceController extends Controller
             abort_unless($this->isInvestorVisible($currentTeam, $user, $media, $subject), 404);
         }
 
-        if ($request->boolean('thumb')) {
-            return $this->serveImageVariant($request, $media, $subject, $renderVariant, RenderMediaVariant::VariantThumb);
-        }
+        if ($request->boolean('thumb') || $request->boolean('preview')) {
+            abort_unless($subject instanceof FarmActivity && $subject->sharesEvidenceWithInvestors($media)
+                && in_array($media->mime_type, FarmActivity::InvestorPhotoMimeTypes, true), 404);
 
-        if ($request->boolean('preview')) {
-            return $this->serveImageVariant($request, $media, $subject, $renderVariant, RenderMediaVariant::VariantPreview);
+            return $renderVariant->toResponse(
+                $request,
+                $media,
+                $request->boolean('thumb') ? RenderMediaVariant::VariantThumb : RenderMediaVariant::VariantPreview,
+            );
         }
 
         return $media->toResponse($request);
-    }
-
-    private function serveImageVariant(
-        Request $request,
-        Media $media,
-        Model $subject,
-        RenderMediaVariant $renderVariant,
-        string $variant,
-    ): Response {
-        abort_unless($subject instanceof FarmActivity && $subject->sharesEvidenceWithInvestors($media)
-            && in_array($media->mime_type, FarmActivity::InvestorPhotoMimeTypes, true), 404);
-
-        $bytes = $renderVariant->handle($media, $variant);
-        if ($bytes !== null) {
-            return response($bytes, 200, [
-                'Content-Type' => 'image/jpeg',
-                'Content-Disposition' => 'inline; filename="'.$variant.'-'.$media->id.'.jpg"',
-                'Cache-Control' => 'private, max-age=3600',
-                'X-Content-Type-Options' => 'nosniff',
-            ]);
-        }
-
-        $response = $media->toInlineResponse($request);
-        $response->headers->set('Cache-Control', 'private, no-store');
-        $response->headers->remove('Pragma');
-        $response->headers->set('X-Content-Type-Options', 'nosniff');
-
-        return $response;
     }
 
     private function isInvestorVisible(Team $team, User $user, Media $media, Model $subject): bool

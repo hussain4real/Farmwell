@@ -14,6 +14,7 @@ use App\Models\Farm;
 use App\Models\FarmActivity;
 use App\Models\FarmTask;
 use App\Models\ProductionCycle;
+use App\Models\ProductionLog;
 use App\Models\ProductionUnit;
 use App\Models\Team;
 use App\Models\User;
@@ -594,4 +595,66 @@ test('field operators can submit photo evidence without finance or team administ
     $this->get(farmwellPhaseThreeRoute('finance.index', $team))->assertForbidden();
     $this->get(route('teams.edit', $team))->assertForbidden();
     $this->patch(route('teams.update', $team), ['name' => 'Changed'])->assertForbidden();
+});
+
+test('farm operations evidence serves resized thumb and preview variants for photos and rejects non-image files', function () {
+    Storage::fake('farmwell_private');
+    [$owner, $team, $farm, $unit, $cycle] = farmwellPhaseThreeContext();
+
+    $activity = FarmActivity::factory()->create([
+        'team_id' => $team->id,
+        'farm_id' => $farm->id,
+        'production_cycle_id' => $cycle->id,
+    ]);
+
+    $photo = $activity
+        ->addMedia(UploadedFile::fake()->image('diary-wide.jpg', 2000, 1200))
+        ->toMediaCollection(FarmActivity::EvidenceCollection, 'farmwell_private');
+
+    $pdf = $activity
+        ->addMedia(UploadedFile::fake()->create('note.pdf', 12, 'application/pdf'))
+        ->toMediaCollection(FarmActivity::EvidenceCollection, 'farmwell_private');
+
+    $log = ProductionLog::factory()->create([
+        'team_id' => $team->id,
+        'farm_id' => $farm->id,
+        'production_cycle_id' => $cycle->id,
+    ]);
+    $logPhoto = $log
+        ->addMedia(UploadedFile::fake()->image('log-wide.jpg', 1800, 1000))
+        ->toMediaCollection(ProductionLog::EvidenceCollection, 'farmwell_private');
+
+    $thumbUrl = farmwellPhaseThreeRoute('farm-evidence.show', $team, ['media' => $photo, 'thumb' => 1]);
+    $previewUrl = farmwellPhaseThreeRoute('farm-evidence.show', $team, ['media' => $photo, 'preview' => 1]);
+
+    $this->actingAs($owner)
+        ->get(farmwellPhaseThreeRoute('field-diary.index', $team))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('latestActivities.0.evidence.0.thumbnailUrl', $thumbUrl)
+            ->where('latestActivities.0.evidence.0.previewUrl', $previewUrl)
+            ->where('latestActivities.0.evidence.1.thumbnailUrl', null)
+            ->where('latestActivities.0.evidence.1.previewUrl', null));
+
+    $this->actingAs($owner)
+        ->get(farmwellPhaseThreeRoute('farms.production-cycles.show', $team, ['farm' => $farm, 'production_cycle' => $cycle]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('logs.0.evidence.0.thumbnailUrl', farmwellPhaseThreeRoute('farm-evidence.show', $team, ['media' => $logPhoto, 'thumb' => 1]))
+            ->where('logs.0.evidence.0.previewUrl', farmwellPhaseThreeRoute('farm-evidence.show', $team, ['media' => $logPhoto, 'preview' => 1])));
+
+    $thumbResponse = $this->get($thumbUrl)
+        ->assertOk()
+        ->assertHeader('Content-Type', 'image/jpeg')
+        ->assertHeader('Cache-Control', 'max-age=3600, private');
+    expect(imagesx(imagecreatefromstring($thumbResponse->getContent())))->toBe(480);
+
+    $previewResponse = $this->get($previewUrl)
+        ->assertOk()
+        ->assertHeader('Content-Type', 'image/jpeg')
+        ->assertHeader('Cache-Control', 'max-age=3600, private');
+    expect(imagesx(imagecreatefromstring($previewResponse->getContent())))->toBe(1600);
+
+    $this->get(farmwellPhaseThreeRoute('farm-evidence.show', $team, ['media' => $pdf, 'thumb' => 1]))->assertNotFound();
+    $this->get(farmwellPhaseThreeRoute('farm-evidence.show', $team, ['media' => $pdf, 'preview' => 1]))->assertNotFound();
 });

@@ -3,6 +3,7 @@ import { Form, Head, usePage } from '@inertiajs/vue3';
 import { MessageSquare, Plus } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
 import EmptyState from '@/components/farm/EmptyState.vue';
+import EvidenceGallery from '@/components/farm/EvidenceGallery.vue';
 import PageHero from '@/components/farm/PageHero.vue';
 import SlideOverForm from '@/components/farm/SlideOverForm.vue';
 import InputError from '@/components/InputError.vue';
@@ -74,6 +75,13 @@ const selectedWhatsappFarm = computed(() =>
     props.farms.find((farm) => String(farm.id) === whatsappFarmId.value),
 );
 
+const intakesWithPhotosCount = computed(
+    () =>
+        props.pendingIntakes.filter((intake) =>
+            intake.evidence.some((file) => Boolean(file.previewUrl)),
+        ).length,
+);
+
 const bumpFormKey = () => {
     formKey.value++;
     drawerOpen.value = false;
@@ -133,6 +141,20 @@ watch(whatsappFarmId, () => {
                     Queue intake
                 </Button>
             </template>
+            <template #metrics>
+                <div class="px-4 py-3 sm:px-6">
+                    <p class="text-xs text-emerald-100/75">Pending review</p>
+                    <p class="mt-0.5 text-lg font-semibold tabular-nums">
+                        {{ pendingIntakes.length }}
+                    </p>
+                </div>
+                <div class="border-s border-white/15 px-4 py-3 sm:px-6">
+                    <p class="text-xs text-emerald-100/75">With photos</p>
+                    <p class="mt-0.5 text-lg font-semibold tabular-nums">
+                        {{ intakesWithPhotosCount }}
+                    </p>
+                </div>
+            </template>
         </PageHero>
 
         <section v-if="pendingIntakes.length > 0" class="grid gap-4">
@@ -160,19 +182,11 @@ watch(whatsappFarmId, () => {
                 <p class="rounded-xl bg-muted/40 p-3">
                     {{ intake.sourceMessage }}
                 </p>
-                <div
+                <EvidenceGallery
                     v-if="intake.evidence.length > 0"
-                    class="flex flex-wrap gap-2"
-                >
-                    <a
-                        v-for="evidence in intake.evidence"
-                        :key="evidence.id"
-                        :href="evidence.downloadUrl"
-                        class="rounded-md border px-2.5 py-1 text-xs font-medium text-primary"
-                    >
-                        {{ evidence.fileName }}
-                    </a>
-                </div>
+                    :items="intake.evidence"
+                    dialog-title="WhatsApp intake photos"
+                />
 
                 <Form
                     v-if="
@@ -184,21 +198,26 @@ watch(whatsappFarmId, () => {
                     class="grid gap-3 md:grid-cols-2"
                     v-slot="{ errors, processing }"
                 >
-                    <select
-                        name="farm_id"
-                        class="h-9 rounded-md border bg-background px-3 text-sm"
-                        required
-                    >
-                        <option value="">Select farm</option>
-                        <option
-                            v-for="farm in farms"
-                            :key="farm.id"
-                            :value="farm.id"
-                            :selected="farm.id === intake.farmId"
+                    <div class="grid gap-1.5">
+                        <Label :for="`convert-farm-${intake.id}`">Farm</Label>
+                        <select
+                            :id="`convert-farm-${intake.id}`"
+                            name="farm_id"
+                            class="h-9 rounded-md border bg-background px-3 text-sm"
+                            required
                         >
-                            {{ farm.name }}
-                        </option>
-                    </select>
+                            <option value="">Select farm</option>
+                            <option
+                                v-for="farm in farms"
+                                :key="farm.id"
+                                :value="farm.id"
+                                :selected="farm.id === intake.farmId"
+                            >
+                                {{ farm.name }}
+                            </option>
+                        </select>
+                        <InputError :message="errors.farm_id" />
+                    </div>
                     <input
                         type="hidden"
                         name="production_unit_id"
@@ -214,49 +233,83 @@ watch(whatsappFarmId, () => {
                         name="commodity_id"
                         :value="intake.commodityId ?? ''"
                     />
-                    <Input
-                        name="activity_date"
-                        type="date"
-                        :value="
-                            intake.normalizedActivityDate ??
-                            intake.sourceDate ??
-                            ''
-                        "
-                        required
-                    />
-                    <Input
-                        name="activity_type"
-                        :value="intake.normalizedActivityType ?? ''"
-                        placeholder="Activity type"
-                        required
-                    />
-                    <Input
-                        name="cost"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        :value="intake.normalizedCost ?? ''"
-                        placeholder="Cost"
-                    />
-                    <textarea
-                        name="description"
-                        class="min-h-20 rounded-md border bg-background px-3 py-2 text-sm md:col-span-2"
-                        required
-                        :value="
-                            intake.normalizedDescription ?? intake.sourceMessage
-                        "
-                    />
-                    <Input
-                        name="next_activity"
-                        :value="intake.normalizedNextActivity ?? ''"
-                        placeholder="Next activity"
-                    />
-                    <Input
-                        v-if="investorMode"
-                        name="investor_safe_summary"
-                        :value="intake.normalizedInvestorSafeSummary ?? ''"
-                        placeholder="Investor-safe summary"
-                    />
+                    <div class="grid gap-1.5">
+                        <Label :for="`convert-date-${intake.id}`"
+                            >Activity date</Label
+                        >
+                        <Input
+                            :id="`convert-date-${intake.id}`"
+                            name="activity_date"
+                            type="date"
+                            :value="
+                                intake.normalizedActivityDate ??
+                                intake.sourceDate ??
+                                ''
+                            "
+                            required
+                        />
+                    </div>
+                    <div class="grid gap-1.5">
+                        <Label :for="`convert-type-${intake.id}`"
+                            >Activity type</Label
+                        >
+                        <Input
+                            :id="`convert-type-${intake.id}`"
+                            name="activity_type"
+                            :value="intake.normalizedActivityType ?? ''"
+                            placeholder="Activity type"
+                            required
+                        />
+                    </div>
+                    <div class="grid gap-1.5">
+                        <Label :for="`convert-cost-${intake.id}`">Cost</Label>
+                        <Input
+                            :id="`convert-cost-${intake.id}`"
+                            name="cost"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            :value="intake.normalizedCost ?? ''"
+                            placeholder="Cost"
+                        />
+                    </div>
+                    <div class="grid gap-1.5 md:col-span-2">
+                        <Label :for="`convert-description-${intake.id}`"
+                            >Description</Label
+                        >
+                        <textarea
+                            :id="`convert-description-${intake.id}`"
+                            name="description"
+                            class="min-h-20 rounded-md border bg-background px-3 py-2 text-sm"
+                            required
+                            :value="
+                                intake.normalizedDescription ??
+                                intake.sourceMessage
+                            "
+                        />
+                    </div>
+                    <div class="grid gap-1.5">
+                        <Label :for="`convert-next-${intake.id}`"
+                            >Next activity</Label
+                        >
+                        <Input
+                            :id="`convert-next-${intake.id}`"
+                            name="next_activity"
+                            :value="intake.normalizedNextActivity ?? ''"
+                            placeholder="Next activity"
+                        />
+                    </div>
+                    <div v-if="investorMode" class="grid gap-1.5">
+                        <Label :for="`convert-investor-summary-${intake.id}`"
+                            >Investor-safe summary</Label
+                        >
+                        <Input
+                            :id="`convert-investor-summary-${intake.id}`"
+                            name="investor_safe_summary"
+                            :value="intake.normalizedInvestorSafeSummary ?? ''"
+                            placeholder="Investor-safe summary"
+                        />
+                    </div>
                     <input type="hidden" name="status" value="completed" />
                     <div class="md:col-span-2">
                         <Button
@@ -266,33 +319,45 @@ watch(whatsappFarmId, () => {
                             Convert to diary entry
                         </Button>
                     </div>
-                    <InputError :message="errors.farm_id" />
                 </Form>
 
-                <Form
+                <details
                     v-if="
                         permissions.canManageFarmOperations && currentTeamSlug
                     "
-                    v-bind="
-                        rejectWhatsappIntake.form([currentTeamSlug, intake.id])
-                    "
-                    class="grid gap-2 md:grid-cols-[1fr_auto]"
-                    v-slot="{ errors, processing }"
+                    class="border-t pt-3"
                 >
-                    <Input
-                        name="rejection_reason"
-                        placeholder="Rejection reason"
-                        required
-                    />
-                    <Button
-                        type="submit"
-                        variant="outline"
-                        :disabled="processing"
+                    <summary
+                        class="cursor-pointer text-xs font-medium text-muted-foreground hover:text-foreground"
                     >
-                        Reject
-                    </Button>
-                    <InputError :message="errors.rejection_reason" />
-                </Form>
+                        Reject intake
+                    </summary>
+                    <Form
+                        v-bind="
+                            rejectWhatsappIntake.form([
+                                currentTeamSlug,
+                                intake.id,
+                            ])
+                        "
+                        class="mt-3 grid gap-2 md:grid-cols-[1fr_auto]"
+                        v-slot="{ errors, processing }"
+                    >
+                        <Input
+                            name="rejection_reason"
+                            aria-label="Rejection reason"
+                            placeholder="Rejection reason"
+                            required
+                        />
+                        <Button
+                            type="submit"
+                            variant="outline"
+                            :disabled="processing"
+                        >
+                            Confirm reject
+                        </Button>
+                        <InputError :message="errors.rejection_reason" />
+                    </Form>
+                </details>
             </article>
         </section>
 

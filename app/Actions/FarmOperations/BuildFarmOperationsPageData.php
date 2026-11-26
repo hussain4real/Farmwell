@@ -598,6 +598,8 @@ class BuildFarmOperationsPageData
      */
     private function mediaPayload(Media $media, Team $team): array
     {
+        $isPhoto = in_array($media->mime_type, FarmActivity::InvestorPhotoMimeTypes, true);
+
         return [
             'id' => $media->id,
             'name' => $media->name,
@@ -608,6 +610,8 @@ class BuildFarmOperationsPageData
             'visibility' => $media->getCustomProperty('visibility', 'private'),
             'capturedOn' => $media->getCustomProperty('captured_on'),
             'downloadUrl' => route('farm-evidence.show', [$team, $media]),
+            'thumbnailUrl' => $isPhoto ? route('farm-evidence.show', [$team, $media, 'thumb' => 1]) : null,
+            'previewUrl' => $isPhoto ? route('farm-evidence.show', [$team, $media, 'preview' => 1]) : null,
         ];
     }
 

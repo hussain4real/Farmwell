@@ -64,6 +64,7 @@ const currentTeam = computed(() => page.props.currentTeam as Team | null);
 const currentTeamSlug = computed(() => currentTeam.value?.slug ?? '');
 const drawerOpen = ref(false);
 const farmFilter = ref('all');
+const statusFilter = ref('all');
 const taskFarmId = ref(props.farms[0]?.id ? String(props.farms[0].id) : '');
 const taskUnitId = ref('');
 const taskCycleId = ref('');
@@ -74,11 +75,43 @@ const selectedTaskFarm = computed(() =>
     props.farms.find((farm) => String(farm.id) === taskFarmId.value),
 );
 
+const todayIso = new Date().toISOString().slice(0, 10);
+
+function isTaskOverdue(task: FarmTask): boolean {
+    return (
+        task.status !== 'completed' &&
+        task.status !== 'cancelled' &&
+        task.dueOn < todayIso
+    );
+}
+
 const filteredTasks = computed(() =>
-    props.upcomingTasks.filter(
-        (t) =>
-            farmFilter.value === 'all' || String(t.farmId) === farmFilter.value,
-    ),
+    props.upcomingTasks.filter((t) => {
+        const matchesFarm =
+            farmFilter.value === 'all' || String(t.farmId) === farmFilter.value;
+        const matchesStatus =
+            statusFilter.value === 'all' ||
+            (statusFilter.value === 'overdue'
+                ? isTaskOverdue(t)
+                : t.status === statusFilter.value);
+
+        return matchesFarm && matchesStatus;
+    }),
+);
+
+const openTasksCount = computed(
+    () =>
+        props.upcomingTasks.filter(
+            (t) => t.status !== 'completed' && t.status !== 'cancelled',
+        ).length,
+);
+
+const overdueTasksCount = computed(
+    () => props.upcomingTasks.filter(isTaskOverdue).length,
+);
+
+const delayedTasksCount = computed(
+    () => props.upcomingTasks.filter((t) => t.status === 'delayed').length,
 );
 
 const bumpFormKey = () => {
@@ -130,11 +163,34 @@ watch(taskFarmId, () => {
                     Schedule task
                 </Button>
             </template>
+            <template #metrics>
+                <div class="px-4 py-3 sm:px-6">
+                    <p class="text-xs text-emerald-100/75">Open tasks</p>
+                    <p class="mt-0.5 text-lg font-semibold tabular-nums">
+                        {{ openTasksCount }}
+                    </p>
+                </div>
+                <div class="border-s border-white/15 px-4 py-3 sm:px-6">
+                    <p class="text-xs text-emerald-100/75">Overdue</p>
+                    <p class="mt-0.5 text-lg font-semibold tabular-nums">
+                        {{ overdueTasksCount }}
+                    </p>
+                </div>
+                <div
+                    class="col-span-2 border-t border-white/15 px-4 py-3 sm:col-span-2 sm:border-s sm:border-t-0 sm:px-6"
+                >
+                    <p class="text-xs text-emerald-100/75">Delayed</p>
+                    <p class="mt-0.5 text-lg font-semibold tabular-nums">
+                        {{ delayedTasksCount }}
+                    </p>
+                </div>
+            </template>
         </PageHero>
 
         <div class="flex flex-wrap items-center gap-2">
             <select
                 v-model="farmFilter"
+                aria-label="Filter tasks by farm"
                 class="h-9 rounded-md border bg-card px-3 text-sm"
             >
                 <option value="all">All farms</option>
@@ -146,6 +202,21 @@ watch(taskFarmId, () => {
                     {{ farm.name }}
                 </option>
             </select>
+            <select
+                v-model="statusFilter"
+                aria-label="Filter tasks by status"
+                class="h-9 rounded-md border bg-card px-3 text-sm"
+            >
+                <option value="all">All statuses</option>
+                <option value="overdue">Overdue</option>
+                <option
+                    v-for="option in options.taskStatuses"
+                    :key="option.value"
+                    :value="option.value"
+                >
+                    {{ option.label }}
+                </option>
+            </select>
         </div>
 
         <section v-if="filteredTasks.length > 0" class="grid gap-3">
@@ -153,6 +224,11 @@ watch(taskFarmId, () => {
                 v-for="task in filteredTasks"
                 :key="task.id"
                 class="space-y-3 rounded-2xl border bg-card p-4 text-sm shadow-xs"
+                :class="
+                    isTaskOverdue(task)
+                        ? 'border-amber-300/70 dark:border-amber-800/70'
+                        : ''
+                "
             >
                 <div class="flex flex-wrap items-start justify-between gap-2">
                     <div>
@@ -164,7 +240,14 @@ watch(taskFarmId, () => {
                             </span>
                         </p>
                     </div>
-                    <Badge variant="secondary">{{ task.statusLabel }}</Badge>
+                    <div class="flex flex-wrap items-center gap-1.5">
+                        <Badge v-if="isTaskOverdue(task)" variant="destructive">
+                            Overdue
+                        </Badge>
+                        <Badge variant="secondary">{{
+                            task.statusLabel
+                        }}</Badge>
+                    </div>
                 </div>
                 <p v-if="task.description">{{ task.description }}</p>
                 <p

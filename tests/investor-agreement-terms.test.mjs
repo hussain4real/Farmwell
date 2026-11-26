@@ -626,3 +626,42 @@ test('updates prefer thumbnailUrl on grid images while preserving previewUrl for
     assert.match(sidebarPage.body, />Administration</);
     assert.doesNotMatch(sidebarPage.body, />Platform</);
 });
+
+test('EvidenceGallery renders compact photo buttons and paperclip document fallback', async () => {
+    const { default: EvidenceGallery } = await server.ssrLoadModule(
+        '/resources/js/components/farm/EvidenceGallery.vue',
+    );
+    const html = await renderToString(
+        createSSRApp({
+            render: () =>
+                h(EvidenceGallery, {
+                    compact: true,
+                    dialogTitle: 'Field diary photos',
+                    items: [
+                        {
+                            id: 1,
+                            fileName: 'pond.jpg',
+                            caption: 'Pond check',
+                            downloadUrl: '/team/evidence/1',
+                            thumbnailUrl: '/team/evidence/1?thumb=1',
+                            previewUrl: '/team/evidence/1?preview=1',
+                        },
+                        {
+                            id: 2,
+                            fileName: 'invoice.pdf',
+                            caption: null,
+                            downloadUrl: '/team/evidence/2',
+                            thumbnailUrl: null,
+                            previewUrl: null,
+                        },
+                    ],
+                }),
+        }),
+    );
+
+    assert.match(html, /src="\/team\/evidence\/1\?thumb=1"/);
+    assert.match(html, /w-28/);
+    assert.match(html, /Pond check/);
+    assert.match(html, /href="\/team\/evidence\/2"/);
+    assert.match(html, /invoice\.pdf/);
+});

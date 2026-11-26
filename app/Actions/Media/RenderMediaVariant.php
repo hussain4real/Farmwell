@@ -3,9 +3,11 @@
 namespace App\Actions\Media;
 
 use GdImage;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
+use Symfony\Component\HttpFoundation\Response;
 
 class RenderMediaVariant
 {
@@ -38,6 +40,27 @@ class RenderMediaVariant
         }
 
         return $bytes;
+    }
+
+    public function toResponse(Request $request, Media $media, string $variant = self::VariantThumb): Response
+    {
+        $bytes = $this->handle($media, $variant);
+
+        if ($bytes !== null) {
+            return response($bytes, 200, [
+                'Content-Type' => 'image/jpeg',
+                'Content-Disposition' => 'inline; filename="'.$variant.'-'.$media->id.'.jpg"',
+                'Cache-Control' => 'private, max-age=3600',
+                'X-Content-Type-Options' => 'nosniff',
+            ]);
+        }
+
+        $response = $media->toInlineResponse($request);
+        $response->headers->set('Cache-Control', 'private, no-store');
+        $response->headers->remove('Pragma');
+        $response->headers->set('X-Content-Type-Options', 'nosniff');
+
+        return $response;
     }
 
     private function render(Media $media, int $maxWidth, int $quality): ?string
