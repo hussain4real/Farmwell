@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Paperclip } from 'lucide-vue-next';
 import Heading from '@/components/Heading.vue';
 import { formatCurrency } from '@/lib/currency';
 import { formatInvestorDate } from '@/lib/investor-portal';
@@ -10,7 +11,10 @@ defineProps<{ groups: InvestorFundingGroup[] }>();
 <template>
     <section class="space-y-5">
         <Heading variant="small" title="Funding timeline" />
-        <p v-if="!groups.length" class="text-sm text-muted-foreground">
+        <p
+            v-if="!groups.length"
+            class="rounded-xl border border-dashed p-4 text-sm text-muted-foreground"
+        >
             No funding milestones have been shared for this agreement yet.
         </p>
         <div
@@ -33,10 +37,10 @@ defineProps<{ groups: InvestorFundingGroup[] }>();
                 <li
                     v-for="milestone in group.milestones"
                     :key="milestone.id"
-                    class="min-w-0 space-y-4 rounded-xl border bg-card p-4 sm:p-5"
+                    class="min-w-0 space-y-4 rounded-2xl border bg-card p-4 shadow-xs sm:p-5"
                 >
                     <header>
-                        <h4 class="font-medium wrap-break-word">
+                        <h4 class="font-semibold wrap-break-word">
                             {{ milestone.name }}
                         </h4>
                         <p
@@ -50,7 +54,7 @@ defineProps<{ groups: InvestorFundingGroup[] }>();
                         </p>
                         <p
                             v-if="milestone.expectedOn"
-                            class="mt-1 text-sm text-muted-foreground"
+                            class="mt-1 text-xs text-muted-foreground"
                         >
                             Expected
                             <time :datetime="milestone.expectedOn">{{
@@ -79,12 +83,12 @@ defineProps<{ groups: InvestorFundingGroup[] }>();
                                 <time
                                     v-if="event.date"
                                     :datetime="event.date"
-                                    class="text-muted-foreground"
+                                    class="text-xs text-muted-foreground"
                                     >{{ formatInvestorDate(event.date) }}</time
                                 >
                                 <span
                                     v-if="event.amount !== null"
-                                    class="font-medium tabular-nums"
+                                    class="font-semibold tabular-nums"
                                     >{{
                                         formatCurrency(
                                             event.amount,
@@ -102,7 +106,7 @@ defineProps<{ groups: InvestorFundingGroup[] }>();
                             <ul
                                 v-if="event.files.length"
                                 role="list"
-                                class="mt-1 flex flex-wrap gap-x-3"
+                                class="mt-2 flex flex-wrap gap-2"
                             >
                                 <li
                                     v-for="file in event.files"
@@ -111,8 +115,12 @@ defineProps<{ groups: InvestorFundingGroup[] }>();
                                 >
                                     <a
                                         :href="file.downloadUrl"
-                                        class="inline-flex min-h-10 items-center wrap-anywhere underline underline-offset-4"
+                                        class="inline-flex min-h-9 items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium wrap-anywhere underline-offset-4 hover:bg-muted hover:underline"
                                     >
+                                        <Paperclip
+                                            class="size-3 shrink-0"
+                                            aria-hidden="true"
+                                        />
                                         {{ file.fileName }}
                                     </a>
                                 </li>

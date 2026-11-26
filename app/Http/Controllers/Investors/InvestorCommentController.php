@@ -7,13 +7,16 @@ use App\Enums\InvestorVisibilityStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Investors\StoreInvestorCommentRequest;
 use App\Models\ApprovalRequest;
+use App\Models\DistributionRecord;
 use App\Models\Expense;
 use App\Models\ExternalTransfer;
 use App\Models\FarmActivity;
 use App\Models\FarmTask;
 use App\Models\FundingPhase;
+use App\Models\HarvestRecord;
 use App\Models\InvestorAgreement;
 use App\Models\ProductionPlanChange;
+use App\Models\SaleRecord;
 use App\Models\Team;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
@@ -66,6 +69,9 @@ class InvestorCommentController extends Controller
             'expense' => $this->approvedAgreementSubject(Expense::query(), $team, $agreement, $subjectId, $isInvestor),
             'funding_phase' => $this->approvedAgreementSubject(FundingPhase::query(), $team, $agreement, $subjectId, $isInvestor),
             'external_transfer' => $this->approvedAgreementSubject(ExternalTransfer::query(), $team, $agreement, $subjectId, $isInvestor),
+            'harvest' => $this->approvedAgreementSubject(HarvestRecord::query(), $team, $agreement, $subjectId, $isInvestor),
+            'sale' => $this->approvedAgreementSubject(SaleRecord::query(), $team, $agreement, $subjectId, $isInvestor),
+            'distribution' => $this->approvedAgreementSubject(DistributionRecord::query(), $team, $agreement, $subjectId, $isInvestor),
             'activity' => FarmActivity::query()
                 ->where('team_id', $team->id)
                 ->where('farm_id', $agreement->farm_id)

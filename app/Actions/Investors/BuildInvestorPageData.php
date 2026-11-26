@@ -23,11 +23,16 @@ use App\Models\FundingPhase;
 use App\Models\HarvestRecord;
 use App\Models\InvestorAgreement;
 use App\Models\InvestorComment;
+use App\Models\ProductionCycle;
 use App\Models\ProductionPlanChange;
 use App\Models\SaleRecord;
 use App\Models\Team;
+use App\Models\TeamInvitation;
 use App\Models\User;
+use App\Services\InfobipVerification;
 use App\Support\Money;
+use App\Support\PhoneCallingCode;
+use App\Support\PilotPhone;
 use App\Support\SummaryMarkdown;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -41,6 +46,7 @@ class BuildInvestorPageData
     public function __construct(
         private ResolveInvestorApprovalSettings $resolveInvestorApprovalSettings,
         private InvestorSummaryEligibility $investorSummaryEligibility,
+        private BuildInvestorCycleSnapshot $buildInvestorCycleSnapshot,
     ) {
         //
     }
@@ -50,13 +56,65 @@ class BuildInvestorPageData
      */
     public function investors(Team $team, User $user): array
     {
+        $permissions = $user->toTeamPermissions($team);
+        $investors = $this->investorUsers($team);
+        $agreements = $this->agreements($team);
+
+        $committedByCurrency = $agreements
+            ->whereIn('status', [InvestorAgreementStatus::Active, InvestorAgreementStatus::Completed])
+            ->groupBy('currency')
+            ->map(fn (Collection $group, string $currency): array => [
+                'currency' => $currency,
+                'committed' => Money::toDecimal((int) $group->sum('amount_committed_minor')),
+                'funded' => Money::toDecimal((int) $group->sum('amount_funded_minor')),
+            ])
+            ->sortKeys()
+            ->values()
+            ->all();
+
+        $pendingApprovalCount = $team->approvalRequests()
+            ->whereIn('status', [
+                ApprovalRequestStatus::Pending->value,
+                ApprovalRequestStatus::ClarificationRequested->value,
+            ])
+            ->count();
+
         return [
-            'permissions' => $user->toTeamPermissions($team),
+            'permissions' => $permissions,
             'approvalSettings' => $this->resolveInvestorApprovalSettings->handle($team),
-            'investors' => $this->investorUsers($team)->map(fn (User $investor) => $this->userPayload($investor)),
+            'investors' => $investors->map(fn (User $investor) => $this->userPayload($investor)),
             'farms' => $this->farms($team)->map(fn (Farm $farm) => $this->farmPayload($farm)),
             'categories' => $this->categories($team)->map(fn (ExpenseCategory $category) => $this->categoryPayload($category)),
-            'agreements' => $this->agreements($team)->map(fn (InvestorAgreement $agreement) => $this->agreementPayload($agreement, includeInternal: true)),
+            'agreements' => $agreements->map(fn (InvestorAgreement $agreement) => $this->agreementPayload($agreement, includeInternal: true, includeComments: true)),
+            'summary' => [
+                'investorCount' => $investors->count(),
+                'activeAgreementCount' => $agreements->where('status', InvestorAgreementStatus::Active)->count(),
+                'draftAgreementCount' => $agreements->where('status', InvestorAgreementStatus::Draft)->count(),
+                'pendingApprovalCount' => $pendingApprovalCount,
+                'questionCount' => $agreements->sum(fn (InvestorAgreement $agreement): int => $agreement->investorComments->count()),
+                'committedByCurrency' => $committedByCurrency,
+            ],
+            'inviteContext' => [
+                'availableRoles' => TeamRole::assignable(),
+                'callingCode' => PhoneCallingCode::forRecipient(),
+                'phoneCountries' => config('services.phone_login.pilot_host') ? PilotPhone::Countries : null,
+                'phoneLoginEnabled' => InfobipVerification::enabled(),
+                'pendingInvestorInvitations' => $team->invitations()
+                    ->whereNull('accepted_at')
+                    ->where('role', TeamRole::Investor->value)
+                    ->when(! $permissions->canCreateInvitation && ! $permissions->canCancelInvitation, fn ($query) => $query->whereNull('phone'))
+                    ->latest()
+                    ->get()
+                    ->map(fn (TeamInvitation $invitation): array => [
+                        'code' => $invitation->code,
+                        'email' => $invitation->email,
+                        'phone' => $invitation->phone,
+                        'phoneUrl' => $invitation->phone ? PilotPhone::invitationUrl($invitation) : null,
+                        'createdAt' => $invitation->created_at?->toISOString(),
+                    ])
+                    ->values()
+                    ->all(),
+            ],
             'options' => $this->options(),
         ];
     }
@@ -66,13 +124,22 @@ class BuildInvestorPageData
      */
     public function approvals(Team $team, User $user): array
     {
+        $requests = $team->approvalRequests()
+            ->with(['investorAgreement.investor', 'investorAgreement.farm', 'requestedBy', 'decidedBy', 'subject'])
+            ->latest()
+            ->get();
+
         return [
             'permissions' => $user->toTeamPermissions($team),
-            'approvalRequests' => $team->approvalRequests()
-                ->with(['investorAgreement.investor', 'investorAgreement.farm', 'requestedBy', 'decidedBy', 'subject'])
-                ->latest()
-                ->get()
+            'approvalRequests' => $requests
                 ->map(fn (ApprovalRequest $approvalRequest) => $this->approvalRequestPayload($approvalRequest)),
+            'counts' => [
+                'total' => $requests->count(),
+                'pending' => $requests->where('status', ApprovalRequestStatus::Pending)->count(),
+                'clarificationRequested' => $requests->where('status', ApprovalRequestStatus::ClarificationRequested)->count(),
+                'approved' => $requests->where('status', ApprovalRequestStatus::Approved)->count(),
+                'rejected' => $requests->where('status', ApprovalRequestStatus::Rejected)->count(),
+            ],
             'options' => $this->options(),
         ];
     }
@@ -85,7 +152,18 @@ class BuildInvestorPageData
         $agreements = $this->visibleAgreements($user)
             ->whereBelongsTo($team)
             ->with([
-                'team', 'investor', 'farm', 'productionCycle', 'approvalRequests.investorAgreement.investor', 'investorComments.author',
+                'team',
+                'investor',
+                'farm',
+                'productionCycle',
+                'approvalRequests.investorAgreement.investor',
+                'approvalRequests.investorAgreement.farm',
+                'investorComments.author',
+                'investorComments.subject' => fn (MorphTo $subject) => $subject->morphWith([
+                    Expense::class => ['expenseCategory'],
+                    DistributionRecord::class => ['saleRecord'],
+                    HarvestRecord::class => ['commodity'],
+                ]),
                 'approvalRequests.subject' => fn (MorphTo $subject) => $subject->morphWith([
                     Expense::class => ['expenseCategory'],
                     FundingPhase::class => ['media', 'productionCycle'],
@@ -107,6 +185,9 @@ class BuildInvestorPageData
                 return [
                     ...$this->agreementPayload($agreement),
                     'summary' => $this->agreementSummary($agreement, $fundingPhases, $expenses, $saleRecords, $distributionRecords),
+                    'cycleSnapshot' => $agreement->productionCycle instanceof ProductionCycle
+                        ? $this->buildInvestorCycleSnapshot->handle($agreement->productionCycle)
+                        : null,
                     'fundingTimeline' => $this->fundingTimeline($agreement, $fundingPhases, $expenses),
                     'expenses' => $expenses->map(fn (Expense $expense) => $this->expensePayload($expense, $agreement)),
                     'externalTransfers' => $this->approvedExternalTransfers($agreement)->map(fn (ExternalTransfer $transfer) => $this->externalTransferPayload($transfer, $agreement)),
@@ -122,9 +203,9 @@ class BuildInvestorPageData
                         ->values()
                         ->map(fn (ApprovalRequest $approvalRequest) => $this->approvalRequestPayload($approvalRequest)),
                     'comments' => $agreement->investorComments
-                        ->sortByDesc('created_at')
+                        ->sortBy([['created_at', 'desc'], ['id', 'desc']])
                         ->values()
-                        ->map(fn (InvestorComment $comment) => $this->commentPayload($comment)),
+                        ->map(fn (InvestorComment $comment) => $this->commentPayload($comment, $agreement)),
                 ];
             }),
             'options' => [
@@ -156,7 +237,12 @@ class BuildInvestorPageData
                 ->where(fn (Builder $query) => $query->whereNull('investor_agreements.production_cycle_id')
                     ->orWhereColumn('farm_activities.production_cycle_id', 'investor_agreements.production_cycle_id'))
                 ->limit(1)])
-            ->with(['team', 'farm', 'approvalRequests' => fn ($query) => $query->where('status', ApprovalRequestStatus::Pending->value)])
+            ->with([
+                'team',
+                'farm',
+                'productionCycle',
+                'approvalRequests' => fn ($query) => $query->where('status', ApprovalRequestStatus::Pending->value),
+            ])
             ->latest('id')
             ->get()
             ->filter(fn (InvestorAgreement $agreement): bool => $user->can('viewInvestorPortal', $agreement->team));
@@ -164,48 +250,169 @@ class BuildInvestorPageData
         $activities = FarmActivity::query()->whereKey($agreements->pluck('latest_activity_id')->filter()->unique()->all())
             ->get(['id', 'activity_type', 'activity_date', 'investor_safe_summary'])->keyBy('id');
 
+        $agreementIds = $agreements->pluck('id')->all();
+        [$releasedByKey, $spentByKey, $recoveredByKey, $shareByKey] = $this->portfolioFinancialMaps($agreementIds);
+
+        $totalsByCurrency = [];
+        foreach ($agreements as $agreement) {
+            $currency = $agreement->currency;
+            $key = $agreement->id.':'.$currency;
+
+            $totalsByCurrency[$currency] ??= [
+                'committedMinor' => 0,
+                'fundedMinor' => 0,
+                'releasedMinor' => 0,
+                'spentMinor' => 0,
+                'capitalRecoveredMinor' => 0,
+                'investorShareMinor' => 0,
+            ];
+
+            $totalsByCurrency[$currency]['committedMinor'] += $agreement->amount_committed_minor;
+            $totalsByCurrency[$currency]['fundedMinor'] += $agreement->amount_funded_minor;
+            $totalsByCurrency[$currency]['releasedMinor'] += $releasedByKey[$key] ?? 0;
+            $totalsByCurrency[$currency]['spentMinor'] += $spentByKey[$key] ?? 0;
+            $totalsByCurrency[$currency]['capitalRecoveredMinor'] += $recoveredByKey[$key] ?? 0;
+            $totalsByCurrency[$currency]['investorShareMinor'] += $shareByKey[$key] ?? 0;
+        }
+
+        ksort($totalsByCurrency);
+
+        $attention = $agreements->flatMap(fn (InvestorAgreement $agreement) => $agreement->approvalRequests
+            ->filter(fn (ApprovalRequest $request): bool => $request->team_id === $agreement->team_id
+                && in_array($request->getAttribute('farm_id'), [null, $agreement->farm_id], true))
+            ->map(fn (ApprovalRequest $request): array => [
+                'requestId' => $request->id,
+                'agreementId' => $agreement->id,
+                'agreementTitle' => $agreement->title,
+                'farmName' => $agreement->farm->name,
+                'teamSlug' => $agreement->team->slug,
+                'label' => $request->request_type->label(),
+                'amount' => Money::toDecimal($request->requested_amount_minor),
+                'currency' => $request->currency,
+                'requestedAt' => $request->requested_at->toISOString(),
+            ])->all())->sortBy([['requestedAt', 'asc'], ['requestId', 'asc']])->values()->all();
+
+        $farms = $agreements->sortBy('farm.name', SORT_NATURAL | SORT_FLAG_CASE)->groupBy('farm_id')
+            ->map(function (Collection $group) use ($activities, $releasedByKey, $spentByKey, $recoveredByKey, $shareByKey): array {
+                $first = $group->firstOrFail();
+
+                return [
+                    'id' => $first->farm_id,
+                    'name' => $first->farm->name,
+                    'farmType' => $first->farm->farm_type->value,
+                    'farmTypeLabel' => $first->farm->farm_type->label(),
+                    'teamSlug' => $first->team->slug,
+                    'agreements' => $group->map(function (InvestorAgreement $agreement) use ($activities, $releasedByKey, $spentByKey, $recoveredByKey, $shareByKey): array {
+                        $activity = $activities->get((int) $agreement->getAttribute('latest_activity_id'));
+                        $key = $agreement->id.':'.$agreement->currency;
+                        $pendingCount = $agreement->approvalRequests
+                            ->filter(fn (ApprovalRequest $request): bool => $request->team_id === $agreement->team_id
+                                && in_array($request->getAttribute('farm_id'), [null, $agreement->farm_id], true))
+                            ->count();
+
+                        return [
+                            'id' => $agreement->id,
+                            'title' => $agreement->title,
+                            'status' => $agreement->status->value,
+                            'statusLabel' => $agreement->status->label(),
+                            'currency' => $agreement->currency,
+                            'committed' => Money::toDecimal($agreement->amount_committed_minor),
+                            'funded' => Money::toDecimal($agreement->amount_funded_minor),
+                            'fundingPercent' => $agreement->amount_committed_minor > 0
+                                ? (int) round(($agreement->amount_funded_minor / $agreement->amount_committed_minor) * 100)
+                                : null,
+                            'released' => Money::toDecimal($releasedByKey[$key] ?? 0),
+                            'spent' => Money::toDecimal($spentByKey[$key] ?? 0),
+                            'capitalRecovered' => Money::toDecimal($recoveredByKey[$key] ?? 0),
+                            'investorShare' => Money::toDecimal($shareByKey[$key] ?? 0),
+                            'productionCycleName' => $agreement->productionCycle?->name,
+                            'cycleProgressPercent' => $agreement->productionCycle instanceof ProductionCycle
+                                ? $this->buildInvestorCycleSnapshot->calculateProgressPercent($agreement->productionCycle)
+                                : null,
+                            'pendingDecisionCount' => $pendingCount,
+                            'latestActivity' => $activity ? [
+                                'title' => $this->sharedActivityTitle($activity),
+                                'date' => $activity->activity_date->toDateString(),
+                            ] : null,
+                        ];
+                    })->values()->all(),
+                ];
+            })->values()->all();
+
         return [
-            'farms' => $agreements->sortBy('farm.name', SORT_NATURAL | SORT_FLAG_CASE)->groupBy('farm_id')
-                ->map(function (Collection $group) use ($activities): array {
-                    $first = $group->firstOrFail();
-
-                    return [
-                        'id' => $first->farm_id,
-                        'name' => $first->farm->name,
-                        'teamSlug' => $first->team->slug,
-                        'agreements' => $group->map(function (InvestorAgreement $agreement) use ($activities): array {
-                            $activity = $activities->get((int) $agreement->getAttribute('latest_activity_id'));
-
-                            return [
-                                'id' => $agreement->id,
-                                'title' => $agreement->title,
-                                'statusLabel' => $agreement->status->label(),
-                                'currency' => $agreement->currency,
-                                'committed' => Money::toDecimal($agreement->amount_committed_minor),
-                                'funded' => Money::toDecimal($agreement->amount_funded_minor),
-                                'latestActivity' => $activity ? [
-                                    'title' => $this->sharedActivityTitle($activity),
-                                    'date' => $activity->activity_date->toDateString(),
-                                ] : null,
-                            ];
-                        })->values()->all(),
-                    ];
-                })->values()->all(),
-            'attention' => $agreements->flatMap(fn (InvestorAgreement $agreement) => $agreement->approvalRequests
-                ->filter(fn (ApprovalRequest $request): bool => $request->team_id === $agreement->team_id
-                    && in_array($request->getAttribute('farm_id'), [null, $agreement->farm_id], true))
-                ->map(fn (ApprovalRequest $request): array => [
-                    'requestId' => $request->id,
-                    'agreementId' => $agreement->id,
-                    'agreementTitle' => $agreement->title,
-                    'farmName' => $agreement->farm->name,
-                    'teamSlug' => $agreement->team->slug,
-                    'label' => $request->request_type->label(),
-                    'amount' => Money::toDecimal($request->requested_amount_minor),
-                    'currency' => $request->currency,
-                    'requestedAt' => $request->requested_at->toISOString(),
-                ])->all())->sortBy([['requestedAt', 'asc'], ['requestId', 'asc']])->values()->all(),
+            'farms' => $farms,
+            'attention' => $attention,
+            'summary' => [
+                'farmCount' => count($farms),
+                'agreementCount' => $agreements->count(),
+                'activeAgreementCount' => $agreements->where('status', InvestorAgreementStatus::Active)->count(),
+                'pendingDecisionCount' => count($attention),
+                'totalsByCurrency' => collect($totalsByCurrency)->map(fn (array $totals, string $currency): array => [
+                    'currency' => $currency,
+                    'committed' => Money::toDecimal($totals['committedMinor']),
+                    'funded' => Money::toDecimal($totals['fundedMinor']),
+                    'fundingPercent' => $totals['committedMinor'] > 0
+                        ? (int) round(($totals['fundedMinor'] / $totals['committedMinor']) * 100)
+                        : null,
+                    'released' => Money::toDecimal($totals['releasedMinor']),
+                    'spent' => Money::toDecimal($totals['spentMinor']),
+                    'capitalRecovered' => Money::toDecimal($totals['capitalRecoveredMinor']),
+                    'investorShare' => Money::toDecimal($totals['investorShareMinor']),
+                    'totalReturned' => Money::toDecimal($totals['capitalRecoveredMinor'] + $totals['investorShareMinor']),
+                ])->values()->all(),
+            ],
         ];
+    }
+
+    /**
+     * @param  list<int>  $agreementIds
+     * @return array{0: array<string, int>, 1: array<string, int>, 2: array<string, int>, 3: array<string, int>}
+     */
+    private function portfolioFinancialMaps(array $agreementIds): array
+    {
+        if ($agreementIds === []) {
+            return [[], [], [], []];
+        }
+
+        $approved = InvestorVisibilityStatus::Approved->value;
+
+        $releasedByKey = [];
+        $phaseRows = FundingPhase::query()
+            ->whereIn('investor_agreement_id', $agreementIds)
+            ->where('investor_visibility_status', $approved)
+            ->selectRaw('investor_agreement_id, currency, SUM(externally_released_amount_minor) as total')
+            ->groupBy('investor_agreement_id', 'currency')
+            ->get();
+        foreach ($phaseRows as $row) {
+            $releasedByKey[$row->investor_agreement_id.':'.$row->currency] = (int) $row->getAttribute('total');
+        }
+
+        $spentByKey = [];
+        $expenseRows = Expense::query()
+            ->whereIn('investor_agreement_id', $agreementIds)
+            ->where('investor_visibility_status', $approved)
+            ->selectRaw('investor_agreement_id, currency, SUM(amount_minor) as total')
+            ->groupBy('investor_agreement_id', 'currency')
+            ->get();
+        foreach ($expenseRows as $row) {
+            $spentByKey[$row->investor_agreement_id.':'.$row->currency] = (int) $row->getAttribute('total');
+        }
+
+        $recoveredByKey = [];
+        $shareByKey = [];
+        $distributionRows = DistributionRecord::query()
+            ->whereIn('investor_agreement_id', $agreementIds)
+            ->where('investor_visibility_status', $approved)
+            ->selectRaw('investor_agreement_id, currency, SUM(capital_recovered_minor) as recovered_total, SUM(investor_share_minor) as share_total')
+            ->groupBy('investor_agreement_id', 'currency')
+            ->get();
+        foreach ($distributionRows as $row) {
+            $key = $row->investor_agreement_id.':'.$row->currency;
+            $recoveredByKey[$key] = (int) $row->getAttribute('recovered_total');
+            $shareByKey[$key] = (int) $row->getAttribute('share_total');
+        }
+
+        return [$releasedByKey, $spentByKey, $recoveredByKey, $shareByKey];
     }
 
     /**
@@ -256,7 +463,25 @@ class BuildInvestorPageData
     private function agreements(Team $team): Collection
     {
         return $team->investorAgreements()
-            ->with(['team', 'investor', 'farm.productionCycles', 'productionCycle', 'media'])
+            ->with([
+                'team',
+                'investor',
+                'farm.productionCycles',
+                'productionCycle',
+                'media',
+                'investorComments.author',
+                'investorComments.subject' => fn (MorphTo $subject) => $subject->morphWith([
+                    Expense::class => ['expenseCategory'],
+                    DistributionRecord::class => ['saleRecord'],
+                    HarvestRecord::class => ['commodity'],
+                ]),
+            ])
+            ->withCount([
+                'approvalRequests as pending_approvals_count' => fn (Builder $query) => $query->whereIn('status', [
+                    ApprovalRequestStatus::Pending->value,
+                    ApprovalRequestStatus::ClarificationRequested->value,
+                ]),
+            ])
             ->latest()
             ->get();
     }
@@ -264,9 +489,9 @@ class BuildInvestorPageData
     /**
      * @return array<string, mixed>
      */
-    private function agreementPayload(InvestorAgreement $agreement, bool $includeInternal = false): array
+    private function agreementPayload(InvestorAgreement $agreement, bool $includeInternal = false, bool $includeComments = false): array
     {
-        return [
+        $payload = [
             'id' => $agreement->id,
             'title' => $agreement->title,
             'investorId' => $agreement->investor_id,
@@ -274,6 +499,8 @@ class BuildInvestorPageData
             'investorEmail' => $agreement->investor->email,
             'farmId' => $agreement->farm_id,
             'farmName' => $agreement->farm->name,
+            'farmType' => $agreement->farm->farm_type->value,
+            'farmTypeLabel' => $agreement->farm->farm_type->label(),
             'productionCycleId' => $agreement->production_cycle_id,
             'productionCycleName' => $agreement->productionCycle?->name,
             'status' => $agreement->status->value,
@@ -298,6 +525,16 @@ class BuildInvestorPageData
                 ->map(fn (Media $media) => $this->mediaPayload($media, $agreement->team))
                 ->values(),
         ];
+
+        if ($includeComments) {
+            $payload['comments'] = $agreement->investorComments
+                ->sortBy([['created_at', 'desc'], ['id', 'desc']])
+                ->values()
+                ->map(fn (InvestorComment $comment) => $this->commentPayload($comment, $agreement));
+            $payload['pendingApprovalsCount'] = (int) ($agreement->getAttribute('pending_approvals_count') ?? 0);
+        }
+
+        return $payload;
     }
 
     /**
@@ -605,6 +842,7 @@ class BuildInvestorPageData
             'id' => $approvalRequest->id,
             'investorAgreementId' => $approvalRequest->investor_agreement_id,
             'agreementTitle' => $approvalRequest->investorAgreement->title,
+            'farmName' => $approvalRequest->investorAgreement->farm->name,
             'investorName' => $approvalRequest->investorAgreement->investor->name,
             'requestType' => $approvalRequest->request_type->value,
             'requestTypeLabel' => $approvalRequest->request_type->label(),
@@ -795,11 +1033,13 @@ class BuildInvestorPageData
     /**
      * @return array<string, mixed>
      */
-    private function commentPayload(InvestorComment $comment): array
+    private function commentPayload(InvestorComment $comment, InvestorAgreement $agreement): array
     {
         return [
             'id' => $comment->id,
+            'authorId' => $comment->author_id,
             'authorName' => $comment->author->name,
+            'isInvestor' => $comment->author_id === $agreement->investor_id,
             'body' => $comment->body,
             'subjectLabel' => $this->subjectLabel($comment->subject),
             'createdAt' => $comment->created_at?->toISOString(),
@@ -866,12 +1106,17 @@ class BuildInvestorPageData
     private function subjectLabel(?Model $subject): string
     {
         return match (true) {
+            $subject === null => 'General agreement',
             $subject instanceof Expense => $subject->expenseCategory?->name ?? 'Expense',
             $subject instanceof FundingPhase => $subject->name,
+            $subject instanceof ExternalTransfer => $subject->transfer_type,
+            $subject instanceof FarmActivity => $this->sharedActivityTitle($subject),
+            $subject instanceof FarmTask => $subject->title,
             $subject instanceof ProductionPlanChange => $subject->change_type->label(),
             $subject instanceof DistributionRecord => 'Distribution for '.$subject->saleRecord?->buyer_name,
             $subject instanceof SaleRecord => 'Sale to '.$subject->buyer_name,
             $subject instanceof HarvestRecord => $subject->commodity?->name.' harvest',
+            $subject instanceof ApprovalRequest => $subject->request_type->label(),
             default => 'Record',
         };
     }

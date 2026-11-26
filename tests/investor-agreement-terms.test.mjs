@@ -32,6 +32,12 @@ const { default: Decisions } = await server.ssrLoadModule(
 const { default: Updates } = await server.ssrLoadModule(
     '/resources/js/components/InvestorPortalUpdates.vue',
 );
+const { default: CycleHealth } = await server.ssrLoadModule(
+    '/resources/js/components/InvestorCycleHealthCard.vue',
+);
+const { default: Portfolio } = await server.ssrLoadModule(
+    '/resources/js/pages/investor-portal/Portfolio.vue',
+);
 const { usePhotoZoom } = await server.ssrLoadModule(
     '/resources/js/composables/usePhotoZoom.ts',
 );
@@ -358,4 +364,197 @@ test('missing scope is explicit, zero shares remain visible and notes are escape
     assert.ok(escaped.includes('&lt;script&gt;alert(1)&lt;/script&gt;'));
     assert.doesNotMatch(escaped, /<script>alert/);
     assert.ok(escaped.includes('Dry season 2027'));
+});
+
+test('clarification requested decisions allow approve or reject without request clarification', async () => {
+    const html = await renderToString(
+        createSSRApp({
+            render: () =>
+                h(Decisions, {
+                    requests: [
+                        {
+                            id: 11,
+                            investorAgreementId: 1,
+                            agreementTitle: 'Fish agreement',
+                            investorName: 'Test investor',
+                            requestType: 'expense',
+                            requestTypeLabel: 'Expense',
+                            triggerType: 'threshold',
+                            triggerTypeLabel: 'Threshold',
+                            status: 'clarification_requested',
+                            statusLabel: 'Clarification requested',
+                            subjectLabel: 'Pump replacement',
+                            requestedAmount: '45000.00',
+                            approvedAmount: null,
+                            currency: 'NGN',
+                            expenseDescription: 'Replace borehole pump.',
+                            milestone: null,
+                            milestoneEvidence: [],
+                            requesterComment: 'Pump failed.',
+                            decisionComment: 'Please attach vendor quote.',
+                            requestedAt: '2026-11-15T10:00:00Z',
+                            decidedAt: null,
+                        },
+                    ],
+                    currentTeamSlug: 'test-farm',
+                    agreementId: 1,
+                }),
+        }),
+    );
+
+    assert.equal((html.match(/<form\b/g) ?? []).length, 1);
+    assert.match(html, /Approve/);
+    assert.match(html, /Reject/);
+    assert.doesNotMatch(html, /<button[^>]*>[^<]*Request clarification/);
+});
+
+test('cycle health snapshot card renders domain telemetry cleanly without private fields', async () => {
+    const html = await renderToString(
+        createSSRApp({
+            render: () =>
+                h(CycleHealth, {
+                    snapshot: {
+                        cycleId: 5,
+                        cycleName: 'Catfish Batch 3',
+                        season: 'Dry season',
+                        domain: 'aquaculture',
+                        domainLabel: 'Fish / Aquaculture',
+                        farmType: 'aquaculture',
+                        farmTypeLabel: 'Aquaculture',
+                        status: 'active',
+                        statusLabel: 'Active',
+                        plannedStartOn: '2026-11-01',
+                        plannedEndOn: '2027-03-01',
+                        ageDays: 25,
+                        progressPercent: 40,
+                        logCount: 12,
+                        lastLoggedOn: '2026-11-25',
+                        stock: {
+                            initialCount: 1500,
+                            currentCount: 1470,
+                            survivalRatePercent: 98,
+                            mortalityRatePercent: 2,
+                        },
+                        feeding: {
+                            totalFeedKg: 210,
+                            averageDailyFeedKg: 17.5,
+                            latestAverageWeightG: 185,
+                            estimatedBiomassKg: 271.95,
+                            fcr: 1.25,
+                        },
+                        poultry: {
+                            totalEggs: 0,
+                            totalCrates: 0,
+                            recentLayRatePercent: null,
+                        },
+                        aquaculture: {
+                            waterStatus: 'optimal',
+                            waterExchangeCount: 3,
+                            latestPh: 7.1,
+                            latestTempC: 27.5,
+                            latestDissolvedOxygen: 5.4,
+                            latestAmmonia: 0.12,
+                        },
+                        crop: {
+                            currentGrowthStage: null,
+                            currentGrowthStageLabel: null,
+                            stageProgressPercent: 40,
+                            totalRainfallMm: 0,
+                            irrigationCount: 0,
+                            latestPestPressure: null,
+                            latestPestPressureLabel: null,
+                        },
+                        series: {
+                            dates: ['Nov 24', 'Nov 25'],
+                            feedKg: [16, 18],
+                            eggs: [0, 0],
+                            rainfallMm: [0, 0],
+                        },
+                    },
+                }),
+        }),
+    );
+
+    for (const expected of [
+        'Catfish Batch 3',
+        'Optimal water',
+        '98% survival',
+        '271.95 kg',
+        'FCR 1.25',
+        '5.4 mg/L',
+    ]) {
+        assert.ok(html.includes(expected), `Missing snapshot value: ${expected}`);
+    }
+});
+
+test('portfolio renders consolidated summary totals and farm type badges without exposing internal notes', async () => {
+    const result = await createInertiaApp({
+        page: {
+            component: 'investor-portal/Portfolio',
+            url: '/my-investments',
+            version: 'test',
+            props: {
+                farms: [
+                    {
+                        id: 2,
+                        name: 'Sanni Fish Farm',
+                        farmType: 'aquaculture',
+                        farmTypeLabel: 'Aquaculture',
+                        teamSlug: 'sanni-fish',
+                        agreements: [
+                            {
+                                id: 9,
+                                title: 'First catfish batch',
+                                status: 'active',
+                                statusLabel: 'Active',
+                                currency: 'NGN',
+                                committed: '248500.00',
+                                funded: '124250.00',
+                                fundingPercent: 50,
+                                capitalRecovered: '50000.00',
+                                investorShare: '20000.00',
+                                productionCycleName: 'Batch 1',
+                                cycleProgressPercent: 60,
+                                pendingDecisionCount: 1,
+                                latestActivity: null,
+                            },
+                        ],
+                    },
+                ],
+                attention: [],
+                summary: {
+                    farmCount: 1,
+                    agreementCount: 1,
+                    activeAgreementCount: 1,
+                    pendingDecisionCount: 1,
+                    totalsByCurrency: [
+                        {
+                            currency: 'NGN',
+                            committed: '248500.00',
+                            funded: '124250.00',
+                            fundingPercent: 50,
+                            released: '100000.00',
+                            spent: '75000.00',
+                            capitalRecovered: '50000.00',
+                            investorShare: '20000.00',
+                            totalReturned: '70000.00',
+                        },
+                    ],
+                },
+                errors: {},
+            },
+            clearHistory: false,
+            encryptHistory: false,
+        },
+        resolve: () => Portfolio,
+        setup: ({ App, props, plugin }) =>
+            createSSRApp({ render: () => h(App, props) }).use(plugin),
+        render: renderToString,
+    });
+
+    const html = result.body.slice(result.body.indexOf('<div data-server-rendered='));
+    assert.ok(html.includes('Sanni Fish Farm'));
+    assert.ok(html.includes('Aquaculture'));
+    assert.ok(html.includes('50% of commitment'));
+    assert.ok(html.includes('₦70,000.00 NGN total returned'));
 });

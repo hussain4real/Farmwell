@@ -23,8 +23,18 @@ class InvestorStatementController extends Controller
         $statements = $this->statements($currentTeam, $investorAgreement)->latest('id')
             ->paginate(20, ['status', 'failure_message', 'id', 'period_start', 'period_end', 'created_at']);
 
+        $investorAgreement->loadMissing(['farm:id,name', 'productionCycle:id,name']);
+
         return Inertia::render('investor-portal/Statements', [
-            'agreement' => $investorAgreement->only('id', 'title', 'currency'),
+            'agreement' => [
+                'id' => $investorAgreement->id,
+                'title' => $investorAgreement->title,
+                'currency' => $investorAgreement->currency,
+                'farmName' => $investorAgreement->farm->name,
+                'productionCycleName' => $investorAgreement->productionCycle?->name,
+                'startsOn' => $investorAgreement->starts_on?->toDateString(),
+                'endsOn' => $investorAgreement->ends_on?->toDateString(),
+            ],
             'statements' => $statements,
         ]);
     }

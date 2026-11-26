@@ -3,7 +3,8 @@ import { computed, ref } from 'vue';
 import Heading from '@/components/Heading.vue';
 import InvestorUpdateEvidence from '@/components/InvestorUpdateEvidence.vue';
 import SummaryText from '@/components/SummaryText.vue';
-import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { formatInvestorDate } from '@/lib/investor-portal';
 import type {
     InvestorActivityEvidence,
@@ -85,22 +86,30 @@ const visibleUpdates = computed(() =>
                 title="Farm updates"
                 description="Field activity, tasks and progress shared with you."
             />
-            <div v-if="updates.length" class="flex items-center gap-2">
-                <Label :for="`update-filter-${agreement.id}`">Show</Label>
-                <select
-                    :id="`update-filter-${agreement.id}`"
-                    v-model="filter"
-                    class="h-9 rounded-md border bg-background px-2 text-sm"
+            <div
+                v-if="updates.length"
+                role="group"
+                aria-label="Filter updates"
+                class="flex flex-wrap gap-1.5"
+            >
+                <Button
+                    type="button"
+                    size="sm"
+                    :variant="filter === 'all' ? 'default' : 'outline'"
+                    @click="filter = 'all'"
                 >
-                    <option value="all">All updates</option>
-                    <option
-                        v-for="(label, kind) in labels"
-                        :key="kind"
-                        :value="kind"
-                    >
-                        {{ label }}
-                    </option>
-                </select>
+                    All ({{ updates.length }})
+                </Button>
+                <Button
+                    v-for="(label, kind) in labels"
+                    :key="kind"
+                    type="button"
+                    size="sm"
+                    :variant="filter === kind ? 'default' : 'outline'"
+                    @click="filter = kind"
+                >
+                    {{ label }}
+                </Button>
             </div>
         </div>
         <ol
@@ -110,16 +119,16 @@ const visibleUpdates = computed(() =>
             <li
                 v-for="update in visibleUpdates"
                 :key="update.id"
-                class="relative min-w-0"
+                class="relative min-w-0 rounded-2xl border bg-card p-4 shadow-xs"
             >
                 <span
                     aria-hidden="true"
-                    class="absolute start-[-1.55rem] top-1.5 size-2.5 rounded-full bg-[#34775c] ring-4 ring-background sm:start-[-2.05rem] dark:bg-emerald-400"
+                    class="absolute start-[-1.55rem] top-5 size-2.5 rounded-full bg-[#34775c] ring-4 ring-background sm:start-[-2.05rem] dark:bg-emerald-400"
                 />
                 <div
                     class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground"
                 >
-                    <span>{{ labels[update.kind] }}</span>
+                    <Badge variant="outline">{{ labels[update.kind] }}</Badge>
                     <span v-if="update.date">
                         <span v-if="update.kind === 'task'">Due </span
                         ><time :datetime="update.date">{{
@@ -127,7 +136,7 @@ const visibleUpdates = computed(() =>
                         }}</time>
                     </span>
                 </div>
-                <h3 class="mt-1 font-semibold break-words">
+                <h3 class="mt-2 font-semibold break-words">
                     {{ update.title }}
                 </h3>
                 <SummaryText
@@ -151,7 +160,7 @@ const visibleUpdates = computed(() =>
         <p
             v-else
             role="status"
-            class="rounded-lg border border-dashed p-5 text-sm text-muted-foreground"
+            class="rounded-xl border border-dashed p-5 text-sm text-muted-foreground"
         >
             {{
                 updates.length

@@ -1,5 +1,5 @@
 import type { Evidence, FarmOption } from './farm-operations';
-import type { TeamPermissions } from './teams';
+import type { RoleOption, TeamPermissions } from './teams';
 
 export type InvestorUser = {
     id: number;
@@ -29,6 +29,8 @@ export type InvestorAgreement = {
     investorEmail: string;
     farmId: number;
     farmName: string;
+    farmType: string;
+    farmTypeLabel: string;
     productionCycleId: number | null;
     productionCycleName: string | null;
     status: string;
@@ -71,6 +73,65 @@ export type InvestorAgreementSummary = {
     farmShare: string;
 };
 
+export type InvestorCycleSnapshot = {
+    cycleId: number;
+    cycleName: string;
+    season: string | null;
+    domain: 'poultry' | 'crop' | 'aquaculture' | 'general';
+    domainLabel: string;
+    farmType: string;
+    farmTypeLabel: string;
+    status: string;
+    statusLabel: string;
+    plannedStartOn: string;
+    plannedEndOn: string | null;
+    ageDays: number;
+    progressPercent: number;
+    logCount: number;
+    lastLoggedOn: string | null;
+    stock: {
+        initialCount: number | null;
+        currentCount: number | null;
+        survivalRatePercent: number | null;
+        mortalityRatePercent: number | null;
+    };
+    feeding: {
+        totalFeedKg: number;
+        averageDailyFeedKg: number;
+        latestAverageWeightG: number | null;
+        estimatedBiomassKg: number | null;
+        fcr: number | null;
+    };
+    poultry: {
+        totalEggs: number;
+        totalCrates: number;
+        recentLayRatePercent: number | null;
+    };
+    aquaculture: {
+        waterStatus: 'optimal' | 'warning' | 'critical' | 'unknown';
+        waterExchangeCount: number;
+        latestPh: number | null;
+        latestTempC: number | null;
+        latestDissolvedOxygen: number | null;
+        latestAmmonia: number | null;
+    };
+    crop: {
+        currentGrowthStage: string | null;
+        currentGrowthStageLabel: string | null;
+        stageProgressPercent: number;
+        totalRainfallMm: number;
+        irrigationCount: number;
+        latestPestPressure: string | null;
+        latestPestPressureLabel: string | null;
+    };
+    series: {
+        dates: string[];
+        feedKg: number[];
+        eggs: number[];
+        rainfallMm: number[];
+    };
+};
+
 export type InvestorApprovalSettings = {
     currency: string;
     expenseThresholdMinor: number;
@@ -81,6 +142,7 @@ export type InvestorApprovalRequest = {
     id: number;
     investorAgreementId: number;
     agreementTitle: string;
+    farmName?: string;
     investorName: string;
     requestType: string;
     requestTypeLabel: string;
@@ -225,7 +287,9 @@ export type InvestorPlanChange = {
 
 export type InvestorComment = {
     id: number;
+    authorId?: number;
     authorName: string;
+    isInvestor?: boolean;
     body: string;
     subjectLabel: string;
     createdAt: string | null;
@@ -233,6 +297,7 @@ export type InvestorComment = {
 
 export type InvestorPortalAgreement = InvestorAgreement & {
     summary: InvestorAgreementSummary;
+    cycleSnapshot: InvestorCycleSnapshot | null;
     fundingTimeline: InvestorFundingGroup[];
     expenses: InvestorExpense[];
     externalTransfers: InvestorExternalTransfer[];
@@ -250,6 +315,56 @@ export type InvestorPortalAgreement = InvestorAgreement & {
     planChanges: InvestorPlanChange[];
     approvalRequests: InvestorApprovalRequest[];
     comments: InvestorComment[];
+};
+
+export type InvestorManagementAgreement = InvestorAgreement & {
+    comments: InvestorComment[];
+    pendingApprovalsCount: number;
+};
+
+export type InvestorManagementSummary = {
+    investorCount: number;
+    activeAgreementCount: number;
+    draftAgreementCount: number;
+    pendingApprovalCount: number;
+    questionCount: number;
+    committedByCurrency: Array<{
+        currency: string;
+        committed: string;
+        funded: string;
+    }>;
+};
+
+export type InvestorInviteContext = {
+    availableRoles: RoleOption[];
+    callingCode: string | null;
+    phoneCountries: Record<string, string> | null;
+    phoneLoginEnabled: boolean;
+    pendingInvestorInvitations: Array<{
+        code: string;
+        email: string | null;
+        phone: string | null;
+        phoneUrl: string | null;
+        createdAt: string | null;
+    }>;
+};
+
+export type InvestorPortfolioSummary = {
+    farmCount: number;
+    agreementCount: number;
+    activeAgreementCount: number;
+    pendingDecisionCount: number;
+    totalsByCurrency: Array<{
+        currency: string;
+        committed: string;
+        funded: string;
+        fundingPercent: number | null;
+        released: string;
+        spent: string;
+        capitalRecovered: string;
+        investorShare: string;
+        totalReturned: string;
+    }>;
 };
 
 export type InvestorOptions = {

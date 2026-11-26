@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Form } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { ref, watch } from 'vue';
 import InputError from '@/components/InputError.vue';
 import NationalPhoneInput from '@/components/NationalPhoneInput.vue';
 import { Button } from '@/components/ui/button';
@@ -32,23 +32,35 @@ type Props = {
     phoneLoginEnabled: boolean;
     callingCode: string | null;
     phoneCountries: Record<string, string> | null;
+    defaultRole?: string;
 };
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+    defaultRole: 'member',
+});
 const emit = defineEmits<{
     'update:open': [value: boolean];
 }>();
 
 const country = ref('NG');
-const inviteRole = ref('member');
+const inviteRole = ref(props.defaultRole);
 const formKey = ref(0);
 const channel = ref('email');
+
+watch(
+    () => props.open,
+    (isOpen) => {
+        if (isOpen) {
+            inviteRole.value = props.defaultRole;
+        }
+    },
+);
 
 function handleOpenChange(value: boolean) {
     emit('update:open', value);
 
     if (!value) {
-        inviteRole.value = 'member';
+        inviteRole.value = props.defaultRole;
         channel.value = 'email';
         formKey.value++;
     }
@@ -66,9 +78,17 @@ function handleOpenChange(value: boolean) {
                 @success="emit('update:open', false)"
             >
                 <DialogHeader>
-                    <DialogTitle>Invite a team member</DialogTitle>
+                    <DialogTitle>{{
+                        props.defaultRole === 'investor'
+                            ? 'Invite an investor'
+                            : 'Invite a team member'
+                    }}</DialogTitle>
                     <DialogDescription>
-                        Send an invitation to join this team.
+                        {{
+                            props.defaultRole === 'investor'
+                                ? 'Send an invitation to join this farm workspace as an investor.'
+                                : 'Send an invitation to join this team.'
+                        }}
                     </DialogDescription>
                 </DialogHeader>
 

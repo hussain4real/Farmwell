@@ -148,7 +148,13 @@ onUnmounted(() => {
                 :class="teamItemClass"
                 @click="switchTeam(team)"
             >
-                {{ team.name }}
+                <span class="truncate">{{ team.name }}</span>
+                <span
+                    v-if="team.role === 'investor'"
+                    class="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300"
+                >
+                    Investor
+                </span>
                 <Check
                     v-if="currentTeam?.id === team.id"
                     :class="checkIconClass"

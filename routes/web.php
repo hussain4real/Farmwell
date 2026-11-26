@@ -193,6 +193,7 @@ Route::prefix('{current_team}')
         Route::post('harvests', [HarvestRecordController::class, 'store'])->name('harvests.store');
         Route::post('harvests/sales', [SaleRecordController::class, 'store'])->name('harvests.sales.store');
         Route::post('investors/agreements', [InvestorAgreementController::class, 'store'])->name('investors.agreements.store');
+        Route::patch('investors/agreements/{investor_agreement}', [InvestorAgreementController::class, 'update'])->name('investors.agreements.update');
         Route::post('investors/agreements/{investor_agreement}/documents', [InvestorAgreementDocumentController::class, 'store'])->name('investors.agreements.documents.store');
         Route::patch('investors/approval-settings', [InvestorApprovalSettingController::class, 'update'])->name('investors.approval-settings.update');
         Route::post('investors/approvals/{approval_request}/decisions', [InvestorApprovalDecisionController::class, 'store'])->middleware('throttle:approval-decisions')->name('investors.approvals.decisions.store');
