@@ -602,8 +602,7 @@ function filter() {
                     >
                         <Label :for="`farm-${field.key}`">{{
                             field.label
-                        }}</Label
-                        ><Input
+                        }}</Label><Input
                             :id="`farm-${field.key}`"
                             v-model="farmForm[field.key]"
                         /><InputError :message="farmForm.errors[field.key]" />

@@ -17,7 +17,8 @@
         "AWS_BUCKET": "farmwell-staging-private",
         "FROZEN_TEAM_SLUG": "mdsxclusive-farms",
         "FROZEN_TEAM_ID": "4",
-        "MOVED_TEAM_ORIGIN": "https://app.farmwell.app"
+        "MOVED_TEAM_ORIGIN": "https://app.farmwell.app",
+        "WEB_INACTIVITY_TIMEOUT_MS": "60000"
     },
     "observability": { "enabled": true },
     "tail_consumers": [
@@ -26,7 +27,7 @@
         }
     ],
     "triggers": {
-        "crons": ["0 * * * *"]
+        "crons": []
     },
     "containers": [
         {

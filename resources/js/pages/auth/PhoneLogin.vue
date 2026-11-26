@@ -36,8 +36,7 @@ const codeLength = 6;
     <div class="grid gap-5">
         <Head title="Phone sign-in" />
         <p v-if="teamName">
-            You've been invited to join <strong>{{ teamName }}</strong
-            >.
+            You've been invited to join <strong>{{ teamName }}</strong>.
         </p>
         <Form
             v-if="!awaitingCode || requestAnother"

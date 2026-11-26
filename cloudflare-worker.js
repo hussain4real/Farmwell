@@ -100,7 +100,7 @@ export class FarmwellWeb extends DurableObject {
         if (cold) {
             container.start({
                 image: container.images.base,
-                instance: 'standard-1',
+                instance: this.env.WEB_CONTAINER_INSTANCE ?? 'basic',
                 enableInternet: true,
                 env: {
                     ...containerEnvironment(this.env),
@@ -123,7 +123,8 @@ export class FarmwellWeb extends DurableObject {
             });
         }
 
-        await container.setInactivityTimeout(300000);
+        const inactivityTimeoutMs = Number(this.env.WEB_INACTIVITY_TIMEOUT_MS) || 90000;
+        await container.setInactivityTimeout(inactivityTimeoutMs);
         const port = container.getTcpPort(80);
         let startupFailure;
         let lastStatus;
@@ -208,22 +209,26 @@ export class FarmwellQueue extends DurableObject {
         }
 
         // The monitor uses a dedicated object and shares no container with job processing.
-        const process = await container.exec(
-            ['timeout', '--kill-after=2', '15', 'php', 'artisan', 'ops:failed-job-watermark', '--no-interaction'],
-            {
-                cwd: '/var/www/html',
-                env: { APP_ENV: 'production', APP_DEBUG: 'false', DB_CONNECTION: 'pgsql', DB_URL: url },
-                stderr: 'ignore',
-            },
-        );
-        const { exitCode, stdout } = await process.output();
-        const latest = new TextDecoder().decode(stdout).trim();
+        try {
+            const process = await container.exec(
+                ['timeout', '--kill-after=2', '15', 'php', 'artisan', 'ops:failed-job-watermark', '--no-interaction'],
+                {
+                    cwd: '/var/www/html',
+                    env: { APP_ENV: 'production', APP_DEBUG: 'false', DB_CONNECTION: 'pgsql', DB_URL: url },
+                    stderr: 'ignore',
+                },
+            );
+            const { exitCode, stdout } = await process.output();
+            const latest = new TextDecoder().decode(stdout).trim();
 
-        if (exitCode !== 0 || !/^\d+$/.test(latest)) {
-            throw new Error('Failed-job watermark unavailable');
+            if (exitCode !== 0 || !/^\d+$/.test(latest)) {
+                throw new Error('Failed-job watermark unavailable');
+            }
+
+            return latest;
+        } finally {
+            await container.destroy?.().catch(() => {});
         }
-
-        return latest;
     }
 
     run(waitForRetries = false) {

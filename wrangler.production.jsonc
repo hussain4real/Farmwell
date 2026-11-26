@@ -27,7 +27,8 @@
         "PHONE_PILOT_NIGERIA_OTP_PROVIDER": "kudisms",
         "KUDISMS_SENDER_ID": "Farmwell",
         "KUDISMS_OTP_APP_CODE": "8490844367",
-        "KUDISMS_OTP_TEMPLATE_CODE": "81666357"
+        "KUDISMS_OTP_TEMPLATE_CODE": "81666357",
+        "WEB_INACTIVITY_TIMEOUT_MS": "90000"
     },
     "observability": { "enabled": true },
     "tail_consumers": [
@@ -36,7 +37,7 @@
         }
     ],
     "triggers": {
-        "crons": ["*/30 * * * *"]
+        "crons": ["0 7,19 * * *"]
     },
     "containers": [
         {

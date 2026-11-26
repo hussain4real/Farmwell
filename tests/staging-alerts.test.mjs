@@ -149,8 +149,8 @@ test('production cutover configuration isolates live storage and freezes the sou
     assert.equal(app.vars.AWS_BUCKET, 'farmwell-production-live-private');
     assert.equal(app.vars.PHONE_PILOT_HOST, 'app.farmwell.app');
     assert.equal(app.vars.REDIRECT_HOST, 'pilot.farmwell.app');
-    assert.deepEqual(app.triggers.crons, ['*/30 * * * *']);
-    assert.deepEqual(alerts.triggers.crons, app.triggers.crons);
+    assert.deepEqual(app.triggers.crons, ['0 7,19 * * *']);
+    assert.deepEqual(alerts.triggers.crons, ['0 */6 * * *']);
     assert.deepEqual(app.routes.map(route => route.pattern), ['app.farmwell.app', 'pilot.farmwell.app']);
     assert.deepEqual(app.tail_consumers, [{service: alerts.name}]);
     assert.equal(alerts.vars.ALERT_DELIVERY_ENABLED, 'true');
@@ -159,7 +159,7 @@ test('production cutover configuration isolates live storage and freezes the sou
     assert.equal(alerts.r2_buckets[0].bucket_name, 'farmwell-production-live-backups');
     const staging = await parse('wrangler.jsonc');
     const stagingAlerts = await parse('wrangler.alerts.jsonc');
-    assert.deepEqual(staging.triggers.crons, ['0 * * * *']);
+    assert.deepEqual(staging.triggers.crons, []);
     assert.deepEqual(stagingAlerts.triggers.crons, staging.triggers.crons);
     assert.equal(staging.vars.FROZEN_TEAM_SLUG, 'mdsxclusive-farms');
     assert.equal(staging.vars.FROZEN_TEAM_ID, '4');

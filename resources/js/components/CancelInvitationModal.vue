@@ -49,8 +49,7 @@ const cancelInvitation = () => {
                     Are you sure you want to cancel the invitation for
                     <strong>{{
                         props.invitation?.email ?? props.invitation?.phone
-                    }}</strong
-                    >?
+                    }}</strong>?
                 </DialogDescription>
             </DialogHeader>
 

@@ -20,7 +20,7 @@ const FarmwellWeb = vm.runInNewContext(`${source}\nFarmwellWeb;`, {
     scheduler: { wait: async () => {} },
 });
 
-async function startWeb(image, running = true) {
+async function startWeb(image, running = true, envOverrides = {}) {
     const events = [];
     const container = {
         images: { base: 'current-image' },
@@ -37,13 +37,15 @@ async function startWeb(image, running = true) {
             events.push(`mail:${env.MAIL_MAILER}:${env.CLOUDFLARE_ACCOUNT_ID}`);
             container.running = true;
         },
-        setInactivityTimeout: async () => {},
+        setInactivityTimeout: async (ms) => {
+            events.push(`inactivity:${ms}`);
+        },
         monitor: () => new Promise(() => {}),
         getTcpPort: () => ({
             fetch: async () => ({ ok: true, status: 200 }),
         }),
     };
-    const instance = new FarmwellWeb({ container, waitUntil() {} }, { DB_URL: 'postgres://db-pooler.example/test', CLOUDFLARE_ACCOUNT_ID: 'test-account' });
+    const instance = new FarmwellWeb({ container, waitUntil() {} }, { DB_URL: 'postgres://db-pooler.example/test', CLOUDFLARE_ACCOUNT_ID: 'test-account', ...envOverrides });
 
     await instance.startAndWait();
 
@@ -51,19 +53,27 @@ async function startWeb(image, running = true) {
 }
 
 test('a running web container is not destroyed while requests may be in flight', async () => {
-    assert.deepEqual(await startWeb('previous-image'), []);
+    assert.deepEqual(await startWeb('previous-image'), ['inactivity:90000']);
 });
 
 test('web requests keep the current container image running', async () => {
-    assert.deepEqual(await startWeb('current-image'), []);
+    assert.deepEqual(await startWeb('current-image'), ['inactivity:90000']);
 });
 
 test('a stopped web container starts with the current image and staging configuration', async () => {
     assert.deepEqual(await startWeb('', false), [
         'start:current-image',
-        'instance:standard-1',
+        'instance:basic',
         'database:postgres://db.example/test',
         'mail:cloudflare:test-account',
+        'inactivity:90000',
+    ]);
+    assert.deepEqual(await startWeb('', false, { WEB_CONTAINER_INSTANCE: 'lite', WEB_INACTIVITY_TIMEOUT_MS: '60000' }), [
+        'start:current-image',
+        'instance:lite',
+        'database:postgres://db.example/test',
+        'mail:cloudflare:test-account',
+        'inactivity:60000',
     ]);
 });
 
@@ -383,6 +393,7 @@ test('failed-job probe uses the private PostgreSQL connection and returns only a
     let exitCode = 0;
     let stdout = '9223372036854775807\n';
     let started = false;
+    let destroyed = 0;
     queue.env = { DB_URL: connection };
     queue.ctx = { container: {
         images: { base: 'test-image' },
@@ -393,6 +404,10 @@ test('failed-job probe uses the private PostgreSQL connection and returns only a
             assert.equal(options.image, 'test-image');
             assert.equal(options.enableInternet, true);
             started = true;
+        },
+        destroy: async () => {
+            destroyed++;
+            started = false;
         },
         exec: async (command, options) => {
             assert.equal(started, true);
@@ -405,11 +420,16 @@ test('failed-job probe uses the private PostgreSQL connection and returns only a
     } };
 
     assert.equal(await queue.failedJobWatermark(), '9223372036854775807');
+    assert.equal(started, false);
+    assert.equal(destroyed, 1);
     exitCode = 1;
     await assert.rejects(queue.failedJobWatermark(), /^Error: Failed-job watermark unavailable$/);
+    assert.equal(started, false);
+    assert.equal(destroyed, 2);
     exitCode = 0;
     stdout = 'unexpected output';
     await assert.rejects(queue.failedJobWatermark(), /^Error: Failed-job watermark unavailable$/);
+    assert.equal(destroyed, 3);
 });
 
 test('only the web container receives phone verification settings and credentials', async () => {
