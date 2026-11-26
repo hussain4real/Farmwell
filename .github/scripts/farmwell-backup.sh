@@ -3,6 +3,11 @@ set -euo pipefail
 umask 077
 
 : "${PGHOST:?}" "${PGDATABASE:?}" "${PGUSER:?}" "${BACKUP_ARCHIVE_PASSWORD:?}"
+case "${FARMWELL_BACKUP_DATABASE_PROFILE:-postgres}" in
+    postgres) export FARMWELL_DUMP_SCHEMA='' ;;
+    supabase) export FARMWELL_DUMP_SCHEMA='--schema=public' ;;
+    *) echo 'Unknown backup database profile.' >&2; exit 1 ;;
+esac
 php -r 'exit(ZipArchive::isEncryptionMethodSupported(ZipArchive::EM_AES_256) ? 0 : 1);'
 work=$(mktemp -d)
 trap 'rm -rf -- "$work"' EXIT
@@ -14,7 +19,7 @@ psql -XqAt -v ON_ERROR_STOP=1 > "$work/media.jsonl" <<'SQL'
 BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;
 SELECT pg_export_snapshot() AS snapshot \gset
 \setenv FARMWELL_PG_SNAPSHOT :snapshot
-\! pg_dump --snapshot="$FARMWELL_PG_SNAPSHOT" --format=custom --file="$FARMWELL_BACKUP_SOURCE/database.dump" && touch "$FARMWELL_BACKUP_TEMP.dump-complete"
+\! pg_dump ${FARMWELL_DUMP_SCHEMA:+"$FARMWELL_DUMP_SCHEMA"} --snapshot="$FARMWELL_PG_SNAPSHOT" --format=custom --file="$FARMWELL_BACKUP_SOURCE/database.dump" && touch "$FARMWELL_BACKUP_TEMP.dump-complete"
 SELECT json_build_array(id, file_name, size) FROM public.media WHERE disk = 'farmwell_private';
 COMMIT;
 SQL

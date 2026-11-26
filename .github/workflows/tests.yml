@@ -63,7 +63,9 @@ jobs:
         run: bash .github/scripts/setup-backup-postgres.sh
 
       - name: Restore a synthetic encrypted staging backup
-        run: bash tests/backup-restore.sh
+        run: |
+          bash tests/backup-restore.sh
+          bash tests/backup-restore.sh supabase
 
       - name: Rehearse a tenant-isolated pilot migration
         run: bash tests/team-migration.sh
