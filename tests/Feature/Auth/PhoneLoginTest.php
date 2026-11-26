@@ -180,6 +180,10 @@ test('ordinary members cannot see a pending phone number or its invite link in t
 test('the locked calling code uses the recipient number regardless of visitor location', function () {
     $this->withHeader('CF-IPCountry', 'NG')->get(route('phone-login.show'))
         ->assertInertia(fn (AssertableInertia $page) => $page->where('callingCode', '+974'));
+    $this->get(route('phone-login.show', ['country' => 'NG']))
+        ->assertInertia(fn (AssertableInertia $page) => $page->where('callingCode', '+234'));
+    $this->get(route('phone-login.show', ['country' => 'XX']))
+        ->assertInertia(fn (AssertableInertia $page) => $page->where('callingCode', '+974'));
     $this->invite->update(['phone' => '+2348012345678']);
     $this->withHeader('CF-IPCountry', 'QA')->get(route('phone-login.show', ['invite' => $this->invite->code]))
         ->assertInertia(fn (AssertableInertia $page) => $page->where('callingCode', '+234'));

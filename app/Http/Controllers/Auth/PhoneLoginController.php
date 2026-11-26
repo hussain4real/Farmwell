@@ -34,7 +34,11 @@ class PhoneLoginController extends Controller
         $invite = $this->invitation($request->query('invite'));
 
         $pilot = PilotPhone::isPilot($request);
-        $callingCode = $pilot ? PilotPhone::callingCode($request) : PhoneCallingCode::forRecipient();
+        $requestedCountry = $request->query('country');
+        $explicitCallingCode = is_string($requestedCountry) ? (PilotPhone::Countries[$requestedCountry] ?? null) : null;
+        $callingCode = $pilot
+            ? PilotPhone::callingCode($request)
+            : ($explicitCallingCode ?? PhoneCallingCode::forRecipient());
         $awaitingCode = $request->session()->has('phone_challenge') && $request->session()->get('phone_challenge.invite') === $invite?->code;
         $recipient = $invite?->phone ?? ($awaitingCode ? $request->session()->get('phone_challenge.phone') : null);
 

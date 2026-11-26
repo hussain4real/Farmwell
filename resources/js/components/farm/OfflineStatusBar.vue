@@ -12,10 +12,8 @@ import {
 } from '@/lib/offlineLogQueue';
 import type { QueuedProductionLog } from '@/lib/offlineLogQueue';
 
-const isOnline = ref(
-    typeof navigator === 'undefined' ? true : navigator.onLine,
-);
-const queuedLogs = ref<QueuedProductionLog[]>(getOfflineLogs());
+const isOnline = ref(true);
+const queuedLogs = ref<QueuedProductionLog[]>([]);
 const syncing = ref(false);
 
 const refreshState = () => {

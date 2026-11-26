@@ -24,7 +24,7 @@ withDefaults(defineProps<Props>(), {
         <AppSidebar />
         <AppContent
             variant="sidebar"
-            class="overflow-x-hidden pb-[calc(5.25rem+env(safe-area-inset-bottom))] md:pb-0"
+            class="overflow-x-clip pb-[calc(5.25rem+env(safe-area-inset-bottom))] md:pb-0"
         >
             <AppSidebarHeader :breadcrumbs="breadcrumbs" />
             <PlatformImpersonationBanner />

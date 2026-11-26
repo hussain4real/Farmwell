@@ -125,7 +125,7 @@ const codeLength = 6;
                 >Request another code</Button
             >
         </template>
-        <template v-if="pilot && !invite && !awaitingCode">
+        <template v-if="!invite && !awaitingCode">
             <template v-for="(prefix, region) in countries" :key="region">
                 <TextLink
                     v-if="prefix !== callingCode"
