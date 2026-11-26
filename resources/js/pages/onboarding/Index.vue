@@ -731,7 +731,12 @@ const submit = () => {
                             <span class="text-muted-foreground">
                                 Pre-load
                                 {{ selectedTemplate?.starterTasks.length ?? 0 }}
-                                key milestone reminders.
+                                {{
+                                    (selectedTemplate?.starterTasks.length ??
+                                        0) === 1
+                                        ? 'key milestone reminder'
+                                        : 'key milestone reminders'
+                                }}.
                             </span>
                         </span>
                     </label>

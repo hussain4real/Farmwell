@@ -316,7 +316,10 @@ watch(expenseCycleId, () => {
                                     <span v-if="expense.productionCycleName">
                                         · {{ expense.productionCycleName }}
                                     </span>
-                                    · {{ expense.incurredOn }}
+                                    ·
+                                    <span class="whitespace-nowrap">{{
+                                        expense.incurredOn
+                                    }}</span>
                                     <span v-if="expense.vendor">
                                         · {{ expense.vendor }}
                                     </span>

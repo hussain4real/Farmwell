@@ -247,50 +247,26 @@ const workspaceLinks = computed(() => {
                         "
                     >
                         <div
-                            class="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_auto_auto_auto] lg:items-center lg:gap-4"
+                            class="flex flex-wrap items-baseline justify-between gap-2"
                         >
                             <p class="font-medium">
                                 {{ category.categoryName }}
                             </p>
-                            <p class="whitespace-nowrap tabular-nums">
-                                <span class="text-xs text-muted-foreground"
-                                    >Budgeted</span
-                                >
-                                {{
-                                    formatCurrency(
-                                        category.budgeted,
-                                        props.currency,
-                                    )
-                                }}
-                            </p>
-                            <p class="whitespace-nowrap tabular-nums">
-                                <span class="text-xs text-muted-foreground"
-                                    >Spent</span
-                                >
-                                {{
-                                    formatCurrency(
-                                        category.spent,
-                                        props.currency,
-                                    )
-                                }}
-                            </p>
                             <p
-                                class="whitespace-nowrap tabular-nums"
+                                class="text-xs font-medium whitespace-nowrap tabular-nums"
                                 :class="
                                     category.balanceMinor < 0
-                                        ? 'font-medium text-rose-700 dark:text-rose-300'
-                                        : ''
+                                        ? 'text-rose-700 dark:text-rose-300'
+                                        : 'text-muted-foreground'
                                 "
                             >
-                                <span class="text-xs text-muted-foreground"
-                                    >Balance</span
-                                >
                                 {{
                                     formatCurrency(
                                         category.balance,
                                         props.currency,
                                     )
                                 }}
+                                remaining
                             </p>
                         </div>
                         <div
@@ -307,6 +283,28 @@ const workspaceLinks = computed(() => {
                                     width: `${category.budgetedMinor > 0 ? Math.min(100, Math.round((category.spentMinor / category.budgetedMinor) * 100)) : category.spentMinor > 0 ? 100 : 0}%`,
                                 }"
                             />
+                        </div>
+                        <div
+                            class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground tabular-nums"
+                        >
+                            <span class="whitespace-nowrap">
+                                Budgeted:
+                                {{
+                                    formatCurrency(
+                                        category.budgeted,
+                                        props.currency,
+                                    )
+                                }}
+                            </span>
+                            <span class="whitespace-nowrap">
+                                Spent:
+                                {{
+                                    formatCurrency(
+                                        category.spent,
+                                        props.currency,
+                                    )
+                                }}
+                            </span>
                         </div>
                     </article>
                 </div>
