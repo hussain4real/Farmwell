@@ -7,14 +7,15 @@ FROM composer:2 AS composer-bin
 
 FROM php:8.5-apache-bookworm AS runtime
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git libpq-dev libzip-dev libpng-dev unzip \
+    git libpq-dev libzip-dev libpng-dev libjpeg62-turbo-dev libwebp-dev unzip \
     && a2enmod rewrite headers \
     && rm -rf /var/lib/apt/lists/*
 RUN docker-php-ext-install -j1 pdo_pgsql zip
-RUN docker-php-ext-install -j1 exif pcntl gd
+RUN docker-php-ext-configure gd --with-jpeg --with-webp \
+    && docker-php-ext-install -j1 exif pcntl gd
 RUN sed -i 's!/var/www/html!/var/www/html/public!g' /etc/apache2/sites-available/000-default.conf \
     && printf '<Directory /var/www/html/public>\nAllowOverride All\nRequire all granted\n</Directory>\n' >> /etc/apache2/apache2.conf \
-    && printf 'upload_max_filesize=10M\npost_max_size=64M\ndisplay_errors=Off\nlog_errors=On\n' \
+    && printf 'upload_max_filesize=10M\npost_max_size=64M\nmemory_limit=256M\ndisplay_errors=Off\nlog_errors=On\n' \
     > /usr/local/etc/php/conf.d/farmwell-uploads.ini
 WORKDIR /var/www/html
 
