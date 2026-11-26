@@ -6,6 +6,7 @@ use App\Enums\TeamRole;
 use App\Models\AuditEvent;
 use App\Models\Farm;
 use App\Models\FarmActivity;
+use App\Models\ReportArtifact;
 use App\Models\Team;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
@@ -44,6 +45,8 @@ test('every tenant role is denied every platform endpoint', function (TeamRole $
     $this->get(route('platform.index'))->assertForbidden();
     $this->post(route('platform.farms.store'), [])->assertForbidden();
     $this->patch(route('platform.farms.update', $this->farm), [])->assertForbidden();
+    $this->patch(route('platform.farms.status.update', $this->farm), [])->assertForbidden();
+    $this->delete(route('platform.farms.destroy', $this->farm), [])->assertForbidden();
     $this->patch(route('platform.users.update', $this->admin), [])->assertForbidden();
     $this->put(route('platform.memberships.update', $this->admin), [])->assertForbidden();
     expect(AuditEvent::count())->toBe(0);
@@ -83,8 +86,8 @@ test('farm creation and editing remain scoped and record actor reason and values
     expect($farm->team_id)->toBe($this->team->id);
     $data['name'] = 'Updated farm';
     unset($data['team_id']);
-    $this->patch(route('platform.farms.update', $farm), $data)->assertRedirect();
-    expect($farm->fresh()->name)->toBe('Updated farm')->and($this->farm->fresh()->name)->toBe('First farm');
+    $this->patch(route('platform.farms.update', $farm), [...$data, 'status' => 'inactive'])->assertRedirect();
+    expect($farm->fresh()->name)->toBe('Updated farm')->and($farm->fresh()->status)->toBe('inactive')->and($this->farm->fresh()->name)->toBe('First farm');
     $event = AuditEvent::where('action', 'platform.farm_updated')->sole();
     expect($event->actor_id)->toBe($this->admin->id)->and($event->team_id)->toBe($this->team->id)
         ->and($event->old_values['name'])->toBe('New farm')->and($event->reason)->toBe('Onboard the fish farm');
@@ -166,4 +169,89 @@ test('administrative changes roll back when their audit record cannot be saved',
         'name' => 'Unrecorded change', 'reason' => 'Atomic update test',
     ]))->toThrow(RuntimeException::class, 'Audit unavailable');
     expect($this->member->fresh()->name)->toBe($this->member->name);
+});
+
+test('super admin can deactivate, archive, and reactivate a farm with an audit record', function () {
+    $this->from(route('platform.index'))
+        ->patch(route('platform.farms.status.update', $this->farm), [
+            'status' => 'inactive',
+            'reason' => 'Seasonal maintenance break',
+        ])
+        ->assertRedirectToRoute('platform.index');
+
+    expect($this->farm->fresh()->status)->toBe('inactive');
+
+    $this->patch(route('platform.farms.status.update', $this->farm), [
+        'status' => 'archived',
+        'reason' => 'Site decommissioned after harvest',
+    ])->assertRedirect();
+
+    expect($this->farm->fresh()->status)->toBe('archived');
+
+    $this->patch(route('platform.farms.status.update', $this->farm), [
+        'status' => 'active',
+        'reason' => 'Restarted operations',
+    ])->assertRedirect();
+
+    expect($this->farm->fresh()->status)->toBe('active');
+    expect(AuditEvent::where('action', 'platform.farm_status_updated')->count())->toBe(3);
+
+    $this->patch(route('platform.farms.status.update', $this->farm), [
+        'status' => 'invalid-status',
+        'reason' => 'Invalid state check',
+    ])->assertSessionHasErrors('status');
+
+    $this->patch(route('platform.farms.status.update', $this->farm), [
+        'status' => 'inactive',
+        'reason' => '',
+    ])->assertSessionHasErrors('reason');
+
+    $this->team->delete();
+    $this->patch(route('platform.farms.status.update', $this->farm), [
+        'status' => 'inactive',
+        'reason' => 'Missing team check',
+    ])->assertNotFound();
+});
+
+test('super admin can delete a farm only after exact name confirmation and records an audit event', function () {
+    ReportArtifact::create([
+        'team_id' => $this->team->id,
+        'farm_id' => $this->farm->id,
+        'generated_by_id' => $this->admin->id,
+        'type' => 'activity_export',
+        'period_start' => '2026-01-01',
+        'period_end' => '2026-01-31',
+        'document' => 'test',
+        'status' => 'completed',
+    ]);
+
+    $this->from(route('platform.index'))
+        ->delete(route('platform.farms.destroy', $this->farm), [
+            'confirm_name' => 'Wrong Farm',
+            'reason' => 'Mismatch test',
+        ])
+        ->assertSessionHasErrors('confirm_name');
+
+    expect($this->farm->fresh())->not->toBeNull();
+
+    $this->delete(route('platform.farms.destroy', $this->farm), [
+        'confirm_name' => $this->farm->name,
+        'reason' => 'Duplicate farm cleanup',
+    ])->assertRedirectToRoute('platform.index');
+
+    expect(Farm::find($this->farm->id))->toBeNull()
+        ->and(ReportArtifact::where('farm_id', $this->farm->id)->count())->toBe(0);
+
+    $event = AuditEvent::where('action', 'platform.farm_deleted')->sole();
+    expect($event->actor_id)->toBe($this->admin->id)
+        ->and($event->team_id)->toBe($this->team->id)
+        ->and($event->old_values['name'])->toBe('First farm')
+        ->and($event->reason)->toBe('Duplicate farm cleanup');
+
+    $otherFarm = Farm::factory()->for($this->team)->create(['name' => 'Soft deleted team farm']);
+    $this->team->delete();
+    $this->delete(route('platform.farms.destroy', $otherFarm), [
+        'confirm_name' => $otherFarm->name,
+        'reason' => 'Deleted team check',
+    ])->assertNotFound();
 });

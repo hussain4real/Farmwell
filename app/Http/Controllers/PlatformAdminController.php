@@ -6,11 +6,14 @@ use App\Actions\Audit\RecordAuditEvent;
 use App\Actions\Teams\SyncTeamRolePermissions;
 use App\Enums\FarmType;
 use App\Enums\TeamRole;
+use App\Http\Requests\DeletePlatformFarmRequest;
 use App\Http\Requests\PlatformFarmRequest;
+use App\Http\Requests\PlatformFarmStatusRequest;
 use App\Http\Requests\PlatformMembershipRequest;
 use App\Http\Requests\PlatformUserRequest;
 use App\Models\AuditEvent;
 use App\Models\Farm;
+use App\Models\ReportArtifact;
 use App\Models\Team;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
@@ -30,6 +33,7 @@ class PlatformAdminController extends Controller
             'search' => $search,
             'counts' => ['farms' => Farm::whereHas('team')->count(), 'users' => User::count(), 'teams' => Team::count()],
             'farms' => Farm::query()->with('team:id,name,slug')->whereHas('team')
+                ->withCount(['productionUnits', 'productionCycles', 'investorAgreements'])
                 ->when($search !== '', fn ($query) => $query->where('name', 'like', '%'.$search.'%'))
                 ->orderBy('name')->paginate(15, ['*'], 'farms_page')->withQueryString(),
             'users' => User::query()->select(['id', 'name', 'email', 'platform_role'])
@@ -70,6 +74,72 @@ class PlatformAdminController extends Controller
         });
 
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Farm updated.']);
+
+        return back();
+    }
+
+    public function updateFarmStatus(PlatformFarmStatusRequest $request, Farm $farm, RecordAuditEvent $audit): RedirectResponse
+    {
+        $status = (string) $request->validated('status');
+
+        DB::transaction(function () use ($request, $farm, $audit, $status): void {
+            $farm = Farm::with('team')->lockForUpdate()->findOrFail($farm->id);
+            abort_unless($farm->team, 404);
+            $before = ['status' => $farm->status];
+            $farm->update(['status' => $status]);
+            $audit->handle(
+                $farm->team,
+                $request->user(),
+                'platform.farm_status_updated',
+                $farm,
+                $before,
+                ['status' => $farm->status],
+                $request->validated('reason'),
+            );
+        });
+
+        $message = match ($status) {
+            'inactive' => 'Farm deactivated.',
+            'archived' => 'Farm archived.',
+            default => 'Farm activated.',
+        };
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => $message]);
+
+        return back();
+    }
+
+    public function destroyFarm(DeletePlatformFarmRequest $request, Farm $farm, RecordAuditEvent $audit): RedirectResponse
+    {
+        DB::transaction(function () use ($request, $farm, $audit): void {
+            $farm = Farm::with('team')->lockForUpdate()->findOrFail($farm->id);
+            abort_unless($farm->team, 404);
+            $oldValues = [
+                'name' => $farm->name,
+                'farm_type' => $farm->farm_type->value,
+                'location' => $farm->location,
+                'status' => $farm->status,
+            ];
+            $metadata = [
+                'production_units' => $farm->productionUnits()->count(),
+                'production_cycles' => $farm->productionCycles()->count(),
+                'investor_agreements' => $farm->investorAgreements()->count(),
+                'report_artifacts' => ReportArtifact::query()->where('farm_id', $farm->id)->count(),
+            ];
+            $audit->handle(
+                $farm->team,
+                $request->user(),
+                'platform.farm_deleted',
+                $farm,
+                $oldValues,
+                reason: $request->validated('reason'),
+                metadata: $metadata,
+            );
+            ReportArtifact::query()->where('farm_id', $farm->id)->delete();
+            $farm->delete();
+        });
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Farm deleted.']);
 
         return back();
     }

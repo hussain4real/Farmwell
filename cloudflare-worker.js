@@ -81,6 +81,7 @@ export class FarmwellWeb extends DurableObject {
             'x-forwarded-proto',
             original.protocol.slice(0, -1),
         );
+        forwarded.headers.set('X-Farmwell-Internal-Diagnostics', '1');
         forwarded.headers.delete('x-forwarded-port');
         forwarded.headers.delete('x-forwarded-for');
 
@@ -88,7 +89,30 @@ export class FarmwellWeb extends DurableObject {
             forwarded.headers.set('x-forwarded-for', request.headers.get('cf-connecting-ip'));
         }
 
-        return this.ctx.container.getTcpPort(80).fetch(forwarded);
+        const response = await this.ctx.container.getTcpPort(80).fetch(forwarded);
+
+        if (response.headers?.has('x-farmwell-error') || response.status >= 500) {
+            const diagnostic = response.headers?.get('x-farmwell-error');
+
+            if (response.status >= 500) {
+                console.error('Farmwell container 500', {
+                    status: response.status,
+                    path: original.pathname,
+                    error: diagnostic ?? 'no-diagnostic',
+                });
+            }
+
+            const headers = new Headers(response.headers ?? undefined);
+            headers.delete('x-farmwell-error');
+
+            return new Response(response.body, {
+                status: response.status,
+                statusText: response.statusText,
+                headers,
+            });
+        }
+
+        return response;
     }
 
     async startAndWait() {

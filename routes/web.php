@@ -78,6 +78,8 @@ Route::prefix('platform')->name('platform.')->middleware(['auth', EnsureContactI
         Route::post('/impersonate', [PlatformImpersonationController::class, 'store'])->name('impersonate.store')->block();
         Route::post('/farms', 'storeFarm')->name('farms.store');
         Route::patch('/farms/{farm}', 'updateFarm')->name('farms.update');
+        Route::patch('/farms/{farm}/status', 'updateFarmStatus')->name('farms.status.update');
+        Route::delete('/farms/{farm}', 'destroyFarm')->name('farms.destroy');
         Route::patch('/users/{user}', 'updateUser')->name('users.update');
         Route::put('/users/{user}/membership', 'updateMembership')->name('memberships.update');
     });

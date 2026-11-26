@@ -2,14 +2,17 @@
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import {
     Building2,
+    Power,
     Search,
     ShieldCheck,
     Tractor,
+    Trash2,
     UserCheck,
     Users,
 } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
 import InputError from '@/components/InputError.vue';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -23,9 +26,11 @@ import { Label } from '@/components/ui/label';
 import { index } from '@/routes/platform';
 import { store as enterWorkspace } from '@/routes/platform/access';
 import {
+    destroy as destroyFarm,
     store as storeFarm,
     update as updateFarm,
 } from '@/routes/platform/farms';
+import { update as updateFarmStatus } from '@/routes/platform/farms/status';
 import { store as startImpersonation } from '@/routes/platform/impersonate';
 import { update as updateMembership } from '@/routes/platform/memberships';
 import { update as updateUser } from '@/routes/platform/users';
@@ -35,10 +40,14 @@ type Farm = {
     id: number;
     name: string;
     farm_type: string;
+    status: string;
     location: string | null;
     contact_name: string | null;
     contact_phone: string | null;
     description: string | null;
+    production_units_count?: number;
+    production_cycles_count?: number;
+    investor_agreements_count?: number;
     team: Workspace;
 };
 type User = {
@@ -96,11 +105,62 @@ function openImpersonate(user: User) {
 }
 function submitImpersonation() {
     impersonateForm.post(startImpersonation().url, {
+        preserveState: false,
         preserveScroll: true,
         onSuccess: () => {
             impersonateOpen.value = false;
         },
     });
+}
+const statusTarget = ref<Farm | null>(null);
+const statusOpen = ref(false);
+const statusForm = useForm({ status: 'inactive', reason: '' });
+function openFarmStatus(farm: Farm) {
+    statusTarget.value = farm;
+    statusForm.reset();
+    statusForm.clearErrors();
+    statusForm.status = farm.status === 'active' ? 'inactive' : 'active';
+    statusOpen.value = true;
+}
+function submitFarmStatus() {
+    if (!statusTarget.value) {
+        return;
+    }
+
+    statusForm.patch(updateFarmStatus(statusTarget.value.id).url, {
+        preserveScroll: true,
+        onSuccess: () => {
+            statusOpen.value = false;
+        },
+    });
+}
+const deleteTarget = ref<Farm | null>(null);
+const deleteOpen = ref(false);
+const deleteForm = useForm({ confirm_name: '', reason: '' });
+function openDeleteFarm(farm: Farm) {
+    deleteTarget.value = farm;
+    deleteForm.reset();
+    deleteForm.clearErrors();
+    deleteOpen.value = true;
+}
+function submitDeleteFarm() {
+    if (!deleteTarget.value) {
+        return;
+    }
+
+    deleteForm.delete(destroyFarm(deleteTarget.value.id).url, {
+        preserveScroll: true,
+        onSuccess: () => {
+            deleteOpen.value = false;
+        },
+    });
+}
+function farmStatusVariant(status: string) {
+    return status === 'active'
+        ? 'default'
+        : status === 'inactive'
+          ? 'secondary'
+          : 'outline';
 }
 const tab = ref('farms');
 const search = ref(props.search);
@@ -112,6 +172,7 @@ const farmForm = useForm({
     team_id: '',
     name: '',
     farm_type: 'crop',
+    status: 'active',
     location: '',
     contact_name: '',
     contact_phone: '',
@@ -145,6 +206,7 @@ function editFarm(farm?: Farm) {
             team_id: String(farm.team.id),
             name: farm.name,
             farm_type: farm.farm_type,
+            status: farm.status,
             location: farm.location ?? '',
             contact_name: farm.contact_name ?? '',
             contact_phone: farm.contact_phone ?? '',
@@ -171,7 +233,13 @@ function saveFarm() {
             )
             .patch(updateFarm(farmId.value).url, options);
     } else {
-        farmForm.transform((fields) => fields).post(storeFarm().url, options);
+        farmForm
+            .transform((fields) =>
+                Object.fromEntries(
+                    Object.entries(fields).filter(([key]) => key !== 'status'),
+                ),
+            )
+            .post(storeFarm().url, options);
     }
 }
 function editUser(user: User) {
@@ -310,32 +378,56 @@ function filter() {
                     :key="farm.id"
                     class="flex flex-col gap-4 rounded-xl border bg-card p-5"
                 >
-                    <div>
-                        <p
-                            class="text-xs font-medium tracking-wide text-muted-foreground uppercase"
-                        >
-                            {{ farm.team.name }}
-                        </p>
-                        <h3 class="mt-1 text-lg font-semibold">
-                            {{ farm.name }}
-                        </h3>
-                        <p class="mt-1 text-sm text-muted-foreground">
-                            {{ farm.location || 'Location not recorded' }} ·
-                            {{ farm.farm_type }}
-                        </p>
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="min-w-0">
+                            <p
+                                class="text-xs font-medium tracking-wide text-muted-foreground uppercase"
+                            >
+                                {{ farm.team.name }}
+                            </p>
+                            <h3 class="mt-1 text-lg font-semibold">
+                                {{ farm.name }}
+                            </h3>
+                            <p class="mt-1 text-sm text-muted-foreground">
+                                {{ farm.location || 'Location not recorded' }} ·
+                                {{ farm.farm_type }}
+                            </p>
+                        </div>
+                        <Badge :variant="farmStatusVariant(farm.status)">
+                            {{
+                                farm.status === 'active'
+                                    ? 'Active'
+                                    : farm.status === 'inactive'
+                                      ? 'Inactive'
+                                      : 'Archived'
+                            }}
+                        </Badge>
                     </div>
-                    <Button
-                        variant="outline"
-                        class="self-start"
-                        @click="editFarm(farm)"
-                        >Edit farm details</Button
-                    >
-                    <Button
-                        variant="outline"
-                        class="self-start"
-                        @click="openWorkspace(farm.team)"
-                        >Open workspace records</Button
-                    >
+                    <div class="flex flex-wrap gap-2">
+                        <Button variant="outline" @click="editFarm(farm)"
+                            >Edit farm details</Button
+                        >
+                        <Button
+                            variant="outline"
+                            @click="openWorkspace(farm.team)"
+                            >Open workspace records</Button
+                        >
+                        <Button variant="outline" @click="openFarmStatus(farm)">
+                            <Power class="mr-1.5 size-4" />
+                            {{
+                                farm.status === 'active'
+                                    ? 'Deactivate'
+                                    : 'Activate'
+                            }}
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            @click="openDeleteFarm(farm)"
+                        >
+                            <Trash2 class="mr-1.5 size-4" />
+                            Delete farm
+                        </Button>
+                    </div>
                 </article>
             </div>
             <nav class="flex gap-3" aria-label="Farm pages">
@@ -581,6 +673,19 @@ function filter() {
                             </option></select
                         ><InputError :message="farmForm.errors.farm_type" />
                     </div>
+                    <div v-if="farmId" class="grid gap-2">
+                        <Label for="farm-status">Status</Label>
+                        <select
+                            id="farm-status"
+                            v-model="farmForm.status"
+                            class="h-10 rounded-md border bg-background px-3"
+                        >
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                            <option value="archived">Archived</option>
+                        </select>
+                        <InputError :message="farmForm.errors.status" />
+                    </div>
                     <div
                         v-for="field in [
                             { key: 'location' as const, label: 'Location' },
@@ -729,5 +834,114 @@ function filter() {
                 </form>
             </DialogContent></Dialog
         >
+        <Dialog v-model:open="statusOpen">
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>
+                        {{
+                            statusForm.status === 'active'
+                                ? 'Activate'
+                                : statusForm.status === 'archived'
+                                  ? 'Archive'
+                                  : 'Deactivate'
+                        }}
+                        {{ statusTarget?.name }}
+                    </DialogTitle>
+                    <DialogDescription>
+                        Updating farm status preserves all existing units,
+                        cycles, financial entries, and audit history.
+                    </DialogDescription>
+                </DialogHeader>
+                <form class="grid gap-4" @submit.prevent="submitFarmStatus">
+                    <div class="grid gap-2">
+                        <Label for="farm-status-choice">New status</Label>
+                        <select
+                            id="farm-status-choice"
+                            v-model="statusForm.status"
+                            class="h-10 rounded-md border bg-background px-3"
+                        >
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                            <option value="archived">Archived</option>
+                        </select>
+                        <InputError :message="statusForm.errors.status" />
+                    </div>
+                    <div class="grid gap-2">
+                        <Label for="farm-status-reason"
+                            >Reason for status change</Label
+                        >
+                        <Input
+                            id="farm-status-reason"
+                            v-model="statusForm.reason"
+                            required
+                            maxlength="1000"
+                        />
+                        <InputError :message="statusForm.errors.reason" />
+                    </div>
+                    <Button :disabled="statusForm.processing">
+                        {{
+                            statusForm.processing
+                                ? 'Updating…'
+                                : 'Save status change'
+                        }}
+                    </Button>
+                </form>
+            </DialogContent>
+        </Dialog>
+        <Dialog v-model:open="deleteOpen">
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Delete {{ deleteTarget?.name }}</DialogTitle>
+                    <DialogDescription>
+                        This permanently deletes {{ deleteTarget?.name }} in
+                        {{ deleteTarget?.team.name }} along with
+                        {{ deleteTarget?.production_units_count ?? 0 }} units,
+                        {{ deleteTarget?.production_cycles_count ?? 0 }} cycles,
+                        and
+                        {{ deleteTarget?.investor_agreements_count ?? 0 }}
+                        investor agreements. This action cannot be undone.
+                    </DialogDescription>
+                </DialogHeader>
+                <form class="grid gap-4" @submit.prevent="submitDeleteFarm">
+                    <div class="grid gap-2">
+                        <Label for="delete-farm-confirm"
+                            >Type "{{ deleteTarget?.name }}" to confirm</Label
+                        >
+                        <Input
+                            id="delete-farm-confirm"
+                            v-model="deleteForm.confirm_name"
+                            required
+                            maxlength="255"
+                        />
+                        <InputError :message="deleteForm.errors.confirm_name" />
+                    </div>
+                    <div class="grid gap-2">
+                        <Label for="delete-farm-reason"
+                            >Reason for deletion</Label
+                        >
+                        <Input
+                            id="delete-farm-reason"
+                            v-model="deleteForm.reason"
+                            required
+                            maxlength="1000"
+                        />
+                        <InputError :message="deleteForm.errors.reason" />
+                    </div>
+                    <Button
+                        variant="destructive"
+                        :disabled="
+                            deleteForm.processing ||
+                            deleteForm.confirm_name !== deleteTarget?.name
+                        "
+                    >
+                        {{
+                            deleteForm.processing
+                                ? 'Deleting…'
+                                : 'Permanently delete farm'
+                        }}
+                    </Button>
+                </form>
+            </DialogContent>
+        </Dialog>
     </div>
 </template>

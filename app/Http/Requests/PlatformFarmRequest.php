@@ -28,6 +28,7 @@ class PlatformFarmRequest extends FormRequest
             'contact_name' => ['nullable', 'string', 'max:255'],
             'contact_phone' => ['nullable', 'string', 'max:100'],
             'description' => ['nullable', 'string', 'max:2000'],
+            ...($farm instanceof Farm ? ['status' => ['sometimes', 'string', Rule::in(['active', 'inactive', 'archived'])]] : []),
             'reason' => ['required', 'string', 'max:1000'],
         ];
     }

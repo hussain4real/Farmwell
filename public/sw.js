@@ -1,4 +1,4 @@
-const CACHE_NAME = 'farmwell-shell-v1';
+const CACHE_NAME = 'farmwell-shell-v2';
 const PRECACHE_URLS = [
     '/offline.html',
     '/manifest.webmanifest',
@@ -23,7 +23,11 @@ self.addEventListener('activate', (event) => {
             .then((keys) =>
                 Promise.all(
                     keys
-                        .filter((key) => key.startsWith('farmwell-shell-') && key !== CACHE_NAME)
+                        .filter(
+                            (key) =>
+                                key.startsWith('farmwell-shell-') &&
+                                key !== CACHE_NAME,
+                        )
                         .map((key) => caches.delete(key)),
                 ),
             )
@@ -57,7 +61,9 @@ self.addEventListener('fetch', (event) => {
                     fetch(request).then((response) => {
                         if (response && response.ok) {
                             const copy = response.clone();
-                            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+                            caches
+                                .open(CACHE_NAME)
+                                .then((cache) => cache.put(request, copy));
                         }
 
                         return response;

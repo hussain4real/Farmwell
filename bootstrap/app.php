@@ -14,10 +14,12 @@ use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
 use Illuminate\Http\Request;
 use Illuminate\Session\Middleware\StartSession;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Spatie\Permission\Middleware\PermissionMiddleware;
 use Spatie\Permission\Middleware\RoleMiddleware;
 use Spatie\Permission\Middleware\RoleOrPermissionMiddleware;
+use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -67,4 +69,19 @@ return Application::configure(basePath: dirname(__DIR__))
             fn (Request $request, Throwable $exception): bool => $request->is('api/*')
                 || ($exception instanceof ValidationException && $request->routeIs('login.store') && $request->wantsJson()),
         );
+        $exceptions->respond(function (SymfonyResponse $response, Throwable $exception, Request $request): SymfonyResponse {
+            if ($response->getStatusCode() >= 500 && $request->headers->get('X-Farmwell-Internal-Diagnostics') === '1') {
+                $message = trim((string) preg_replace(
+                    ['/\s+/', '/\b(?:postgres(?:ql)?|pgsql):\/\/[^\s]+/i', '/password=\S+/i'],
+                    [' ', '[redacted-db-url]', 'password=[redacted]'],
+                    $exception->getMessage(),
+                ));
+                $response->headers->set(
+                    'X-Farmwell-Error',
+                    sprintf('%s at %s:%d: %s', $exception::class, basename($exception->getFile()), $exception->getLine(), Str::limit($message, 180)),
+                );
+            }
+
+            return $response;
+        });
     })->create();

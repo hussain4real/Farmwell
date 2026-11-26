@@ -134,7 +134,11 @@ class PlatformImpersonation
 
     protected function resolveTeam(User $target): ?Team
     {
-        return $target->currentTeam ?? $target->personalTeam() ?? $target->teams()->first();
+        if ($target->currentTeam instanceof Team && $target->belongsToTeam($target->currentTeam)) {
+            return $target->currentTeam;
+        }
+
+        return $target->personalTeam() ?? $target->teams()->first();
     }
 
     protected function redirectToTargetHome(User $target, ?Team $team): RedirectResponse

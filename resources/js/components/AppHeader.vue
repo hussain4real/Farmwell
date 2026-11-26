@@ -224,9 +224,11 @@ const mainNavItems = computed<NavItem[]>(() => {
                                 >Navigation menu</SheetTitle
                             >
                             <SheetHeader class="flex justify-start text-left">
-                                <AppLogoIcon
-                                    class="size-6 fill-current text-black dark:text-white"
-                                />
+                                <div
+                                    class="flex aspect-square size-8 items-center justify-center rounded-lg bg-[#214d40] text-white"
+                                >
+                                    <AppLogoIcon class="size-5" />
+                                </div>
                             </SheetHeader>
                             <div
                                 class="flex h-full flex-1 flex-col justify-between space-y-4 py-6"

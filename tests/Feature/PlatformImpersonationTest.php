@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Audit\RecordAuditEvent;
 use App\Enums\PlatformRole;
 use App\Enums\TeamRole;
 use App\Models\AuditEvent;
@@ -212,4 +213,44 @@ test('mismatched impersonation session context is automatically discarded', func
         ->assertInertia(fn (Assert $page) => $page->where('platformImpersonation', null));
 
     expect(session()->has(PlatformImpersonation::SessionKey))->toBeFalse();
+});
+
+test('impersonation falls back when target user has a stale current team and exposes diagnostics only internally', function () {
+    $staleTeam = Team::factory()->create();
+    $this->member->forceFill(['current_team_id' => $staleTeam->id])->save();
+
+    $this->actingAs($this->admin)
+        ->post(route('platform.impersonate.store'), [
+            'user_id' => $this->member->id,
+            'reason' => 'Fallback team check',
+        ])
+        ->assertRedirect(route('dashboard', $this->member->personalTeam() ?? $this->team));
+
+    $this->delete(route('platform.impersonate.destroy'))->assertRedirect(route('platform.index'));
+
+    $this->mock(RecordAuditEvent::class)
+        ->shouldReceive('handle')
+        ->twice()
+        ->andThrow(new RuntimeException('Failed connecting pgsql://user:supersecret@db.internal:5432/app password=secretpw'));
+
+    $external = $this->actingAs($this->admin)->post(route('platform.impersonate.store'), [
+        'user_id' => $this->member->id,
+        'reason' => 'External 500 check',
+    ]);
+    $external->assertStatus(500);
+    expect($external->headers->has('X-Farmwell-Error'))->toBeFalse();
+
+    $internal = $this->actingAs($this->admin)
+        ->withHeaders(['X-Farmwell-Internal-Diagnostics' => '1'])
+        ->post(route('platform.impersonate.store'), [
+            'user_id' => $this->member->id,
+            'reason' => 'Internal 500 check',
+        ]);
+    $internal->assertStatus(500);
+    $header = $internal->headers->get('X-Farmwell-Error');
+    expect($header)->toContain('RuntimeException')
+        ->toContain('[redacted-db-url]')
+        ->toContain('password=[redacted]')
+        ->not->toContain('supersecret')
+        ->not->toContain('secretpw');
 });
