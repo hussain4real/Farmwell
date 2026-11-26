@@ -528,7 +528,7 @@ class BuildInvestorPageData
                 'id' => $summary->id,
                 'text' => $summary->final_text ?? '',
                 'html' => SummaryMarkdown::render($summary->final_text) ?? '',
-                'publishedAt' => Carbon::parse($summary->published_at)->toISOString(),
+                'publishedAt' => (string) Carbon::parse($summary->published_at)->toISOString(),
             ])->values();
     }
 
