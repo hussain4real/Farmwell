@@ -888,6 +888,7 @@ test('AppSidebar hides AI Summaries and Onboard Farm when workspace plan restric
                         allowsPhoneInvitations: false,
                         allowsAiSummaries: false,
                         allowsInvestorMode: false,
+                        allowsAssistant: false,
                     },
                 },
                 teams: [],
@@ -908,4 +909,105 @@ test('AppSidebar hides AI Summaries and Onboard Farm when workspace plan restric
     assert.match(starterSidebar.body, />Field Diary</);
     assert.doesNotMatch(starterSidebar.body, />Onboard Farm</);
     assert.doesNotMatch(starterSidebar.body, />AI Summaries</);
+});
+
+test('FarmwellAssistantDrawer renders trigger only on enabled plans without platform access', async () => {
+    const { default: FarmwellAssistantDrawer } = await server.ssrLoadModule(
+        '/resources/js/components/assistant/FarmwellAssistantDrawer.vue',
+    );
+    const { default: AssistantApprovalCard } = await server.ssrLoadModule(
+        '/resources/js/components/assistant/AssistantApprovalCard.vue',
+    );
+
+    const renderDrawer = async ({ allowsAssistant, platformAccess = null }) =>
+        createInertiaApp({
+            page: {
+                component: 'AssistantHost',
+                url: '/pro-farm/dashboard',
+                props: {
+                    auth: {
+                        user: {
+                            id: 1,
+                            name: 'Farm Owner',
+                            email: 'owner@example.test',
+                        },
+                    },
+                    canManagePlatform: false,
+                    platformAccess,
+                    currentTeam: {
+                        id: 2,
+                        name: 'Pro Farm',
+                        slug: 'pro-farm',
+                        role: 'owner',
+                    },
+                    currentTeamFeatures: {
+                        investorMode: false,
+                        needsOnboarding: false,
+                        canAddFarm: true,
+                        plan: {
+                            key: allowsAssistant ? 'pro' : 'starter',
+                            label: allowsAssistant ? 'Pro Farm' : 'Starter',
+                            description: 'Workspace plan',
+                            maxFarms: allowsAssistant ? null : 1,
+                            maxMembers: allowsAssistant ? null : 2,
+                            allowsPhoneInvitations: allowsAssistant,
+                            allowsAiSummaries: allowsAssistant,
+                            allowsInvestorMode: false,
+                            allowsAssistant,
+                        },
+                    },
+                    teams: [],
+                    errors: {},
+                },
+                clearHistory: false,
+                encryptHistory: false,
+            },
+            resolve: () => ({
+                render: () => h(FarmwellAssistantDrawer),
+            }),
+            setup: ({ App, props, plugin }) =>
+                createSSRApp({ render: () => h(App, props) }).use(plugin),
+            render: renderToString,
+        });
+
+    const proPage = await renderDrawer({ allowsAssistant: true });
+    assert.match(proPage.body, /Ask Farmwell/);
+
+    const starterPage = await renderDrawer({ allowsAssistant: false });
+    assert.doesNotMatch(starterPage.body, /Ask Farmwell/);
+
+    const adminReadOnlyPage = await renderDrawer({
+        allowsAssistant: true,
+        platformAccess: {
+            team_name: 'Pro Farm',
+            reason: 'Support audit',
+            expires_at: 2_000_000_000,
+        },
+    });
+    assert.doesNotMatch(adminReadOnlyPage.body, /Ask Farmwell/);
+
+    const cardHtml = await renderToString(
+        createSSRApp({
+            render: () =>
+                h(AssistantApprovalCard, {
+                    approval: {
+                        id: 'call_1',
+                        tool: 'RecordExpenseTool',
+                        reason: 'Record expense of 5000 on 2026-11-27: Layer feed',
+                        arguments: {
+                            farm_id: 12,
+                            amount: '5000',
+                            description: 'Layer feed',
+                        },
+                    },
+                }),
+        }),
+    );
+
+    assert.match(cardHtml, /Record Expense/);
+    assert.match(cardHtml, /Confirmation required/);
+    assert.match(cardHtml, /Layer feed/);
+    assert.match(cardHtml, /Confirm/);
+    assert.match(cardHtml, /Edit/);
+    assert.match(cardHtml, /Cancel/);
 });

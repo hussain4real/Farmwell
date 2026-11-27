@@ -390,7 +390,7 @@ export default {
             if (url.hostname !== new URL(env.APP_URL).hostname) {
                 const publicPage = /^\/(?:|login(?:\/phone(?:\/(?:code|verify))?)?|logout|two-factor-challenge|favicon\.(?:ico|svg)|apple-touch-icon\.png|manifest\.webmanifest|sw\.js|offline\.html|farmwell-(?:192|512)\.png)$/;
                 const asset = /^\/build\/(?:assets|fonts)\/[a-zA-Z0-9_.-]+$/;
-                const farmPage = /^\/[a-zA-Z0-9_-]+\/(?:dashboard|onboarding|field-diary|farm-activities|farm-tasks|evidence|farms|inventory|health|finance|harvests|investors|investor-portal|investor-evidence|investor-agreements|ai-summaries|whatsapp-intakes|commodities)(?:\/[a-zA-Z0-9_-]+)*$/;
+                const farmPage = /^\/[a-zA-Z0-9_-]+\/(?:dashboard|onboarding|assistant|field-diary|farm-activities|farm-tasks|evidence|farms|inventory|health|finance|harvests|investors|investor-portal|investor-evidence|investor-agreements|ai-summaries|whatsapp-intakes|commodities)(?:\/[a-zA-Z0-9_-]+)*$/;
 
                 if (url.hostname !== env.PHONE_PILOT_HOST || !(publicPage.test(url.pathname) || asset.test(url.pathname) || farmPage.test(url.pathname))) {
                     return new Response('Not found', {status: 404});

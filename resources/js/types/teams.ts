@@ -65,6 +65,7 @@ export type WorkspacePlanSummary = {
     allowsPhoneInvitations: boolean;
     allowsAiSummaries: boolean;
     allowsInvestorMode: boolean;
+    allowsAssistant: boolean;
 };
 
 export type TeamFeatures = {

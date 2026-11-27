@@ -46,8 +46,11 @@ test('new self-registered users start on starter while legacy teams without a pl
 
     expect(WorkspacePlan::options())->toHaveCount(3)
         ->and(WorkspacePlan::Starter->summary()['maxFarms'])->toBe(1)
+        ->and(WorkspacePlan::Starter->summary()['allowsAssistant'])->toBeFalse()
         ->and(WorkspacePlan::Pro->summary()['maxMembers'])->toBeNull()
-        ->and(WorkspacePlan::Investor->summary()['allowsInvestorMode'])->toBeTrue();
+        ->and(WorkspacePlan::Pro->summary()['allowsAssistant'])->toBeTrue()
+        ->and(WorkspacePlan::Investor->summary()['allowsInvestorMode'])->toBeTrue()
+        ->and(WorkspacePlan::Investor->summary()['allowsAssistant'])->toBeTrue();
 });
 
 test('starter workspace enforces 1 farm, 2 email seats, and blocks sms, investor, and ai features', function () {

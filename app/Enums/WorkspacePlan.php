@@ -66,6 +66,14 @@ enum WorkspacePlan: string
         };
     }
 
+    public function allowsAssistant(): bool
+    {
+        return match ($this) {
+            self::Starter => false,
+            self::Pro, self::Investor => true,
+        };
+    }
+
     /**
      * Build a structured plan summary for frontend props.
      *
@@ -78,6 +86,7 @@ enum WorkspacePlan: string
      *     allowsPhoneInvitations: bool,
      *     allowsAiSummaries: bool,
      *     allowsInvestorMode: bool,
+     *     allowsAssistant: bool,
      * }
      */
     public function summary(): array
@@ -91,6 +100,7 @@ enum WorkspacePlan: string
             'allowsPhoneInvitations' => $this->allowsPhoneInvitations(),
             'allowsAiSummaries' => $this->allowsAiSummaries(),
             'allowsInvestorMode' => $this->allowsInvestorMode(),
+            'allowsAssistant' => $this->allowsAssistant(),
         ];
     }
 

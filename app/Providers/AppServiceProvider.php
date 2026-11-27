@@ -57,7 +57,7 @@ class AppServiceProvider extends ServiceProvider
             $app,
         ));
 
-        foreach (['platform-admin' => 20, 'invitations' => 10, 'approval-decisions' => 20, 'report-generation' => 10, 'report-downloads' => 60, 'ai-generation' => 10] as $name => $attempts) {
+        foreach (['platform-admin' => 20, 'invitations' => 10, 'approval-decisions' => 20, 'report-generation' => 10, 'report-downloads' => 60, 'ai-generation' => 10, 'ai-assistant' => 20] as $name => $attempts) {
             RateLimiter::for($name, fn (Request $request) => Limit::perMinute($attempts)->by((string) $request->user()->getAuthIdentifier()));
         }
 

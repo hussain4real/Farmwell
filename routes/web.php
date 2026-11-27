@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AiSummaryController;
+use App\Http\Controllers\AssistantController;
 use App\Http\Controllers\Auth\PhoneLoginController;
 use App\Http\Controllers\FarmOperations\ActivityExportController;
 use App\Http\Controllers\FarmOperations\AquacultureGradeTransferController;
@@ -97,6 +98,12 @@ Route::prefix('{current_team}')
     ->scopeBindings()
     ->group(function () {
         Route::get('dashboard', FarmDashboardController::class)->name('dashboard');
+        Route::prefix('assistant')->name('assistant.')->middleware('throttle:ai-assistant')->controller(AssistantController::class)->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::post('/messages', 'send')->name('messages.store');
+            Route::post('/conversations/{conversation}/approvals', 'resolveApprovals')->name('approvals.store');
+            Route::delete('/conversations/{conversation}', 'destroy')->name('conversations.destroy');
+        });
         Route::get('onboarding', [OnboardingController::class, 'index'])->name('onboarding.index');
         Route::post('onboarding', [OnboardingController::class, 'store'])->name('onboarding.store');
         Route::get('farms', FarmOperationsController::class)->name('farms.index');

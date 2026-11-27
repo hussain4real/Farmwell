@@ -3,6 +3,7 @@ import AppContent from '@/components/AppContent.vue';
 import AppShell from '@/components/AppShell.vue';
 import AppSidebar from '@/components/AppSidebar.vue';
 import AppSidebarHeader from '@/components/AppSidebarHeader.vue';
+import FarmwellAssistantDrawer from '@/components/assistant/FarmwellAssistantDrawer.vue';
 import MobileQuickActionBar from '@/components/farm/MobileQuickActionBar.vue';
 import OfflineStatusBar from '@/components/farm/OfflineStatusBar.vue';
 import PlatformAccessBanner from '@/components/PlatformAccessBanner.vue';
@@ -33,6 +34,7 @@ withDefaults(defineProps<Props>(), {
             <slot />
         </AppContent>
         <MobileQuickActionBar />
+        <FarmwellAssistantDrawer />
         <Toaster />
     </AppShell>
 </template>
