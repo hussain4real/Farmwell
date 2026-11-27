@@ -696,3 +696,88 @@ test('assistant streams messages, handles pending approvals, isolates conversati
         ->assertNoContent();
     expect(Conversation::query()->find($conversationId))->toBeNull();
 });
+
+test('impersonating a same-team member scopes conversations and allows switching and deleting their chats', function () {
+    $team = Team::factory()->create();
+    $admin = User::factory()->create(['platform_role' => PlatformRole::SuperAdmin]);
+    $team->members()->attach($admin, ['role' => TeamRole::Investor->value]);
+    $admin->switchTeam($team);
+
+    $owner = attachTeamMember($team, TeamRole::Owner);
+
+    FarmwellAssistant::fake([
+        'Admin summary response.',
+        'Owner chat one response.',
+        'Owner chat two response.',
+    ]);
+
+    $this->actingAs($admin);
+    $adminEvents = parseSsePayloads(
+        $this->postJson(route('assistant.messages.store', $team), [
+            'message' => 'Admin investment balance',
+        ])->assertOk(),
+    );
+    $adminConversationId = collect($adminEvents)->firstWhere('type', 'conversation')['conversation_id'];
+
+    $this->post(route('platform.impersonate.store'), [
+        'user_id' => $owner->id,
+        'reason' => 'Verify owner assistant history and deletion',
+    ])->assertRedirect(route('dashboard', $team));
+
+    expect(auth()->id())->toBe($owner->id);
+
+    // Impersonated owner does not see or delete admin's same-team conversation
+    $this->getJson(route('assistant.index', $team))
+        ->assertOk()
+        ->assertJsonPath('conversations', [])
+        ->assertJsonPath('activeConversationId', null);
+
+    $this->getJson(route('assistant.index', ['current_team' => $team, 'conversation_id' => $adminConversationId]))
+        ->assertNotFound();
+
+    $this->deleteJson(route('assistant.conversations.destroy', [$team, $adminConversationId]))
+        ->assertNotFound();
+    expect(Conversation::query()->find($adminConversationId))->not->toBeNull();
+
+    // Create two conversations as impersonated owner, switch between them, and delete one
+    $ownerChatOneId = collect(parseSsePayloads(
+        $this->postJson(route('assistant.messages.store', $team), [
+            'message' => 'First owner question',
+        ])->assertOk(),
+    ))->firstWhere('type', 'conversation')['conversation_id'];
+
+    $ownerChatTwoId = collect(parseSsePayloads(
+        $this->postJson(route('assistant.messages.store', $team), [
+            'message' => 'Second owner question',
+        ])->assertOk(),
+    ))->firstWhere('type', 'conversation')['conversation_id'];
+
+    $this->getJson(route('assistant.index', ['current_team' => $team, 'conversation_id' => $ownerChatOneId]))
+        ->assertOk()
+        ->assertJsonPath('activeConversationId', $ownerChatOneId)
+        ->assertJsonCount(2, 'conversations');
+
+    $deleteResponse = $this->deleteJson(route('assistant.conversations.destroy', [$team, $ownerChatOneId]))
+        ->assertNoContent();
+    expect($deleteResponse->getContent())->toBe('');
+    expect(Conversation::query()->find($ownerChatOneId))->toBeNull()
+        ->and(Conversation::query()->find($ownerChatTwoId))->not->toBeNull();
+
+    $this->getJson(route('assistant.index', $team))
+        ->assertOk()
+        ->assertJsonCount(1, 'conversations')
+        ->assertJsonPath('activeConversationId', $ownerChatTwoId);
+
+    // Stopping impersonation restores admin's own conversation intact and deletable
+    $this->delete(route('platform.impersonate.destroy'))
+        ->assertRedirect(route('platform.index'));
+
+    $this->getJson(route('assistant.index', $team))
+        ->assertOk()
+        ->assertJsonCount(1, 'conversations')
+        ->assertJsonPath('activeConversationId', $adminConversationId);
+
+    $this->deleteJson(route('assistant.conversations.destroy', [$team, $adminConversationId]))
+        ->assertNoContent();
+    expect(Conversation::query()->find($adminConversationId))->toBeNull();
+});

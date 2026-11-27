@@ -13,6 +13,7 @@ use App\Models\User;
 use Carbon\CarbonInterface;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Gate;
 use Laravel\Ai\Approvals\Decision;
 use Laravel\Ai\Approvals\Decisions;
@@ -197,14 +198,14 @@ class AssistantController extends Controller
         string $conversation,
         ResolveWorkspacePlan $plans,
         DatabaseConversationStore $store,
-    ): JsonResponse {
+    ): Response {
         $membership = $this->membershipFor($request, $currentTeam, $plans);
         $this->verifyOwnership($store, $conversation, $membership);
 
         ConversationMessage::query()->where('conversation_id', $conversation)->delete();
         Conversation::query()->whereKey($conversation)->delete();
 
-        return response()->json(status: 204);
+        return response()->noContent();
     }
 
     private function membershipFor(Request $request, Team $team, ResolveWorkspacePlan $plans): Membership

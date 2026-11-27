@@ -919,7 +919,11 @@ test('FarmwellAssistantDrawer renders trigger only on enabled plans without plat
         '/resources/js/components/assistant/AssistantApprovalCard.vue',
     );
 
-    const renderDrawer = async ({ allowsAssistant, platformAccess = null }) =>
+    const renderDrawer = async ({
+        allowsAssistant,
+        platformAccess = null,
+        platformImpersonation = null,
+    }) =>
         createInertiaApp({
             page: {
                 component: 'AssistantHost',
@@ -934,6 +938,7 @@ test('FarmwellAssistantDrawer renders trigger only on enabled plans without plat
                     },
                     canManagePlatform: false,
                     platformAccess,
+                    platformImpersonation,
                     currentTeam: {
                         id: 2,
                         name: 'Pro Farm',
@@ -985,6 +990,22 @@ test('FarmwellAssistantDrawer renders trigger only on enabled plans without plat
         },
     });
     assert.doesNotMatch(adminReadOnlyPage.body, /Ask Farmwell/);
+
+    const impersonatedPage = await renderDrawer({
+        allowsAssistant: true,
+        platformImpersonation: {
+            id: 'imp-1',
+            impersonator_id: 99,
+            impersonator_name: 'Admin User',
+            target_user_id: 1,
+            target_user_name: 'Farm Owner',
+            target_user_email: 'owner@example.test',
+            reason: 'Verify owner assistant',
+            started_at: 1_999_999_000,
+            expires_at: 2_000_000_000,
+        },
+    });
+    assert.match(impersonatedPage.body, /Ask Farmwell/);
 
     const cardHtml = await renderToString(
         createSSRApp({

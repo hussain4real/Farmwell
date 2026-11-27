@@ -22,6 +22,13 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import {
     Sheet,
     SheetContent,
     SheetDescription,
@@ -90,6 +97,16 @@ const messagesViewport = ref<HTMLElement | null>(null);
 const copiedMessageId = ref<string | null>(null);
 
 let copyResetTimer: ReturnType<typeof setTimeout> | null = null;
+let historyRequestSeq = 0;
+
+const assistantScopeKey = computed(() =>
+    [
+        currentTeam.value?.slug ?? '',
+        page.props.auth?.user?.id ?? '',
+        page.props.platformImpersonation?.id ?? '',
+        page.props.platformAccess?.id ?? '',
+    ].join(':'),
+);
 
 async function copyMessageContent(id: string, text: string): Promise<void> {
     if (!text || typeof navigator === 'undefined' || !navigator.clipboard) {
@@ -137,17 +154,18 @@ async function scrollToBottom(): Promise<void> {
     }
 }
 
-watch(
-    () => currentTeam.value?.slug,
-    () => {
-        conversations.value = [];
-        activeConversationId.value = null;
-        messages.value = [];
-        pendingApprovals.value = [];
-        starterPrompts.value = [];
-        errorMessage.value = null;
-    },
-);
+watch(assistantScopeKey, () => {
+    historyRequestSeq += 1;
+    open.value = false;
+    loadingHistory.value = false;
+    conversations.value = [];
+    activeConversationId.value = null;
+    messages.value = [];
+    pendingApprovals.value = [];
+    starterPrompts.value = [];
+    promptInput.value = '';
+    errorMessage.value = null;
+});
 
 watch(open, (isOpen) => {
     if (isOpen && canUseAssistant.value) {
@@ -157,6 +175,7 @@ watch(open, (isOpen) => {
 
 async function loadHistory(
     conversationId: string | null = null,
+    allowNotFoundFallback = true,
 ): Promise<void> {
     const slug = currentTeam.value?.slug;
 
@@ -164,6 +183,7 @@ async function loadHistory(
         return;
     }
 
+    const requestSeq = ++historyRequestSeq;
     loadingHistory.value = true;
     errorMessage.value = null;
 
@@ -179,6 +199,23 @@ async function loadHistory(
             },
         });
 
+        if (requestSeq !== historyRequestSeq) {
+            return;
+        }
+
+        if (
+            response.status === 404 &&
+            conversationId !== null &&
+            allowNotFoundFallback
+        ) {
+            activeConversationId.value = null;
+            messages.value = [];
+            pendingApprovals.value = [];
+            await loadHistory(null, false);
+
+            return;
+        }
+
         if (!response.ok) {
             throw new Error('Failed to load assistant history.');
         }
@@ -191,6 +228,10 @@ async function loadHistory(
             starterPrompts: string[];
         };
 
+        if (requestSeq !== historyRequestSeq) {
+            return;
+        }
+
         conversations.value = payload.conversations ?? [];
         activeConversationId.value = payload.activeConversationId ?? null;
         messages.value = payload.messages ?? [];
@@ -198,14 +239,20 @@ async function loadHistory(
         starterPrompts.value = payload.starterPrompts ?? [];
         await scrollToBottom();
     } catch {
-        errorMessage.value =
-            'Unable to load assistant conversations right now.';
+        if (requestSeq === historyRequestSeq) {
+            errorMessage.value =
+                'Unable to load assistant conversations right now.';
+        }
     } finally {
-        loadingHistory.value = false;
+        if (requestSeq === historyRequestSeq) {
+            loadingHistory.value = false;
+        }
     }
 }
 
 function startNewConversation(): void {
+    historyRequestSeq += 1;
+    loadingHistory.value = false;
     activeConversationId.value = null;
     messages.value = [];
     pendingApprovals.value = [];
@@ -213,11 +260,22 @@ function startNewConversation(): void {
 }
 
 async function selectConversation(id: string): Promise<void> {
-    if (!id || id === activeConversationId.value) {
+    if (!id || id === activeConversationId.value || streaming.value) {
         return;
     }
 
+    activeConversationId.value = id;
+    messages.value = [];
+    pendingApprovals.value = [];
+    errorMessage.value = null;
+
     await loadHistory(id);
+}
+
+function handleConversationSelect(value: unknown): void {
+    if (typeof value === 'string' && value.length > 0) {
+        void selectConversation(value);
+    }
 }
 
 async function deleteActiveConversation(): Promise<void> {
@@ -228,6 +286,7 @@ async function deleteActiveConversation(): Promise<void> {
         return;
     }
 
+    historyRequestSeq += 1;
     deleting.value = true;
     errorMessage.value = null;
 
@@ -247,14 +306,39 @@ async function deleteActiveConversation(): Promise<void> {
             },
         );
 
+        if (response.status === 404) {
+            activeConversationId.value = null;
+            messages.value = [];
+            pendingApprovals.value = [];
+            await loadHistory(null, false);
+
+            return;
+        }
+
         if (!response.ok) {
-            throw new Error('Failed to delete conversation.');
+            let message = 'Unable to delete this conversation.';
+
+            try {
+                const payload = (await response.json()) as {
+                    message?: string;
+                };
+
+                if (payload.message) {
+                    message = payload.message;
+                }
+            } catch {
+                // Keep default fallback error message
+            }
+
+            errorMessage.value = message;
+
+            return;
         }
 
         activeConversationId.value = null;
         messages.value = [];
         pendingApprovals.value = [];
-        await loadHistory(null);
+        await loadHistory(null, false);
     } catch {
         errorMessage.value = 'Unable to delete this conversation.';
     } finally {
@@ -673,31 +757,37 @@ function handleComposerKeydown(event: KeyboardEvent): void {
                     </div>
 
                     <div v-if="conversations.length > 0" class="mt-2.5">
-                        <select
-                            :value="activeConversationId ?? ''"
-                            aria-label="Conversation history"
-                            class="h-8 w-full rounded-lg border border-input bg-background/80 px-2.5 text-xs font-medium text-foreground transition-colors outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
-                            :disabled="streaming || loadingHistory"
-                            @change="
-                                selectConversation(
-                                    ($event.target as HTMLSelectElement).value,
-                                )
-                            "
+                        <Select
+                            :model-value="activeConversationId ?? undefined"
+                            :disabled="streaming || loadingHistory || deleting"
+                            @update:model-value="handleConversationSelect"
                         >
-                            <option value="" disabled>
-                                Select a conversation…
-                            </option>
-                            <option
-                                v-for="conversation in conversations"
-                                :key="conversation.id"
-                                :value="conversation.id"
+                            <SelectTrigger
+                                aria-label="Conversation history"
+                                size="sm"
+                                data-testid="assistant-conversation-select"
+                                class="w-full rounded-lg border-input bg-background/85 text-xs font-medium text-foreground"
                             >
-                                {{
-                                    conversation.title ||
-                                    'Untitled conversation'
-                                }}
-                            </option>
-                        </select>
+                                <SelectValue
+                                    placeholder="New conversation — or switch chat…"
+                                />
+                            </SelectTrigger>
+                            <SelectContent
+                                class="z-[60] max-w-[calc(100vw-2rem)] sm:max-w-[29rem]"
+                            >
+                                <SelectItem
+                                    v-for="conversation in conversations"
+                                    :key="conversation.id"
+                                    :value="conversation.id"
+                                    class="text-xs"
+                                >
+                                    {{
+                                        conversation.title ||
+                                        'Untitled conversation'
+                                    }}
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
                     </div>
                 </SheetHeader>
 
