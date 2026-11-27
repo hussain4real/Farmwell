@@ -63,6 +63,7 @@ type TabId = (typeof tabs)[number]['id'];
 const validTabs = new Set<string>(tabs.map((tab) => tab.id));
 
 const currentTeamSlug = computed(() => page.props.currentTeam?.slug ?? '');
+const currentTeamName = computed(() => page.props.currentTeam?.name ?? '');
 const linkQuery = computed(
     () => new URLSearchParams(page.url.split('?')[1]?.split('#')[0] ?? ''),
 );
@@ -544,8 +545,22 @@ const financialMetrics = computed(() => {
         <EmptyState
             v-else
             :icon="Handshake"
-            title="No agreements to show"
-            description="Agreements assigned to you will appear here once they are active."
-        />
+            :title="
+                currentTeamName
+                    ? `Awaiting agreement setup in ${currentTeamName}`
+                    : 'No agreements to show'
+            "
+            :description="
+                currentTeamName
+                    ? `You are an invited investor in ${currentTeamName}. Once the farm team activates an agreement for you, terms, approvals, and field updates will appear here.`
+                    : 'Agreements assigned to you will appear here once they are active.'
+            "
+        >
+            <template #action>
+                <Button variant="outline" size="sm" as-child>
+                    <Link :href="myInvestments()">Back to all investments</Link>
+                </Button>
+            </template>
+        </EmptyState>
     </div>
 </template>

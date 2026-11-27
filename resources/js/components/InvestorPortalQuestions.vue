@@ -42,7 +42,7 @@ const subjectOptions = computed<SubjectOption[]>(() => {
     for (const expense of props.agreement.expenses) {
         items.push({
             value: `expense:${expense.id}`,
-            label: `Expense: ${expense.categoryName} (${expense.incurredOn})`,
+            label: `Expense: ${expense.categoryName} (${formatInvestorDate(expense.incurredOn)})`,
             type: 'expense',
             id: expense.id,
         });
@@ -51,7 +51,7 @@ const subjectOptions = computed<SubjectOption[]>(() => {
     for (const harvest of props.agreement.harvestRecords) {
         items.push({
             value: `harvest:${harvest.id}`,
-            label: `Harvest: ${harvest.commodityName} (${harvest.harvestedOn})`,
+            label: `Harvest: ${harvest.commodityName} (${formatInvestorDate(harvest.harvestedOn)})`,
             type: 'harvest',
             id: harvest.id,
         });
@@ -60,7 +60,7 @@ const subjectOptions = computed<SubjectOption[]>(() => {
     for (const sale of props.agreement.saleRecords) {
         items.push({
             value: `sale:${sale.id}`,
-            label: `Sale: ${sale.buyerName} (${sale.soldOn})`,
+            label: `Sale: ${sale.buyerName} (${formatInvestorDate(sale.soldOn)})`,
             type: 'sale',
             id: sale.id,
         });
@@ -78,7 +78,7 @@ const subjectOptions = computed<SubjectOption[]>(() => {
     for (const activity of props.agreement.activities) {
         items.push({
             value: `activity:${activity.id}`,
-            label: `Update: ${activity.activityType} (${activity.activityDate})`,
+            label: `Update: ${activity.activityType} (${formatInvestorDate(activity.activityDate)})`,
             type: 'activity',
             id: activity.id,
         });

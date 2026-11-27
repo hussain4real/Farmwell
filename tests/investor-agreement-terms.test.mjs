@@ -483,7 +483,10 @@ test('cycle health snapshot card renders domain telemetry cleanly without privat
         'FCR 1.25',
         '5.4 mg/L',
     ]) {
-        assert.ok(html.includes(expected), `Missing snapshot value: ${expected}`);
+        assert.ok(
+            html.includes(expected),
+            `Missing snapshot value: ${expected}`,
+        );
     }
 });
 
@@ -552,7 +555,9 @@ test('portfolio renders consolidated summary totals and farm type badges without
         render: renderToString,
     });
 
-    const html = result.body.slice(result.body.indexOf('<div data-server-rendered='));
+    const html = result.body.slice(
+        result.body.indexOf('<div data-server-rendered='),
+    );
     assert.ok(html.includes('Sanni Fish Farm'));
     assert.ok(html.includes('Aquaculture'));
     assert.ok(html.includes('50% of commitment'));
@@ -575,9 +580,12 @@ test('updates prefer thumbnailUrl on grid images while preserving previewUrl for
                                     {
                                         id: 7,
                                         fileName: 'IMG_20261122.jpg',
-                                        downloadUrl: '/farm/investor-evidence/7',
-                                        thumbnailUrl: '/farm/investor-evidence/7?thumb=1',
-                                        previewUrl: '/farm/investor-evidence/7?preview=1',
+                                        downloadUrl:
+                                            '/farm/investor-evidence/7',
+                                        thumbnailUrl:
+                                            '/farm/investor-evidence/7?thumb=1',
+                                        previewUrl:
+                                            '/farm/investor-evidence/7?preview=1',
                                         caption: null,
                                     },
                                 ],
@@ -602,9 +610,20 @@ test('updates prefer thumbnailUrl on grid images while preserving previewUrl for
             url: '/my-investments',
             version: 'test',
             props: {
-                auth: { user: { id: 1, name: 'Super Investor', email: 'super@example.test' } },
+                auth: {
+                    user: {
+                        id: 1,
+                        name: 'Super Investor',
+                        email: 'super@example.test',
+                    },
+                },
                 canManagePlatform: true,
-                currentTeam: { id: 1, name: 'Fish Farm', slug: 'fish-farm', role: 'investor' },
+                currentTeam: {
+                    id: 1,
+                    name: 'Fish Farm',
+                    slug: 'fish-farm',
+                    role: 'investor',
+                },
                 currentTeamPermissions: {
                     canViewInvestorPortal: true,
                     canViewFarmOperations: false,
@@ -617,8 +636,12 @@ test('updates prefer thumbnailUrl on grid images while preserving previewUrl for
             clearHistory: false,
             encryptHistory: false,
         },
-        resolve: () => ({ render: () => h(SidebarProvider, null, { default: () => h(AppSidebar) }) }),
-        setup: ({ App, props, plugin }) => createSSRApp({ render: () => h(App, props) }).use(plugin),
+        resolve: () => ({
+            render: () =>
+                h(SidebarProvider, null, { default: () => h(AppSidebar) }),
+        }),
+        setup: ({ App, props, plugin }) =>
+            createSSRApp({ render: () => h(App, props) }).use(plugin),
         render: renderToString,
     });
 
@@ -664,4 +687,94 @@ test('EvidenceGallery renders compact photo buttons and paperclip document fallb
     assert.match(html, /Pond check/);
     assert.match(html, /href="\/team\/evidence\/2"/);
     assert.match(html, /invoice\.pdf/);
+});
+
+test('portal renders workspace empty state, equal commitment subtitle, and formatted question record dates', async () => {
+    const portalWithAgreement = await renderPortal(agreement());
+    assert.ok(
+        portalWithAgreement.includes(
+            'Total capital commitment agreed for this investment.',
+        ),
+    );
+
+    const emptyPortalResult = await createInertiaApp({
+        page: {
+            component: 'investor-portal/Index',
+            url: '/muhammed-sannis-fish-farm/investor-portal',
+            version: 'test',
+            props: {
+                agreements: [],
+                currentTeam: {
+                    id: 9,
+                    name: "Muhammed Sanni's Fish Farm",
+                    slug: 'muhammed-sannis-fish-farm',
+                },
+                errors: {},
+            },
+            clearHistory: false,
+            encryptHistory: false,
+        },
+        resolve: () => Portal,
+        setup: ({ App, props, plugin }) =>
+            createSSRApp({ render: () => h(App, props) }).use(plugin),
+        render: renderToString,
+    });
+    const emptyHtml = emptyPortalResult.body.slice(
+        emptyPortalResult.body.indexOf('<div data-server-rendered='),
+    );
+    assert.match(emptyHtml, /Awaiting agreement setup in Muhammed Sanni/);
+    assert.ok(emptyHtml.includes('Back to all investments'));
+    assert.match(emptyHtml, /href="\/my-investments"/);
+
+    const { default: Questions } = await server.ssrLoadModule(
+        '/resources/js/components/InvestorPortalQuestions.vue',
+    );
+    const questionsHtml = await renderToString(
+        createSSRApp({
+            render: () =>
+                h(Questions, {
+                    currentTeamSlug: 'test-farm',
+                    agreement: agreement({
+                        fundingTimeline: [],
+                        expenses: [
+                            {
+                                id: 1,
+                                categoryName: 'Fish feed',
+                                incurredOn: '2026-11-22',
+                            },
+                        ],
+                        harvestRecords: [
+                            {
+                                id: 2,
+                                commodityName: 'Catfish',
+                                harvestedOn: '2026-11-24',
+                            },
+                        ],
+                        saleRecords: [
+                            {
+                                id: 3,
+                                buyerName: 'Kano Market',
+                                soldOn: '2026-11-25',
+                            },
+                        ],
+                        activities: [
+                            {
+                                id: 4,
+                                activityType: 'Feeding',
+                                activityDate: '2026-11-26',
+                            },
+                        ],
+                    }),
+                }),
+        }),
+    );
+
+    assert.ok(questionsHtml.includes('Expense: Fish feed (22 Nov 2026)'));
+    assert.ok(questionsHtml.includes('Harvest: Catfish (24 Nov 2026)'));
+    assert.ok(questionsHtml.includes('Sale: Kano Market (25 Nov 2026)'));
+    assert.ok(questionsHtml.includes('Update: Feeding (26 Nov 2026)'));
+    assert.doesNotMatch(
+        questionsHtml,
+        /\((2026-11-22|2026-11-24|2026-11-25|2026-11-26)\)/,
+    );
 });

@@ -50,7 +50,7 @@ const barClasses = computed(() => {
     <div
         class="flex min-w-0 flex-col rounded-xl border bg-card p-4 shadow-xs transition-shadow hover:shadow-sm"
     >
-        <div class="flex items-start justify-between gap-3">
+        <div class="flex min-h-8 items-start justify-between gap-3">
             <span class="text-xs font-medium text-muted-foreground">
                 {{ label }}
             </span>

@@ -40,6 +40,9 @@ defineProps<{
                         )
                     }}
                 </dd>
+                <dd class="mt-1 text-xs text-muted-foreground">
+                    Total capital commitment agreed for this investment.
+                </dd>
             </div>
             <div class="min-w-0 rounded-xl bg-muted/40 p-3.5">
                 <dt class="text-xs font-medium text-muted-foreground">
