@@ -12,7 +12,7 @@ import {
     InputOTPSlot,
 } from '@/components/ui/input-otp';
 import { Label } from '@/components/ui/label';
-import { login } from '@/routes';
+import { login, register } from '@/routes';
 import { send, show, verify } from '@/routes/phone-login';
 
 defineOptions({ layout: { title: 'Sign in with your phone' } });
@@ -134,10 +134,17 @@ const codeLength = 6;
                 >
             </template>
         </template>
-        <TextLink
+        <div
             v-if="emailSignInAllowed"
-            :href="login({ query: { method: 'email' } })"
-            >Sign in with email</TextLink
+            class="flex flex-col items-center gap-2 border-t pt-4 text-center text-sm text-muted-foreground"
         >
+            <TextLink :href="login({ query: { method: 'email' } })">
+                Sign in with email
+            </TextLink>
+            <p v-if="!invite">
+                New to Farmwell?
+                <TextLink :href="register()">Create an account</TextLink>
+            </p>
+        </div>
     </div>
 </template>

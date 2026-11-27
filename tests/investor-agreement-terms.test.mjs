@@ -778,3 +778,64 @@ test('portal renders workspace empty state, equal commitment subtitle, and forma
         /\((2026-11-22|2026-11-24|2026-11-25|2026-11-26)\)/,
     );
 });
+
+test('phone login shows Create an account link on full-workspace hosts only when not invited', async () => {
+    const { default: PhoneLogin } = await server.ssrLoadModule(
+        '/resources/js/pages/auth/PhoneLogin.vue',
+    );
+    const renderPhoneLogin = async (overrides = {}) => {
+        const result = await createInertiaApp({
+            page: {
+                component: 'auth/PhoneLogin',
+                url: '/login/phone',
+                version: 'test',
+                props: {
+                    invite: null,
+                    teamName: null,
+                    awaitingCode: false,
+                    codeLifetimeMinutes: 5,
+                    callingCode: '+234',
+                    pilot: true,
+                    emailSignInAllowed: true,
+                    countries: { NG: '+234', QA: '+974' },
+                    errors: {},
+                    ...overrides,
+                },
+                clearHistory: false,
+                encryptHistory: false,
+            },
+            resolve: () => PhoneLogin,
+            setup: ({ App, props, plugin }) =>
+                createSSRApp({ render: () => h(App, props) }).use(plugin),
+            render: renderToString,
+        });
+
+        return result.body.slice(
+            result.body.indexOf('<div data-server-rendered='),
+        );
+    };
+
+    const standardHtml = await renderPhoneLogin({
+        emailSignInAllowed: true,
+        invite: null,
+    });
+    assert.ok(standardHtml.includes('Sign in with email'));
+    assert.ok(standardHtml.includes('Create an account'));
+    assert.match(standardHtml, /href="\/register"/);
+
+    const invitedHtml = await renderPhoneLogin({
+        emailSignInAllowed: true,
+        invite: 'abc123',
+        teamName: 'Sanni Farm',
+    });
+    assert.ok(invitedHtml.includes('Sign in with email'));
+    assert.doesNotMatch(invitedHtml, /Create an account/);
+    assert.doesNotMatch(invitedHtml, /href="\/register"/);
+
+    const pilotOnlyHtml = await renderPhoneLogin({
+        emailSignInAllowed: false,
+        invite: null,
+    });
+    assert.doesNotMatch(pilotOnlyHtml, /Sign in with email/);
+    assert.doesNotMatch(pilotOnlyHtml, /Create an account/);
+});
