@@ -18,6 +18,8 @@
         "FROZEN_TEAM_SLUG": "mdsxclusive-farms",
         "FROZEN_TEAM_ID": "4",
         "MOVED_TEAM_ORIGIN": "https://app.farmwell.app",
+        "AI_SUMMARY_MODEL": "gpt-6.2-sol",
+        "AI_ASSISTANT_MODEL": "gpt-6.2-sol",
         "WEB_INACTIVITY_TIMEOUT_MS": "60000"
     },
     "observability": { "enabled": true },

@@ -583,6 +583,8 @@ test('assistant streams messages, handles pending approvals, isolates conversati
     expect(collect(parseSsePayloads($approveStream))->pluck('type')->all())->toContain('text_delta', 'conversation');
 
     // Queue pending approval for edit flow (with explicit assistant_model configured)
+    expect(config('ai.assistant_model'))->toBe('gpt-6.2-sol')
+        ->and(config('ai.summary_model'))->toBe('gpt-6.2-sol');
     config(['ai.assistant_model' => 'gpt-4o-mini']);
     $editPending = parseSsePayloads(
         $this->postJson(route('assistant.messages.store', $team), [

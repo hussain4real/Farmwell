@@ -909,6 +909,43 @@ test('AppSidebar hides AI Summaries and Onboard Farm when workspace plan restric
     assert.match(starterSidebar.body, />Field Diary</);
     assert.doesNotMatch(starterSidebar.body, />Onboard Farm</);
     assert.doesNotMatch(starterSidebar.body, />AI Summaries</);
+    assert.doesNotMatch(starterSidebar.body, />AI Usage</);
+
+    const adminSidebar = await createInertiaApp({
+        page: {
+            component: 'SidebarAdminTest',
+            url: '/platform/ai-usage',
+            version: 'test',
+            props: {
+                auth: {
+                    user: {
+                        id: 2,
+                        name: 'Platform Admin',
+                        email: 'admin@example.test',
+                    },
+                },
+                canManagePlatform: true,
+                currentTeam: null,
+                currentTeamPermissions: null,
+                currentTeamFeatures: null,
+                teams: [],
+                errors: {},
+            },
+            clearHistory: false,
+            encryptHistory: false,
+        },
+        resolve: () => ({
+            render: () =>
+                h(SidebarProvider, null, { default: () => h(AppSidebar) }),
+        }),
+        setup: ({ App, props, plugin }) =>
+            createSSRApp({ render: () => h(App, props) }).use(plugin),
+        render: renderToString,
+    });
+
+    assert.match(adminSidebar.body, />Platform admin</);
+    assert.match(adminSidebar.body, />AI Usage</);
+    assert.match(adminSidebar.body, /href="\/platform\/ai-usage"/);
 });
 
 test('FarmwellAssistantDrawer renders trigger only on enabled plans without platform access', async () => {
@@ -1194,4 +1231,259 @@ test('AssistantInputCard renders rich controls, accessible fieldsets, optional s
     assert.match(submittedHtml, /Funding Release Request/);
     assert.match(submittedHtml, /Submitted/);
     assert.doesNotMatch(submittedHtml, /<form/);
+});
+
+test('AI usage formatters, daily chart, and Platform AiUsage page render cleanly with populated and empty states', async () => {
+    const {
+        formatUsdFromMicrodollars,
+        formatTokenCount,
+        formatDurationMs,
+        formatRatePerMillion,
+    } = await server.ssrLoadModule('/resources/js/lib/aiUsageFormat.ts');
+    const { default: AiDailyUsageChart } = await server.ssrLoadModule(
+        '/resources/js/components/platform/AiDailyUsageChart.vue',
+    );
+    const { default: AiUsagePage } = await server.ssrLoadModule(
+        '/resources/js/pages/platform/AiUsage.vue',
+    );
+
+    assert.equal(formatUsdFromMicrodollars(0), '$0.00');
+    assert.equal(formatUsdFromMicrodollars(450), '$0.0005');
+    assert.equal(formatUsdFromMicrodollars(124_500), '$0.1245');
+    assert.equal(formatUsdFromMicrodollars(14_820_000), '$14.82');
+    assert.equal(
+        formatUsdFromMicrodollars(1_250_000_000, { compact: true }),
+        '$1.3k',
+    );
+    assert.equal(formatTokenCount(1_250_000), '1.25M');
+    assert.equal(formatTokenCount(48_250), '48.3K');
+    assert.equal(formatTokenCount(850), '850');
+    assert.equal(formatDurationMs(null), '—');
+    assert.equal(formatDurationMs(420), '420ms');
+    assert.equal(formatDurationMs(2450), '2.45s');
+    assert.equal(formatRatePerMillion(null), '—');
+    assert.equal(formatRatePerMillion(0.1), '$0.100/1M');
+    assert.equal(formatRatePerMillion(10), '$10.00/1M');
+
+    const emptyChartHtml = await renderToString(
+        createSSRApp({
+            render: () => h(AiDailyUsageChart, { days: [] }),
+        }),
+    );
+    assert.match(emptyChartHtml, /No AI calls recorded in this date window/);
+
+    const sampleDays = [
+        {
+            date: '2026-11-26',
+            label: '26 Nov',
+            costMicrodollars: 15_000,
+            inputCostMicrodollars: 5_000,
+            outputCostMicrodollars: 10_000,
+            cacheCostMicrodollars: 0,
+            calls: 2,
+            failedCalls: 0,
+            inputTokens: 2500,
+            outputTokens: 1000,
+            cacheReadTokens: 0,
+            totalTokens: 3500,
+        },
+        {
+            date: '2026-11-27',
+            label: '27 Nov',
+            costMicrodollars: 41_000,
+            inputCostMicrodollars: 20_000,
+            outputCostMicrodollars: 20_000,
+            cacheCostMicrodollars: 1_000,
+            calls: 3,
+            failedCalls: 1,
+            inputTokens: 20_000,
+            outputTokens: 2_000,
+            cacheReadTokens: 10_000,
+            totalTokens: 22_000,
+        },
+    ];
+
+    const populatedPage = await createInertiaApp({
+        page: {
+            component: 'platform/AiUsage',
+            url: '/platform/ai-usage',
+            props: {
+                filters: {
+                    range: '30d',
+                    team_id: null,
+                    user_id: null,
+                    feature: null,
+                    model: null,
+                    status: null,
+                },
+                summary: {
+                    totalCostMicrodollars: 56_000,
+                    previousCostMicrodollars: 28_000,
+                    costDeltaPercent: 100,
+                    inputCostMicrodollars: 25_000,
+                    outputCostMicrodollars: 30_000,
+                    cacheCostMicrodollars: 1_000,
+                    estimatedCacheSavingsMicrodollars: 19_000,
+                    totalCalls: 5,
+                    completedCalls: 4,
+                    pausedCalls: 0,
+                    failedCalls: 1,
+                    successRatePercent: 80,
+                    totalInputTokens: 22_500,
+                    uncachedInputTokens: 12_500,
+                    cacheReadTokens: 10_000,
+                    cacheWriteTokens: 0,
+                    totalOutputTokens: 3_000,
+                    reasoningTokens: 0,
+                    totalTokens: 25_500,
+                    cacheHitRatePercent: 44.4,
+                    avgCostMicrodollars: 11_200,
+                    avgDurationMs: 620,
+                    avgStepsPerCall: 2.0,
+                    totalToolCalls: 4,
+                    activeUsers: 2,
+                    activeWorkspaces: 1,
+                    unpricedCalls: 1,
+                },
+                daily: sampleDays,
+                byFeature: [
+                    {
+                        feature: 'assistant',
+                        label: 'Farmwell Assistant',
+                        calls: 5,
+                        failedCalls: 1,
+                        toolCalls: 4,
+                        inputTokens: 22_500,
+                        outputTokens: 3_000,
+                        totalTokens: 25_500,
+                        costMicrodollars: 56_000,
+                        sharePercent: 100,
+                    },
+                ],
+                byModel: [
+                    {
+                        provider: 'openai',
+                        model: 'gpt-6.2-sol',
+                        displayName: 'GPT-6.2 Sol',
+                        calls: 5,
+                        inputTokens: 22_500,
+                        outputTokens: 3_000,
+                        cacheReadTokens: 10_000,
+                        totalTokens: 25_500,
+                        costMicrodollars: 56_000,
+                        sharePercent: 100,
+                        inputPerMillion: 2,
+                        outputPerMillion: 10,
+                    },
+                ],
+                byUser: [
+                    {
+                        userId: 1,
+                        name: 'Aminu Hussain',
+                        email: 'aminu@example.test',
+                        calls: 5,
+                        inputTokens: 22_500,
+                        outputTokens: 3_000,
+                        totalTokens: 25_500,
+                        avgCostMicrodollars: 11_200,
+                        costMicrodollars: 56_000,
+                        sharePercent: 100,
+                    },
+                ],
+                byWorkspace: [
+                    {
+                        teamId: 4,
+                        name: 'MDSxclusive Farms',
+                        slug: 'mdsxclusive-farms',
+                        planLabel: 'Investor / Pilot',
+                        activeUsers: 2,
+                        calls: 5,
+                        totalTokens: 25_500,
+                        costMicrodollars: 56_000,
+                        sharePercent: 100,
+                    },
+                ],
+                recentCalls: {
+                    data: [
+                        {
+                            id: 10,
+                            feature: 'assistant',
+                            featureLabel: 'Farmwell Assistant',
+                            provider: 'openai',
+                            model: 'gpt-6.2-sol',
+                            status: 'completed',
+                            isStreamed: true,
+                            stepsCount: 2,
+                            toolCallsCount: 1,
+                            inputTokens: 20_000,
+                            cacheReadTokens: 10_000,
+                            outputTokens: 2_000,
+                            totalTokens: 22_000,
+                            costMicrodollars: 41_000,
+                            pricingStatus: 'priced',
+                            durationMs: 500,
+                            errorMessage: null,
+                            occurredAt: '2026-11-27T18:00:00Z',
+                            occurredAtFormatted: 'Nov 27, 18:00',
+                            user: {
+                                id: 1,
+                                name: 'Musa D Suleiman',
+                                email: null,
+                            },
+                            impersonator: { id: 2, name: 'Aminu Hussain' },
+                            team: {
+                                id: 4,
+                                name: 'MDSxclusive Farms',
+                                slug: 'mdsxclusive-farms',
+                            },
+                        },
+                    ],
+                    total: 1,
+                    prev_page_url: null,
+                    next_page_url: null,
+                },
+                filterOptions: {
+                    workspaces: [
+                        {
+                            id: 4,
+                            name: 'MDSxclusive Farms',
+                            slug: 'mdsxclusive-farms',
+                        },
+                    ],
+                    features: [
+                        { value: 'assistant', label: 'Farmwell Assistant' },
+                    ],
+                    models: ['gpt-6.2-sol'],
+                    statuses: [{ value: 'completed', label: 'Completed' }],
+                },
+                catalog: {
+                    syncedModelsCount: 112,
+                    lastSyncedAt: '2026-11-27T17:00:00Z',
+                    unpricedModels: [
+                        { provider: 'openai', model: 'unpriced-experimental' },
+                    ],
+                    activeModels: {
+                        assistant: 'gpt-6.2-sol',
+                        summary: 'gpt-6.2-sol',
+                    },
+                },
+                errors: {},
+            },
+            clearHistory: false,
+            encryptHistory: false,
+        },
+        resolve: () => AiUsagePage,
+        setup: ({ App, props, plugin }) =>
+            createSSRApp({ render: () => h(App, props) }).use(plugin),
+        render: renderToString,
+    });
+
+    assert.match(populatedPage.body, /AI Usage Analytics/);
+    assert.match(populatedPage.body, /gpt-6\.2-sol/);
+    assert.match(populatedPage.body, /\$0\.0560/);
+    assert.match(populatedPage.body, /unpriced-experimental/);
+    assert.match(populatedPage.body, /Musa D Suleiman/);
+    assert.match(populatedPage.body, /via Aminu Hussain/);
+    assert.match(populatedPage.body, /role="region"/);
+    assert.match(populatedPage.body, /scope="col"/);
 });

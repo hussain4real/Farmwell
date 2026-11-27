@@ -28,6 +28,8 @@
         "KUDISMS_SENDER_ID": "Farmwell",
         "KUDISMS_OTP_APP_CODE": "8490844367",
         "KUDISMS_OTP_TEMPLATE_CODE": "81666357",
+        "AI_SUMMARY_MODEL": "gpt-6.2-sol",
+        "AI_ASSISTANT_MODEL": "gpt-6.2-sol",
         "WEB_INACTIVITY_TIMEOUT_MS": "90000"
     },
     "observability": { "enabled": true },

@@ -56,6 +56,7 @@ use App\Http\Controllers\Investors\InvestorPortfolioController;
 use App\Http\Controllers\Investors\InvestorStatementController;
 use App\Http\Controllers\PlatformAccessController;
 use App\Http\Controllers\PlatformAdminController;
+use App\Http\Controllers\PlatformAiUsageController;
 use App\Http\Controllers\PlatformImpersonationController;
 use App\Http\Controllers\Teams\TeamInvitationController;
 use App\Http\Middleware\EnsureContactIsVerified;
@@ -73,8 +74,12 @@ Route::delete('platform/impersonate', [PlatformImpersonationController::class, '
 
 Route::prefix('platform')->name('platform.')->middleware(['auth', EnsureContactIsVerified::class, 'can:managePlatform'])->controller(PlatformAdminController::class)->group(function () {
     Route::get('/', 'index')->name('index');
+    Route::get('/ai-usage', [PlatformAiUsageController::class, 'index'])->name('ai-usage.index');
+    Route::get('/ai-usage/export', [PlatformAiUsageController::class, 'export'])->name('ai-usage.export');
     Route::delete('/access', [PlatformAccessController::class, 'destroy'])->name('access.destroy')->block();
     Route::middleware('throttle:platform-admin')->group(function () {
+        Route::post('/ai-usage/sync-pricing', [PlatformAiUsageController::class, 'syncPricing'])->name('ai-usage.sync-pricing');
+        Route::post('/ai-usage/backfill', [PlatformAiUsageController::class, 'backfill'])->name('ai-usage.backfill');
         Route::post('/access', [PlatformAccessController::class, 'store'])->name('access.store')->block();
         Route::post('/impersonate', [PlatformImpersonationController::class, 'store'])->name('impersonate.store')->block();
         Route::post('/farms', 'storeFarm')->name('farms.store');

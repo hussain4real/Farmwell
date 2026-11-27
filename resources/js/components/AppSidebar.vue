@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Link, usePage } from '@inertiajs/vue3';
 import {
+    BarChart3,
     ClipboardList,
     FileText,
     Handshake,
@@ -44,6 +45,7 @@ import { index as investorApprovalsIndex } from '@/routes/investors/approvals';
 import { index as myInvestments } from '@/routes/my-investments';
 import { index as onboardingIndex } from '@/routes/onboarding';
 import { index as platformIndex } from '@/routes/platform';
+import { index as platformAiUsageIndex } from '@/routes/platform/ai-usage';
 import { index as whatsappIntakesIndex } from '@/routes/whatsapp-intakes';
 import type { NavItem } from '@/types';
 
@@ -328,6 +330,11 @@ const mainNavItems = computed<NavItem[]>(() => {
                         title: 'Platform admin',
                         href: platformIndex().url,
                         icon: ShieldCheck,
+                    },
+                    {
+                        title: 'AI Usage',
+                        href: platformAiUsageIndex().url,
+                        icon: BarChart3,
                     },
                 ]"
             />

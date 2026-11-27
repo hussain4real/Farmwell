@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Enums\PlatformRole;
 use App\Http\Middleware\SignalQueuedWork;
+use App\Listeners\RecordAiUsage;
 use App\Models\User;
 use App\Support\AuthenticatedDatabaseSessionHandler;
 use Aws\CommandInterface;
@@ -21,6 +22,11 @@ use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
+use Laravel\Ai\Events\AgentFailed;
+use Laravel\Ai\Events\AgentPrompted;
+use Laravel\Ai\Events\AgentStreamed;
+use Laravel\Ai\Events\PromptingAgent;
+use Laravel\Ai\Events\StreamingAgent;
 use LogicException;
 use Psr\Http\Message\RequestInterface;
 
@@ -31,7 +37,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->singleton(RecordAiUsage::class);
     }
 
     /**
@@ -40,6 +46,10 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Gate::define('managePlatform', fn (User $user): bool => $user->platform_role === PlatformRole::SuperAdmin);
+
+        Event::listen([PromptingAgent::class, StreamingAgent::class], [RecordAiUsage::class, 'handleStarting']);
+        Event::listen([AgentPrompted::class, AgentStreamed::class], [RecordAiUsage::class, 'handleCompleted']);
+        Event::listen(AgentFailed::class, [RecordAiUsage::class, 'handleFailed']);
 
         Event::listen(function (JobQueued $event): void {
             if ($event->connectionName === 'database' && $this->app->bound('request')) {

@@ -4,6 +4,7 @@ namespace App\Ai\Agents;
 
 use App\Actions\Finance\ResolveTeamFinanceCurrency;
 use App\Actions\Teams\ResolveWorkspacePlan;
+use App\Ai\Contracts\HasUsageContext;
 use App\Ai\Tools\AskUserInputTool;
 use App\Ai\Tools\CreateFundingPhaseTool;
 use App\Ai\Tools\DecideApprovalRequestTool;
@@ -16,6 +17,7 @@ use App\Ai\Tools\RecordExpenseTool;
 use App\Ai\Tools\RecordFarmActivityTool;
 use App\Ai\Tools\RecordFundingReleaseTool;
 use App\Ai\Tools\UpdateAgreementFundingTool;
+use App\Enums\AiUsageFeature;
 use App\Enums\ProductionCycleStatus;
 use App\Enums\TeamRole;
 use App\Models\ExpenseCategory;
@@ -42,7 +44,7 @@ use Laravel\Ai\Promptable;
 #[RepairToolCalls]
 #[MaxSteps(6)]
 #[Timeout(45)]
-class FarmwellAssistant implements Agent, Conversational, HasTools
+class FarmwellAssistant implements Agent, Conversational, HasTools, HasUsageContext
 {
     use Promptable;
     use RemembersConversations;
@@ -51,6 +53,18 @@ class FarmwellAssistant implements Agent, Conversational, HasTools
         public Team $team,
         public User $user,
     ) {}
+
+    /**
+     * @return array{team_id: int, user_id: int, feature: AiUsageFeature}
+     */
+    public function usageContext(): array
+    {
+        return [
+            'team_id' => $this->team->id,
+            'user_id' => $this->user->id,
+            'feature' => AiUsageFeature::Assistant,
+        ];
+    }
 
     public function instructions(): string
     {

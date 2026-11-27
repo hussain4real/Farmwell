@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Ai\Agents\InternalFarmSummary;
 use App\Ai\Agents\InvestorProgressSummary;
+use App\Enums\AiUsageFeature;
 use App\Enums\FarmTaskStatus;
 use App\Enums\InvestorAgreementStatus;
 use App\Enums\WhatsappIntakeStatus;
@@ -190,7 +191,9 @@ class GenerateAiSummary implements ShouldQueue
             }
         }
         $model = config('ai.summary_model');
-        $agent = $type === 'investor_progress' ? new InvestorProgressSummary : new InternalFarmSummary;
+        $agent = $type === 'investor_progress'
+            ? new InvestorProgressSummary($summary->team_id, $summary->requested_by_id, $summary->id)
+            : new InternalFarmSummary($summary->team_id, $summary->requested_by_id, AiUsageFeature::fromSummaryType($type), $summary->id);
         $response = $agent->prompt($prompt, model: is_string($model) && $model !== '' ? $model : null, timeout: self::ProviderTimeout);
 
         AiSummary::query()->whereKey($summary->id)->where('status', 'queued')->update([...Arr::only($summary->getAttributes(), [
