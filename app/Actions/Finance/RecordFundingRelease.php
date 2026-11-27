@@ -37,9 +37,31 @@ class RecordFundingRelease
             }
 
             $phase->update(['externally_released_amount_minor' => $amountMinor, 'released_on' => $releasedOn, 'status' => FundingPhaseStatus::ReleasedExternally]);
-            app(RecordAuditEvent::class)->handle(team: $team, actor: $actor, action: 'funding_phase.released', subject: $phase,
-                oldValues: ['externally_released_amount_minor' => 0],
-                newValues: ['externally_released_amount_minor' => $amountMinor, 'released_on' => $releasedOn, 'approval_request_id' => $approval->id]);
+            $previousFundedMinor = $agreement->amount_funded_minor;
+            $updatedFundedMinor = $phase->currency === $agreement->currency
+                ? $previousFundedMinor + $amountMinor
+                : $previousFundedMinor;
+
+            if ($updatedFundedMinor !== $previousFundedMinor) {
+                $agreement->update(['amount_funded_minor' => $updatedFundedMinor]);
+            }
+
+            app(RecordAuditEvent::class)->handle(
+                team: $team,
+                actor: $actor,
+                action: 'funding_phase.released',
+                subject: $phase,
+                oldValues: [
+                    'externally_released_amount_minor' => 0,
+                    'agreement_amount_funded_minor' => $previousFundedMinor,
+                ],
+                newValues: [
+                    'externally_released_amount_minor' => $amountMinor,
+                    'released_on' => $releasedOn,
+                    'approval_request_id' => $approval->id,
+                    'agreement_amount_funded_minor' => $updatedFundedMinor,
+                ],
+            );
         });
     }
 }

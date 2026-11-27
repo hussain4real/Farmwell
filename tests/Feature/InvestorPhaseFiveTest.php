@@ -908,8 +908,10 @@ test('investor funding requests require approval before a recorded release and p
     $this->post(farmwellInvestorRoute('investors.approvals.decisions.store', $team, ['approval_request' => $approval]), ['status' => 'approved', 'approved_amount' => '100001'])->assertSessionHasErrors('approved_amount');
     $this->post(farmwellInvestorRoute('investors.approvals.decisions.store', $team, ['approval_request' => $approval]), ['status' => 'approved', 'approved_amount' => '80000'])->assertRedirect();
     $this->actingAs($owner)->post($release, ['amount' => '80001', 'released_on' => '2026-11-03'])->assertSessionHasErrors('amount');
+    $initialFundedMinor = $agreement->amount_funded_minor;
     $this->post($release, ['amount' => '80000', 'released_on' => '2026-11-03'])->assertRedirect();
-    expect($phase->fresh()->externally_released_amount_minor)->toBe(8_000_000);
+    expect($phase->fresh()->externally_released_amount_minor)->toBe(8_000_000)
+        ->and($agreement->fresh()->amount_funded_minor)->toBe($initialFundedMinor + 8_000_000);
     $this->post($release, ['amount' => '80000', 'released_on' => '2026-11-03'])->assertSessionHasErrors('amount');
 });
 
@@ -988,4 +990,93 @@ test('an investor in two workspaces receives only each farms public agreement te
                 ->where('agreements.0.fundingModel', $agreement->funding_model)
                 ->where('agreements.0.internalNotes', null));
     }
+});
+
+test('releasing approved funding phases accumulates agreement recorded funding only when currency matches', function () {
+    [$owner, $investor, $team, $farm, $cycle] = farmwellInvestorContext();
+    $agreement = InvestorAgreement::factory()->create([
+        'team_id' => $team->id,
+        'investor_id' => $investor->id,
+        'farm_id' => $farm->id,
+        'production_cycle_id' => $cycle->id,
+        'status' => InvestorAgreementStatus::Active,
+        'currency' => 'NGN',
+        'amount_committed_minor' => 50_000_000,
+        'amount_funded_minor' => 20_000_000,
+    ]);
+
+    foreach ([8_000_000, 5_000_000] as $index => $trancheMinor) {
+        $phase = FundingPhase::factory()->create([
+            'team_id' => $team->id,
+            'farm_id' => $farm->id,
+            'production_cycle_id' => $cycle->id,
+            'investor_agreement_id' => $agreement->id,
+            'currency' => 'NGN',
+            'status' => 'approved',
+            'requested_amount_minor' => $trancheMinor,
+            'approved_amount_minor' => $trancheMinor,
+            'externally_released_amount_minor' => 0,
+        ]);
+        ApprovalRequest::factory()->create([
+            'team_id' => $team->id,
+            'investor_agreement_id' => $agreement->id,
+            'subject_type' => $phase->getMorphClass(),
+            'subject_id' => $phase->id,
+            'request_type' => 'funding_release',
+            'status' => 'approved',
+            'requested_amount_minor' => $trancheMinor,
+            'approved_amount_minor' => $trancheMinor,
+            'requested_by_id' => $owner->id,
+            'decided_by_id' => $investor->id,
+        ]);
+
+        $this->actingAs($owner)->post(
+            farmwellInvestorRoute('finance.funding-phases.release', $team, ['funding_phase' => $phase]),
+            ['amount' => number_format($trancheMinor / 100, 2, '.', ''), 'released_on' => '2026-11-1'.($index + 1)],
+        )->assertRedirect(farmwellInvestorRoute('finance.funding-phases.index', $team));
+    }
+
+    expect($agreement->fresh()->amount_funded_minor)->toBe(33_000_000);
+
+    $audits = AuditEvent::query()
+        ->where('team_id', $team->id)
+        ->where('action', 'funding_phase.released')
+        ->orderBy('id')
+        ->get();
+    expect($audits)->toHaveCount(2)
+        ->and($audits[0]->old_values['agreement_amount_funded_minor'])->toBe(20_000_000)
+        ->and($audits[0]->new_values['agreement_amount_funded_minor'])->toBe(28_000_000)
+        ->and($audits[1]->old_values['agreement_amount_funded_minor'])->toBe(28_000_000)
+        ->and($audits[1]->new_values['agreement_amount_funded_minor'])->toBe(33_000_000);
+
+    $foreignPhase = FundingPhase::factory()->create([
+        'team_id' => $team->id,
+        'farm_id' => $farm->id,
+        'production_cycle_id' => $cycle->id,
+        'investor_agreement_id' => $agreement->id,
+        'currency' => 'USD',
+        'status' => 'approved',
+        'requested_amount_minor' => 10_000,
+        'approved_amount_minor' => 10_000,
+        'externally_released_amount_minor' => 0,
+    ]);
+    ApprovalRequest::factory()->create([
+        'team_id' => $team->id,
+        'investor_agreement_id' => $agreement->id,
+        'subject_type' => $foreignPhase->getMorphClass(),
+        'subject_id' => $foreignPhase->id,
+        'request_type' => 'funding_release',
+        'status' => 'approved',
+        'requested_amount_minor' => 10_000,
+        'approved_amount_minor' => 10_000,
+        'requested_by_id' => $owner->id,
+        'decided_by_id' => $investor->id,
+    ]);
+
+    $this->actingAs($owner)->post(
+        farmwellInvestorRoute('finance.funding-phases.release', $team, ['funding_phase' => $foreignPhase]),
+        ['amount' => '100.00', 'released_on' => '2026-11-15'],
+    )->assertRedirect();
+
+    expect($agreement->fresh()->amount_funded_minor)->toBe(33_000_000);
 });

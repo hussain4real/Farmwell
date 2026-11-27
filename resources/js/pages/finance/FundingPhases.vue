@@ -411,7 +411,11 @@ watch(phaseCycleId, () => {
                             />
                             <InputError :message="errors.released_on" />
                         </div>
-                        <div class="sm:col-span-2">
+                        <div class="space-y-2 sm:col-span-2">
+                            <p class="text-xs text-muted-foreground">
+                                Recording a release automatically updates the
+                                linked agreement's recorded funding.
+                            </p>
                             <Button
                                 :disabled="processing"
                                 class="w-full sm:w-auto"

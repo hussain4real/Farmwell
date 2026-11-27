@@ -48,6 +48,8 @@ class FundingPhaseController extends Controller
     {
         $release->handle($currentTeam, $request->user(), $fundingPhase, Money::toMinorUnit((string) $request->validated('amount')), $request->validated('released_on'));
 
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Funding release recorded and agreement funding updated.')]);
+
         return to_route('finance.funding-phases.index', ['current_team' => $currentTeam]);
     }
 
