@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Actions\Teams\ResolveInvestorMode;
+use App\Actions\Teams\ResolveWorkspacePlan;
 use App\Support\PlatformAccess;
 use App\Support\PlatformImpersonation;
 use App\Support\UserTeam;
@@ -65,10 +66,18 @@ class HandleInertiaRequests extends Middleware
             'currentTeamFeatures' => function () use ($request, $user) {
                 $team = $request->attributes->get('platform_access_team') ?? $user?->currentTeam;
 
-                return $team ? [
+                if (! $team) {
+                    return null;
+                }
+
+                $plans = app(ResolveWorkspacePlan::class);
+
+                return [
                     'investorMode' => app(ResolveInvestorMode::class)->handle($team),
                     'needsOnboarding' => $team->farms()->doesntExist(),
-                ] : null;
+                    'plan' => $plans->handle($team)->summary(),
+                    'canAddFarm' => $plans->canAddFarm($team),
+                ];
             },
             'teams' => fn () => $user?->toUserTeams(includeCurrent: true) ?? [],
         ];

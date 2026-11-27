@@ -82,6 +82,7 @@ Route::prefix('platform')->name('platform.')->middleware(['auth', EnsureContactI
         Route::delete('/farms/{farm}', 'destroyFarm')->name('farms.destroy');
         Route::patch('/users/{user}', 'updateUser')->name('users.update');
         Route::put('/users/{user}/membership', 'updateMembership')->name('memberships.update');
+        Route::patch('/workspaces/{team}/plan', 'updateWorkspacePlan')->name('workspaces.plan.update');
     });
 });
 

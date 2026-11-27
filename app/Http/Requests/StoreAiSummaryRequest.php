@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Actions\Teams\ResolveWorkspacePlan;
 use App\Enums\InvestorAgreementStatus;
 use App\Enums\WhatsappIntakeStatus;
 use App\Models\Team;
@@ -15,6 +16,7 @@ class StoreAiSummaryRequest extends FormRequest
         $team = $this->route('current_team');
 
         return $team instanceof Team
+            && app(ResolveWorkspacePlan::class)->handle($team)->allowsAiSummaries()
             && ($this->isInvestorProgress()
                 ? $this->user()?->can('manageInvestorAgreements', $team) === true
                 : $this->user()?->can('manageFarmOperations', $team) === true);

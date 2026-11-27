@@ -62,10 +62,13 @@ const props = defineProps<{
         cycle_id: number | null;
         date: string | null;
     }[];
+    aiSummariesEnabled?: boolean;
     canManage: boolean;
     canManageInvestors: boolean;
     canManageOperations: boolean;
 }>();
+
+const aiSummariesEnabled = computed(() => props.aiSummariesEnabled !== false);
 
 const summaryType = ref(
     props.canManageInvestors ? 'investor_progress' : 'weekly',
@@ -131,7 +134,7 @@ defineOptions({
         />
 
         <section
-            v-if="canManage && currentTeamSlug"
+            v-if="canManage && currentTeamSlug && aiSummariesEnabled"
             class="space-y-4 rounded-xl border border-[#d6e5dc] bg-card p-5 dark:border-border"
         >
             <Heading
@@ -294,6 +297,18 @@ defineOptions({
             >
                 No eligible agreements are available.
             </p>
+        </section>
+
+        <section
+            v-else-if="canManage && currentTeamSlug"
+            data-test="ai-summaries-upgrade-notice"
+            class="space-y-2 rounded-xl border border-dashed p-5"
+        >
+            <Heading
+                variant="small"
+                title="AI Summaries are available on the Investor / Pilot plan"
+                description="Upgrade your workspace plan to generate reviewed investor progress updates, weekly summaries, and intake cleanups."
+            />
         </section>
 
         <section class="space-y-4">

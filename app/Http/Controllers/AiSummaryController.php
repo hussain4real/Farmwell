@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Actions\AiSummaries\InvestorSummaryEligibility;
 use App\Actions\Audit\RecordAuditEvent;
+use App\Actions\Teams\ResolveWorkspacePlan;
 use App\Enums\InvestorAgreementStatus;
 use App\Enums\WhatsappIntakeStatus;
 use App\Http\Requests\ReviewAiSummaryRequest;
@@ -33,6 +34,7 @@ class AiSummaryController extends Controller
         abort_unless($canManageInvestors || $canManageOperations, 403);
 
         return Inertia::render('ai-summaries/Index', [
+            'aiSummariesEnabled' => app(ResolveWorkspacePlan::class)->handle($currentTeam)->allowsAiSummaries(),
             'canManageOperations' => $canManageOperations,
             'canManage' => true,
             'canManageInvestors' => $canManageInvestors,

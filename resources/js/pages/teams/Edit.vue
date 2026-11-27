@@ -36,6 +36,7 @@ import type {
     TeamInvitation,
     TeamMember,
     TeamPermissions,
+    WorkspacePlanSummary,
 } from '@/types';
 
 type Props = {
@@ -43,6 +44,9 @@ type Props = {
     members: TeamMember[];
     invitations: TeamInvitation[];
     permissions: TeamPermissions;
+    plan?: WorkspacePlanSummary;
+    canAddMember?: boolean;
+    usedSeatCount?: number;
     investorMode: boolean;
     dailyRemindersEnabled: boolean;
     availableRoles: RoleOption[];
@@ -52,6 +56,9 @@ type Props = {
 };
 
 const props = defineProps<Props>();
+
+const activePlan = computed(() => props.plan);
+const canInviteMore = computed(() => props.canAddMember !== false);
 
 defineOptions({
     layout: (props: { team: Team }) => ({
@@ -207,6 +214,32 @@ const copyInvitationLink = async (url: string | null | undefined) => {
             <Heading variant="small" :title="team.name" />
         </div>
 
+        <!-- Workspace Plan Section -->
+        <div
+            v-if="activePlan"
+            class="space-y-2 rounded-xl border p-5"
+            data-test="workspace-plan-card"
+        >
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <div class="flex items-center gap-2">
+                    <h3 class="text-base font-medium">Workspace Plan</h3>
+                    <Badge variant="outline" data-test="workspace-plan-badge">
+                        {{ activePlan.label }}
+                    </Badge>
+                </div>
+                <span
+                    v-if="activePlan.maxMembers !== null"
+                    class="text-xs text-muted-foreground"
+                >
+                    {{ usedSeatCount ?? members.length }} of
+                    {{ activePlan.maxMembers }} member seats used
+                </span>
+            </div>
+            <p class="text-sm text-muted-foreground">
+                {{ activePlan.description }}
+            </p>
+        </div>
+
         <!-- Workspace Mode Section -->
         <div
             v-if="permissions.canManageSettings"
@@ -235,12 +268,22 @@ const copyInvitationLink = async (url: string | null | undefined) => {
                                 : 'Optimized for standalone farmers. Enable this if you raise external farm capital and need investor approvals and statements.'
                         }}
                     </p>
+                    <p
+                        v-if="activePlan && !activePlan.allowsInvestorMode"
+                        class="text-xs text-muted-foreground"
+                    >
+                        Requires Investor / Pilot plan.
+                    </p>
                 </div>
                 <Button
                     type="button"
                     variant="outline"
                     data-test="toggle-investor-mode"
-                    :disabled="togglingInvestorMode"
+                    :disabled="
+                        togglingInvestorMode ||
+                        (!investorMode &&
+                            activePlan?.allowsInvestorMode === false)
+                    "
                     @click="toggleInvestorMode"
                 >
                     {{
@@ -312,11 +355,26 @@ const copyInvitationLink = async (url: string | null | undefined) => {
                 <Button
                     v-if="permissions.canCreateInvitation"
                     data-test="invite-member-button"
+                    :disabled="!canInviteMore"
                     @click="inviteDialogOpen = true"
                 >
                     <UserPlus /> Invite member
                 </Button>
             </div>
+
+            <p
+                v-if="
+                    permissions.canCreateInvitation &&
+                    !canInviteMore &&
+                    activePlan?.maxMembers !== null
+                "
+                class="rounded-lg border border-dashed p-3 text-sm text-muted-foreground"
+            >
+                Starter plan limit reached ({{
+                    usedSeatCount ?? members.length
+                }}/{{ activePlan?.maxMembers }} members). Upgrade to Pro Farm to
+                invite more workers.
+            </p>
 
             <div class="space-y-3">
                 <div

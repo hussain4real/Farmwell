@@ -3,14 +3,17 @@
 namespace App\Http\Controllers;
 
 use App\Actions\Audit\RecordAuditEvent;
+use App\Actions\Teams\ResolveWorkspacePlan;
 use App\Actions\Teams\SyncTeamRolePermissions;
 use App\Enums\FarmType;
 use App\Enums\TeamRole;
+use App\Enums\WorkspacePlan;
 use App\Http\Requests\DeletePlatformFarmRequest;
 use App\Http\Requests\PlatformFarmRequest;
 use App\Http\Requests\PlatformFarmStatusRequest;
 use App\Http\Requests\PlatformMembershipRequest;
 use App\Http\Requests\PlatformUserRequest;
+use App\Http\Requests\PlatformWorkspacePlanRequest;
 use App\Models\AuditEvent;
 use App\Models\Farm;
 use App\Models\ReportArtifact;
@@ -24,23 +27,65 @@ use Inertia\Response;
 
 class PlatformAdminController extends Controller
 {
-    public function index(Request $request): Response
+    public function index(Request $request, ResolveWorkspacePlan $plans): Response
     {
         $filters = $request->validate(['search' => ['nullable', 'string', 'max:100']]);
         $search = $filters['search'] ?? '';
+        $planSettings = static fn ($query) => $query
+            ->where('setting_group', ResolveWorkspacePlan::SettingGroup)
+            ->where('setting_key', ResolveWorkspacePlan::SettingKey);
 
         return Inertia::render('platform/Index', [
             'search' => $search,
             'counts' => ['farms' => Farm::whereHas('team')->count(), 'users' => User::count(), 'teams' => Team::count()],
-            'farms' => Farm::query()->with('team:id,name,slug')->whereHas('team')
+            'farms' => Farm::query()
+                ->with(['team' => static fn ($query) => $query->select(['id', 'name', 'slug'])->with(['settings' => $planSettings])])
+                ->whereHas('team')
                 ->withCount(['productionUnits', 'productionCycles', 'investorAgreements'])
                 ->when($search !== '', fn ($query) => $query->where('name', 'like', '%'.$search.'%'))
-                ->orderBy('name')->paginate(15, ['*'], 'farms_page')->withQueryString(),
+                ->orderBy('name')
+                ->paginate(15, ['*'], 'farms_page')
+                ->withQueryString()
+                ->through(function (Farm $farm) use ($plans): array {
+                    $team = $farm->team;
+                    assert($team instanceof Team);
+                    $plan = $plans->handle($team);
+
+                    return [
+                        ...$farm->toArray(),
+                        'team' => [
+                            'id' => $team->id,
+                            'name' => $team->name,
+                            'slug' => $team->slug,
+                            'plan' => $plan->value,
+                            'plan_label' => $plan->label(),
+                        ],
+                    ];
+                }),
             'users' => User::query()->select(['id', 'name', 'email', 'platform_role'])
                 ->with('teams:id,name,slug')
                 ->when($search !== '', fn ($query) => $query->where(fn ($q) => $q->where('name', 'like', '%'.$search.'%')->orWhere('email', 'like', '%'.$search.'%')))
                 ->orderBy('name')->paginate(15, ['*'], 'users_page')->withQueryString(),
-            'workspaces' => Team::query()->orderBy('name')->get(['id', 'name', 'slug']),
+            'workspaces' => Team::query()
+                ->with(['settings' => $planSettings])
+                ->withCount(['farms', 'memberships'])
+                ->orderBy('name')
+                ->get()
+                ->map(function (Team $team) use ($plans): array {
+                    $plan = $plans->handle($team);
+
+                    return [
+                        'id' => $team->id,
+                        'name' => $team->name,
+                        'slug' => $team->slug,
+                        'is_personal' => $team->is_personal,
+                        'farms_count' => $team->farms_count,
+                        'memberships_count' => $team->memberships_count,
+                        'plan' => $plan->value,
+                        'plan_label' => $plan->label(),
+                    ];
+                }),
+            'plans' => WorkspacePlan::options(),
             'roles' => TeamRole::assignable(),
             'farmTypes' => array_map(fn (FarmType $type) => ['value' => $type->value, 'label' => $type->label()], FarmType::cases()),
             'auditEvents' => AuditEvent::query()->where('action', 'like', 'platform.%')
@@ -181,6 +226,35 @@ class PlatformAdminController extends Controller
         });
 
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Workspace access updated.']);
+
+        return back();
+    }
+
+    public function updateWorkspacePlan(
+        PlatformWorkspacePlanRequest $request,
+        Team $team,
+        ResolveWorkspacePlan $plans,
+        RecordAuditEvent $audit,
+    ): RedirectResponse {
+        DB::transaction(function () use ($request, $team, $plans, $audit): void {
+            $lockedTeam = Team::lockForUpdate()->findOrFail($team->id);
+            $before = ['plan' => $plans->handle($lockedTeam)->value];
+            $newPlan = WorkspacePlan::from((string) $request->validated('plan'));
+
+            $plans->setPlan($lockedTeam, $newPlan, $request->user());
+
+            $audit->handle(
+                team: $lockedTeam,
+                actor: $request->user(),
+                action: 'platform.workspace_plan_updated',
+                subject: $lockedTeam,
+                oldValues: $before,
+                newValues: ['plan' => $newPlan->value],
+                reason: $request->validated('reason'),
+            );
+        });
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Workspace plan updated.']);
 
         return back();
     }

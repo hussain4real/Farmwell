@@ -49,6 +49,7 @@ test('every tenant role is denied every platform endpoint', function (TeamRole $
     $this->delete(route('platform.farms.destroy', $this->farm), [])->assertForbidden();
     $this->patch(route('platform.users.update', $this->admin), [])->assertForbidden();
     $this->put(route('platform.memberships.update', $this->admin), [])->assertForbidden();
+    $this->patch(route('platform.workspaces.plan.update', $this->team), [])->assertForbidden();
     expect(AuditEvent::count())->toBe(0);
 })->with(TeamRole::cases());
 

@@ -86,6 +86,13 @@ const page = usePage();
 const teamSlug = computed(
     () => (page.props.currentTeam as Team | null)?.slug ?? '',
 );
+const currentTeamFeatures = computed(() => page.props.currentTeamFeatures);
+const canAddFarm = computed(
+    () => currentTeamFeatures.value?.canAddFarm !== false,
+);
+const allowsInvestorMode = computed(
+    () => currentTeamFeatures.value?.plan?.allowsInvestorMode !== false,
+);
 const step = ref(1);
 
 const initialTemplate = props.templates[0];
@@ -235,6 +242,18 @@ const submit = () => {
             title="Launch your farm workspace"
             description="Choose your enterprise type and Farmwell automatically sets up your pens/ponds/fields, initial batch or season, starter tasks, and stock items."
         />
+
+        <div
+            v-if="!canAddFarm"
+            data-test="onboarding-farm-limit-banner"
+            class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-200"
+        >
+            <p class="font-medium">Starter plan farm limit reached</p>
+            <p class="mt-1">
+                Your Starter (Free) workspace already includes 1 farm. Upgrade
+                to Pro Farm to onboard additional farms.
+            </p>
+        </div>
 
         <!-- Stepper -->
         <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -408,6 +427,7 @@ const submit = () => {
                         <input
                             v-model="form.investor_mode"
                             type="checkbox"
+                            :disabled="!allowsInvestorMode"
                             class="mt-1 size-4"
                         />
                         <span class="text-sm">
@@ -415,9 +435,11 @@ const submit = () => {
                                 Enable Investor Transparency Mode
                             </strong>
                             <span class="text-muted-foreground">
-                                Leave unchecked if this is a standalone
-                                self-funded farm. You can always enable it later
-                                in Team Settings.
+                                {{
+                                    allowsInvestorMode
+                                        ? 'Leave unchecked if this is a standalone self-funded farm. You can always enable it later in Team Settings.'
+                                        : 'Requires Investor / Pilot plan. Standalone farm mode is included in your current plan.'
+                                }}
                             </span>
                         </span>
                     </label>
@@ -803,7 +825,7 @@ const submit = () => {
                     </Button>
                     <Button
                         type="submit"
-                        :disabled="form.processing"
+                        :disabled="form.processing || !canAddFarm"
                         class="min-h-11 w-full sm:min-h-9 sm:w-auto"
                     >
                         Launch Farm Workspace

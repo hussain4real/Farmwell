@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Investors;
 
+use App\Actions\Teams\ResolveWorkspacePlan;
 use App\Enums\CapitalRecoveryRule;
 use App\Enums\InvestorAgreementStatus;
 use App\Enums\TeamRole;
@@ -22,7 +23,9 @@ class StoreInvestorAgreementRequest extends FormRequest
     {
         $team = $this->route('current_team');
 
-        return $team instanceof Team && $this->user()?->can('manageInvestorAgreements', $team) === true;
+        return $team instanceof Team
+            && app(ResolveWorkspacePlan::class)->handle($team)->allowsInvestorMode()
+            && $this->user()?->can('manageInvestorAgreements', $team) === true;
     }
 
     /**

@@ -839,3 +839,73 @@ test('phone login shows Create an account link on full-workspace hosts only when
     assert.doesNotMatch(pilotOnlyHtml, /Sign in with email/);
     assert.doesNotMatch(pilotOnlyHtml, /Create an account/);
 });
+
+test('AppSidebar hides AI Summaries and Onboard Farm when workspace plan restricts them', async () => {
+    const { default: AppSidebar } = await server.ssrLoadModule(
+        '/resources/js/components/AppSidebar.vue',
+    );
+    const { default: SidebarProvider } = await server.ssrLoadModule(
+        '/resources/js/components/ui/sidebar/SidebarProvider.vue',
+    );
+
+    const starterSidebar = await createInertiaApp({
+        page: {
+            component: 'SidebarPlanTest',
+            url: '/starter-farm/dashboard',
+            version: 'test',
+            props: {
+                auth: {
+                    user: {
+                        id: 1,
+                        name: 'Starter Farmer',
+                        email: 'starter@example.test',
+                    },
+                },
+                canManagePlatform: false,
+                currentTeam: {
+                    id: 1,
+                    name: 'Starter Farm',
+                    slug: 'starter-farm',
+                    role: 'owner',
+                },
+                currentTeamPermissions: {
+                    canViewFarmOperations: true,
+                    canManageFarmOperations: true,
+                    canManageFieldWork: true,
+                    canViewFinance: true,
+                    canManageInvestorAgreements: false,
+                },
+                currentTeamFeatures: {
+                    investorMode: false,
+                    needsOnboarding: false,
+                    canAddFarm: false,
+                    plan: {
+                        key: 'starter',
+                        label: 'Starter (Free)',
+                        description: 'Starter plan',
+                        maxFarms: 1,
+                        maxMembers: 2,
+                        allowsPhoneInvitations: false,
+                        allowsAiSummaries: false,
+                        allowsInvestorMode: false,
+                    },
+                },
+                teams: [],
+                errors: {},
+            },
+            clearHistory: false,
+            encryptHistory: false,
+        },
+        resolve: () => ({
+            render: () =>
+                h(SidebarProvider, null, { default: () => h(AppSidebar) }),
+        }),
+        setup: ({ App, props, plugin }) =>
+            createSSRApp({ render: () => h(App, props) }).use(plugin),
+        render: renderToString,
+    });
+
+    assert.match(starterSidebar.body, />Field Diary</);
+    assert.doesNotMatch(starterSidebar.body, />Onboard Farm</);
+    assert.doesNotMatch(starterSidebar.body, />AI Summaries</);
+});

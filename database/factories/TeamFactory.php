@@ -2,6 +2,8 @@
 
 namespace Database\Factories;
 
+use App\Actions\Teams\ResolveWorkspacePlan;
+use App\Enums\WorkspacePlan;
 use App\Models\Team;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
@@ -35,6 +37,26 @@ class TeamFactory extends Factory
         return $this->state(fn (array $attributes) => [
             'is_personal' => true,
         ]);
+    }
+
+    /**
+     * Indicate that the team is on the Starter plan.
+     */
+    public function starter(): static
+    {
+        return $this->afterCreating(function (Team $team): void {
+            app(ResolveWorkspacePlan::class)->setPlan($team, WorkspacePlan::Starter);
+        });
+    }
+
+    /**
+     * Indicate that the team is on the Pro plan.
+     */
+    public function pro(): static
+    {
+        return $this->afterCreating(function (Team $team): void {
+            app(ResolveWorkspacePlan::class)->setPlan($team, WorkspacePlan::Pro);
+        });
     }
 
     /**

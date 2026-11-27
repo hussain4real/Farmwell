@@ -56,7 +56,20 @@ export type RoleOption = {
     label: string;
 };
 
+export type WorkspacePlanSummary = {
+    key: 'starter' | 'pro' | 'investor';
+    label: string;
+    description: string;
+    maxFarms: number | null;
+    maxMembers: number | null;
+    allowsPhoneInvitations: boolean;
+    allowsAiSummaries: boolean;
+    allowsInvestorMode: boolean;
+};
+
 export type TeamFeatures = {
     investorMode: boolean;
     needsOnboarding: boolean;
+    plan?: WorkspacePlanSummary;
+    canAddFarm?: boolean;
 };

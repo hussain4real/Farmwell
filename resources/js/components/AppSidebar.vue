@@ -195,7 +195,10 @@ const mainNavItems = computed<NavItem[]>(() => {
         });
     }
 
-    if (permissions?.canManageFarmOperations) {
+    if (
+        permissions?.canManageFarmOperations &&
+        page.props.currentTeamFeatures?.canAddFarm !== false
+    ) {
         items.push({
             title: 'Onboard Farm',
             href: onboardingUrl.value,
@@ -253,8 +256,9 @@ const mainNavItems = computed<NavItem[]>(() => {
     }
 
     if (
-        permissions?.canManageInvestorAgreements ||
-        permissions?.canManageFarmOperations
+        page.props.currentTeamFeatures?.plan?.allowsAiSummaries !== false &&
+        (permissions?.canManageInvestorAgreements ||
+            permissions?.canManageFarmOperations)
     ) {
         items.push({
             title: 'AI Summaries',

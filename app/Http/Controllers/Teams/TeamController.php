@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Teams;
 
 use App\Actions\Teams\CreateTeam;
 use App\Actions\Teams\ResolveInvestorMode;
+use App\Actions\Teams\ResolveWorkspacePlan;
 use App\Enums\TeamRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Teams\DeleteTeamRequest;
@@ -58,12 +59,19 @@ class TeamController extends Controller
         abort_if($user->teamRole($team) === TeamRole::Operator, 403);
 
         $permissions = $user->toTeamPermissions($team);
+        $plans = app(ResolveWorkspacePlan::class);
+        $plan = $plans->handle($team);
 
         $dailyRemindersSetting = TeamSetting::query()
             ->where('team_id', $team->id)
             ->where('setting_group', 'operations')
             ->where('setting_key', 'daily_reminders')
             ->first();
+
+        $availableRoles = array_values(array_filter(
+            TeamRole::assignable(),
+            static fn (array $role): bool => $plan->allowsInvestorMode() || $role['value'] !== TeamRole::Investor->value,
+        ));
 
         return Inertia::render('teams/Edit', [
             'team' => [
@@ -94,12 +102,15 @@ class TeamController extends Controller
                     'created_at' => $invitation->created_at->toISOString(),
                 ]),
             'permissions' => $permissions,
+            'plan' => $plan->summary(),
+            'canAddMember' => $plans->canAddMember($team),
+            'usedSeatCount' => $plans->usedSeatCount($team),
             'investorMode' => app(ResolveInvestorMode::class)->handle($team),
             'dailyRemindersEnabled' => (bool) ($dailyRemindersSetting?->value['enabled'] ?? true),
             'callingCode' => PhoneCallingCode::forRecipient(),
             'phoneCountries' => config('services.phone_login.pilot_host') ? PilotPhone::Countries : null,
-            'phoneLoginEnabled' => InfobipVerification::enabled(),
-            'availableRoles' => TeamRole::assignable(),
+            'phoneLoginEnabled' => InfobipVerification::enabled() && $plan->allowsPhoneInvitations(),
+            'availableRoles' => $availableRoles,
         ]);
     }
 

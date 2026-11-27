@@ -2,6 +2,7 @@
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import {
     Building2,
+    Layers,
     Power,
     Search,
     ShieldCheck,
@@ -34,8 +35,23 @@ import { update as updateFarmStatus } from '@/routes/platform/farms/status';
 import { store as startImpersonation } from '@/routes/platform/impersonate';
 import { update as updateMembership } from '@/routes/platform/memberships';
 import { update as updateUser } from '@/routes/platform/users';
+import { update as updateWorkspacePlan } from '@/routes/platform/workspaces/plan';
 
-type Workspace = { id: number; name: string; slug: string };
+type Workspace = {
+    id: number;
+    name: string;
+    slug: string;
+    is_personal?: boolean;
+    farms_count?: number;
+    memberships_count?: number;
+    plan?: 'starter' | 'pro' | 'investor';
+    plan_label?: string;
+};
+type PlanOption = {
+    value: 'starter' | 'pro' | 'investor';
+    label: string;
+    description: string;
+};
 type Farm = {
     id: number;
     name: string;
@@ -69,6 +85,7 @@ const props = defineProps<{
     farms: Page<Farm>;
     users: Page<User>;
     workspaces: Workspace[];
+    plans: PlanOption[];
     roles: { value: string; label: string }[];
     farmTypes: { value: string; label: string }[];
     auditEvents: {
@@ -155,6 +172,28 @@ function submitDeleteFarm() {
         },
     });
 }
+const planTarget = ref<Workspace | null>(null);
+const planOpen = ref(false);
+const planForm = useForm({ plan: 'starter', reason: '' });
+function openWorkspacePlan(workspace: Workspace) {
+    planTarget.value = workspace;
+    planForm.reset();
+    planForm.clearErrors();
+    planForm.plan = workspace.plan ?? 'investor';
+    planOpen.value = true;
+}
+function submitWorkspacePlan() {
+    if (!planTarget.value) {
+        return;
+    }
+
+    planForm.patch(updateWorkspacePlan(planTarget.value.slug).url, {
+        preserveScroll: true,
+        onSuccess: () => {
+            planOpen.value = false;
+        },
+    });
+}
 function farmStatusVariant(status: string) {
     return status === 'active'
         ? 'default'
@@ -162,8 +201,21 @@ function farmStatusVariant(status: string) {
           ? 'secondary'
           : 'outline';
 }
-const tab = ref('farms');
+const tab = ref<'farms' | 'workspaces' | 'users' | 'audit'>('farms');
 const search = ref(props.search);
+const filteredWorkspaces = computed(() => {
+    const query = search.value.trim().toLowerCase();
+
+    if (!query) {
+        return props.workspaces;
+    }
+
+    return props.workspaces.filter(
+        (workspace) =>
+            workspace.name.toLowerCase().includes(query) ||
+            workspace.slug.toLowerCase().includes(query),
+    );
+});
 const farmOpen = ref(false);
 const farmId = ref<number | null>(null);
 const userOpen = ref(false);
@@ -323,9 +375,14 @@ function filter() {
             </div>
         </section>
         <div class="flex flex-wrap items-center justify-between gap-3">
-            <div class="flex gap-2" aria-label="Administration views">
+            <div class="flex flex-wrap gap-2" aria-label="Administration views">
                 <Button
-                    v-for="item in ['farms', 'users', 'audit']"
+                    v-for="item in [
+                        'farms',
+                        'workspaces',
+                        'users',
+                        'audit',
+                    ] as const"
                     :key="item"
                     :variant="tab === item ? 'default' : 'outline'"
                     :aria-pressed="tab === item"
@@ -335,7 +392,9 @@ function filter() {
                             ? 'Audit trail'
                             : item === 'farms'
                               ? 'Farms'
-                              : 'Users'
+                              : item === 'workspaces'
+                                ? 'Workspaces'
+                                : 'Users'
                     }}</Button
                 >
             </div>
@@ -393,15 +452,23 @@ function filter() {
                                 {{ farm.farm_type }}
                             </p>
                         </div>
-                        <Badge :variant="farmStatusVariant(farm.status)">
-                            {{
-                                farm.status === 'active'
-                                    ? 'Active'
-                                    : farm.status === 'inactive'
-                                      ? 'Inactive'
-                                      : 'Archived'
-                            }}
-                        </Badge>
+                        <div class="flex flex-wrap items-center gap-1.5">
+                            <Badge
+                                v-if="farm.team.plan_label"
+                                variant="outline"
+                            >
+                                {{ farm.team.plan_label }}
+                            </Badge>
+                            <Badge :variant="farmStatusVariant(farm.status)">
+                                {{
+                                    farm.status === 'active'
+                                        ? 'Active'
+                                        : farm.status === 'inactive'
+                                          ? 'Inactive'
+                                          : 'Archived'
+                                }}
+                            </Badge>
+                        </div>
                     </div>
                     <div class="flex flex-wrap gap-2">
                         <Button variant="outline" @click="editFarm(farm)"
@@ -445,6 +512,76 @@ function filter() {
                     >Next farms</Link
                 >
             </nav>
+        </section>
+        <section v-else-if="tab === 'workspaces'" class="space-y-4">
+            <h2 class="text-lg font-semibold">
+                All workspaces
+                <span class="text-sm font-normal text-muted-foreground"
+                    >({{ filteredWorkspaces.length }})</span
+                >
+            </h2>
+            <p
+                v-if="!filteredWorkspaces.length"
+                class="rounded-xl border border-dashed p-8 text-center text-muted-foreground"
+            >
+                No workspaces match your search.
+            </p>
+            <div class="grid gap-4 md:grid-cols-2">
+                <article
+                    v-for="workspace in filteredWorkspaces"
+                    :key="workspace.id"
+                    data-test="platform-workspace-card"
+                    class="flex flex-col gap-4 rounded-xl border bg-card p-5"
+                >
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="min-w-0">
+                            <p
+                                class="text-xs font-medium tracking-wide text-muted-foreground"
+                            >
+                                /{{ workspace.slug }}
+                            </p>
+                            <h3 class="mt-1 text-lg font-semibold">
+                                {{ workspace.name }}
+                            </h3>
+                            <p class="mt-1 text-sm text-muted-foreground">
+                                {{ workspace.farms_count ?? 0 }}
+                                {{
+                                    (workspace.farms_count ?? 0) === 1
+                                        ? 'farm'
+                                        : 'farms'
+                                }}
+                                · {{ workspace.memberships_count ?? 0 }}
+                                {{
+                                    (workspace.memberships_count ?? 0) === 1
+                                        ? 'member'
+                                        : 'members'
+                                }}
+                            </p>
+                        </div>
+                        <Badge
+                            variant="outline"
+                            data-test="platform-workspace-plan-badge"
+                        >
+                            {{ workspace.plan_label || 'Investor / Pilot' }}
+                        </Badge>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <Button
+                            variant="outline"
+                            @click="openWorkspace(workspace)"
+                            >Open workspace records</Button
+                        >
+                        <Button
+                            variant="outline"
+                            data-test="change-workspace-plan-button"
+                            @click="openWorkspacePlan(workspace)"
+                        >
+                            <Layers class="mr-1.5 size-4" />
+                            Change plan
+                        </Button>
+                    </div>
+                </article>
+            </div>
         </section>
         <section v-else-if="tab === 'users'" class="space-y-4">
             <h2 class="text-lg font-semibold">
@@ -938,6 +1075,66 @@ function filter() {
                             deleteForm.processing
                                 ? 'Deleting…'
                                 : 'Permanently delete farm'
+                        }}
+                    </Button>
+                </form>
+            </DialogContent>
+        </Dialog>
+        <Dialog v-model:open="planOpen">
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>
+                        Change plan for {{ planTarget?.name }}
+                    </DialogTitle>
+                    <DialogDescription>
+                        Switching a workspace plan immediately updates farm
+                        limits, team seat capacity, SMS phone invitations,
+                        Investor Portal access, and AI summaries.
+                    </DialogDescription>
+                </DialogHeader>
+                <form class="grid gap-4" @submit.prevent="submitWorkspacePlan">
+                    <div class="grid gap-2">
+                        <Label for="workspace-plan-choice">Plan tier</Label>
+                        <select
+                            id="workspace-plan-choice"
+                            v-model="planForm.plan"
+                            class="h-10 rounded-md border bg-background px-3"
+                        >
+                            <option
+                                v-for="option in plans"
+                                :key="option.value"
+                                :value="option.value"
+                            >
+                                {{ option.label }}
+                            </option>
+                        </select>
+                        <p class="text-xs text-muted-foreground">
+                            {{
+                                plans.find(
+                                    (option) => option.value === planForm.plan,
+                                )?.description
+                            }}
+                        </p>
+                        <InputError :message="planForm.errors.plan" />
+                    </div>
+                    <div class="grid gap-2">
+                        <Label for="workspace-plan-reason"
+                            >Reason for plan change</Label
+                        >
+                        <Input
+                            id="workspace-plan-reason"
+                            v-model="planForm.reason"
+                            placeholder="e.g., Upgraded brother's poultry farm after payment"
+                            required
+                            maxlength="1000"
+                        />
+                        <InputError :message="planForm.errors.reason" />
+                    </div>
+                    <Button :disabled="planForm.processing">
+                        {{
+                            planForm.processing
+                                ? 'Saving…'
+                                : 'Save workspace plan'
                         }}
                     </Button>
                 </form>

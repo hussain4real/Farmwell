@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\FarmOperations;
 
+use App\Actions\Teams\ResolveWorkspacePlan;
 use App\Enums\CropGrowthStage;
 use App\Enums\EnterpriseSubtype;
 use App\Enums\FarmType;
@@ -12,6 +13,7 @@ use App\Support\FarmTemplates;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class StoreOnboardingRequest extends FormRequest
 {
@@ -74,6 +76,31 @@ class StoreOnboardingRequest extends FormRequest
             'create_starter_tasks' => ['sometimes', 'boolean'],
             'create_starter_inventory' => ['sometimes', 'boolean'],
             'create_health_schedule' => ['sometimes', 'boolean'],
+        ];
+    }
+
+    /**
+     * Enforce workspace plan limits during onboarding.
+     *
+     * @return array<int, callable(Validator): void>
+     */
+    public function after(): array
+    {
+        return [
+            function (Validator $validator): void {
+                $team = $this->route('current_team');
+                assert($team instanceof Team);
+
+                $plans = app(ResolveWorkspacePlan::class);
+
+                if (! $plans->canAddFarm($team)) {
+                    $validator->errors()->add('farm_name', __('Your Starter plan includes 1 farm. Upgrade to Pro Farm to add more farms.'));
+                }
+
+                if ($this->boolean('investor_mode') && ! $plans->handle($team)->allowsInvestorMode()) {
+                    $validator->errors()->add('investor_mode', __('Investor Transparency Mode requires the Investor / Pilot plan.'));
+                }
+            },
         ];
     }
 }

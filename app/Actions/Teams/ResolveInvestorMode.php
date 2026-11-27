@@ -12,8 +12,14 @@ class ResolveInvestorMode
 
     public const SettingKey = 'investor_mode';
 
+    public function __construct(private ResolveWorkspacePlan $resolveWorkspacePlan) {}
+
     public function handle(Team $team): bool
     {
+        if (! $this->resolveWorkspacePlan->handle($team)->allowsInvestorMode()) {
+            return false;
+        }
+
         $setting = TeamSetting::query()
             ->where('team_id', $team->id)
             ->where('setting_group', self::SettingGroup)
