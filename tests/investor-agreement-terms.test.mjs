@@ -1005,11 +1005,11 @@ test('FarmwellAssistantDrawer renders trigger only on enabled plans without plat
     );
 
     assert.match(cardHtml, /Record Expense/);
-    assert.match(cardHtml, /Confirmation required/);
+    assert.match(cardHtml, /Approval required/);
     assert.match(cardHtml, /Layer feed/);
-    assert.match(cardHtml, /Confirm/);
+    assert.match(cardHtml, /Approve/);
+    assert.match(cardHtml, /Decline/);
     assert.match(cardHtml, /Edit/);
-    assert.match(cardHtml, /Cancel/);
 });
 
 test('AssistantMessageContent renders formatted markdown tables safely without XSS', async () => {

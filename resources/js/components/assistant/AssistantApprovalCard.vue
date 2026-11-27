@@ -153,7 +153,7 @@ function submitReject(): void {
     emit('resolve', {
         id: props.approval.id,
         action: 'reject',
-        reason: 'Cancelled by user.',
+        reason: 'Declined by user.',
     });
 }
 </script>
@@ -176,7 +176,7 @@ function submitReject(): void {
                 variant="outline"
                 class="border-amber-400/70 bg-amber-100/70 text-[11px] text-amber-900 dark:border-amber-700 dark:bg-amber-900/40 dark:text-amber-200"
             >
-                Confirmation required
+                Approval required
             </Badge>
         </div>
 
@@ -194,13 +194,13 @@ function submitReject(): void {
             <div
                 v-for="entry in argumentEntries"
                 :key="entry.key"
-                class="flex items-baseline justify-between gap-3"
+                class="flex items-start justify-between gap-3"
             >
-                <dt class="text-muted-foreground capitalize">
+                <dt class="shrink-0 text-muted-foreground capitalize">
                     {{ entry.label }}
                 </dt>
                 <dd
-                    class="max-w-[65%] truncate text-right font-medium text-foreground"
+                    class="max-w-[65%] text-right font-medium break-words text-foreground tabular-nums"
                 >
                     {{ entry.display }}
                 </dd>
@@ -241,7 +241,7 @@ function submitReject(): void {
                 @click="submitApprove"
             >
                 <Check class="size-3.5" />
-                <span>Confirm</span>
+                <span>Approve</span>
             </Button>
             <Button
                 v-else
@@ -252,31 +252,31 @@ function submitReject(): void {
                 @click="submitEdit"
             >
                 <Check class="size-3.5" />
-                <span>Save &amp; Confirm</span>
+                <span>Save &amp; Approve</span>
             </Button>
 
             <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                class="h-8 gap-1.5"
+                class="h-8 gap-1.5 border-destructive/40 bg-destructive/5 text-destructive hover:bg-destructive/15 hover:text-destructive"
                 :disabled="disabled"
-                @click="editing = !editing"
+                @click="submitReject"
             >
-                <Pencil class="size-3.5" />
-                <span>{{ editing ? 'Back' : 'Edit' }}</span>
+                <X class="size-3.5" />
+                <span>Decline</span>
             </Button>
 
             <Button
                 type="button"
                 variant="ghost"
                 size="sm"
-                class="ml-auto h-8 gap-1.5 text-muted-foreground hover:text-destructive"
+                class="ml-auto h-8 gap-1.5 text-muted-foreground"
                 :disabled="disabled"
-                @click="submitReject"
+                @click="editing = !editing"
             >
-                <X class="size-3.5" />
-                <span>Cancel</span>
+                <Pencil class="size-3.5" />
+                <span>{{ editing ? 'Back' : 'Edit' }}</span>
             </Button>
         </div>
     </div>

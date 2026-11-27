@@ -182,7 +182,12 @@ test('assistant instructions and tools adapt strictly to user role', function ()
     $this->actingAs($owner)
         ->getJson(route('assistant.index', $team))
         ->assertOk()
-        ->assertJsonPath('starterPrompts.0', 'What is our current funding balance and recent spend?');
+        ->assertJsonPath('starterPrompts.0', 'What is our current funding balance and recent spend?')
+        ->assertJsonPath('starterPrompts.1', 'Request a funding release for this farm');
+
+    expect($ownerAssistant->instructions())
+        ->toContain('Approve and Decline buttons')
+        ->toContain('ask concisely ONLY for the missing required details');
 
     $this->actingAs($operator)
         ->getJson(route('assistant.index', $team))

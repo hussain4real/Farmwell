@@ -112,7 +112,7 @@ class AssistantController extends Controller
             $pending = $store->pendingApprovalsFor($conversationId);
             if ($pending !== []) {
                 return response()->json([
-                    'message' => __('Please confirm or cancel the pending action before sending a new message.'),
+                    'message' => __('Please approve or decline the pending action before sending a new message.'),
                     'pendingApprovals' => array_map(
                         static fn (PendingApproval $approval): array => $approval->toArray(),
                         $pending,
@@ -155,7 +155,7 @@ class AssistantController extends Controller
             $mapped[$id] = match ($entry['action']) {
                 'approve' => Decision::approve(),
                 'edit' => Decision::edit($entry['arguments'] ?? []),
-                default => Decision::reject($entry['reason'] ?? 'Cancelled by user.'),
+                default => Decision::reject($entry['reason'] ?? 'Declined by user.'),
             };
         }
 
@@ -264,7 +264,7 @@ class AssistantController extends Controller
         if ($gate->allows('manageFinance', $team)) {
             return [
                 'What is our current funding balance and recent spend?',
-                'Draft a funding release request for this farm',
+                'Request a funding release for this farm',
                 'Record a new farm expense for today',
             ];
         }

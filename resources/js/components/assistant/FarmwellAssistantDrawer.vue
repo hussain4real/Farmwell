@@ -601,7 +601,7 @@ function handleComposerKeydown(event: KeyboardEvent): void {
                                 </SheetTitle>
                                 <SheetDescription class="truncate text-xs">
                                     {{ currentTeam?.name }} · Actions require
-                                    your confirmation
+                                    your approval
                                 </SheetDescription>
                             </div>
                         </div>
@@ -693,8 +693,8 @@ function handleComposerKeydown(event: KeyboardEvent): void {
                             </div>
                             Ask about your farm operations, finance ledger,
                             funding phases, or investor portal. Whenever a
-                            change is ready to record, you&apos;ll see a
-                            confirmation card to approve, edit, or cancel first.
+                            change is ready to record, you&apos;ll get Approve
+                            and Decline buttons before anything is saved.
                         </div>
 
                         <div v-if="starterPrompts.length > 0" class="space-y-2">
@@ -858,7 +858,7 @@ function handleComposerKeydown(event: KeyboardEvent): void {
                         v-if="pendingApprovals.length > 0"
                         class="mb-2 text-xs text-amber-700 dark:text-amber-300"
                     >
-                        Confirm or cancel the pending action above before
+                        Approve or decline the pending action above before
                         sending another message.
                     </p>
                     <div
