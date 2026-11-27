@@ -26,7 +26,6 @@ use Laravel\Ai\Attributes\CacheInstructions;
 use Laravel\Ai\Attributes\CacheToolDefinitions;
 use Laravel\Ai\Attributes\MaxSteps;
 use Laravel\Ai\Attributes\RepairToolCalls;
-use Laravel\Ai\Attributes\Temperature;
 use Laravel\Ai\Attributes\Timeout;
 use Laravel\Ai\Concerns\RemembersConversations;
 use Laravel\Ai\Contracts\Agent;
@@ -40,7 +39,6 @@ use Laravel\Ai\Promptable;
 #[RepairToolCalls]
 #[MaxSteps(6)]
 #[Timeout(45)]
-#[Temperature(0.2)]
 class FarmwellAssistant implements Agent, Conversational, HasTools
 {
     use Promptable;

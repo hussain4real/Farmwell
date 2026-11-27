@@ -54,6 +54,8 @@ function containerEnvironment(env) {
         MAIL_FROM_NAME: env.APP_NAME ?? 'Farmwell Staging',
         OPENAI_API_KEY: env.REHEARSAL_MODE === 'true' ? '' : env.OPENAI_API_KEY,
         AI_PROVIDER: 'openai',
+        ...(env.AI_SUMMARY_MODEL ? { AI_SUMMARY_MODEL: env.AI_SUMMARY_MODEL } : {}),
+        ...(env.AI_ASSISTANT_MODEL ? { AI_ASSISTANT_MODEL: env.AI_ASSISTANT_MODEL } : {}),
         OPENAI_STORE: 'false',
         LOG_CHANNEL: 'stderr',
     };

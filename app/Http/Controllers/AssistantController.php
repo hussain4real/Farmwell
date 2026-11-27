@@ -230,7 +230,9 @@ class AssistantController extends Controller
                     'message' => $exception->getMessage(),
                     'approvals' => $exception->pendingApprovals->values()->toArray(),
                 ], JSON_THROW_ON_ERROR)."\n\n";
-            } catch (Throwable) {
+            } catch (Throwable $exception) {
+                report($exception);
+
                 echo 'data: '.json_encode([
                     'type' => 'error',
                     'message' => __('The assistant could not complete this request right now. Please try again.'),
