@@ -15,6 +15,8 @@ import {
 import { computed, nextTick, ref, watch } from 'vue';
 import AssistantApprovalCard from '@/components/assistant/AssistantApprovalCard.vue';
 import type { PendingApprovalItem } from '@/components/assistant/AssistantApprovalCard.vue';
+import AssistantInputCard from '@/components/assistant/AssistantInputCard.vue';
+import type { AssistantInputForm } from '@/components/assistant/AssistantInputCard.vue';
 import AssistantMessageContent from '@/components/assistant/AssistantMessageContent.vue';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -45,6 +47,7 @@ type AssistantMessage = {
     role: string;
     content: string;
     tool_calls: ToolCallSummary[];
+    input_form?: AssistantInputForm | null;
 };
 
 type AssistantConversation = {
@@ -480,34 +483,60 @@ async function handleAssistantResponse(
                 assistantDraft.content += event.delta;
                 await scrollToBottom();
             } else if (type === 'tool_call') {
-                assistantDraft.tool_calls.push({
-                    id: String(event.tool_id ?? ''),
-                    name: String(event.tool_name ?? ''),
-                    successful: true,
-                    denied: false,
-                    answered: false,
-                });
+                const toolName = String(event.tool_name ?? '');
+
+                if (toolName !== 'AskUserInputTool') {
+                    assistantDraft.tool_calls.push({
+                        id: String(event.tool_id ?? ''),
+                        name: toolName,
+                        successful: true,
+                        denied: false,
+                        answered: false,
+                    });
+                }
             } else if (type === 'tool_result') {
                 const toolId = String(event.tool_id ?? '');
                 const toolName = String(event.tool_name ?? '');
                 const successful = event.successful === true;
                 const denied = event.denied === true;
-                const existing = assistantDraft.tool_calls.find(
-                    (call) => call.id === toolId,
-                );
 
-                if (existing) {
-                    existing.successful = successful;
-                    existing.denied = denied;
-                    existing.answered = true;
-                } else if (toolName) {
-                    assistantDraft.tool_calls.push({
-                        id: toolId,
-                        name: toolName,
-                        successful,
-                        denied,
-                        answered: true,
-                    });
+                if (toolName === 'AskUserInputTool' && successful) {
+                    const parsed =
+                        typeof event.result === 'string'
+                            ? (JSON.parse(event.result) as Record<
+                                  string,
+                                  unknown
+                              >)
+                            : (event.result as Record<string, unknown> | null);
+
+                    if (
+                        parsed &&
+                        parsed.ui_type === 'input_form' &&
+                        Array.isArray(parsed.fields) &&
+                        parsed.fields.length > 0
+                    ) {
+                        assistantDraft.input_form =
+                            parsed as unknown as AssistantInputForm;
+                        await scrollToBottom();
+                    }
+                } else if (toolName !== 'AskUserInputTool') {
+                    const existing = assistantDraft.tool_calls.find(
+                        (call) => call.id === toolId,
+                    );
+
+                    if (existing) {
+                        existing.successful = successful;
+                        existing.denied = denied;
+                        existing.answered = true;
+                    } else if (toolName) {
+                        assistantDraft.tool_calls.push({
+                            id: toolId,
+                            name: toolName,
+                            successful,
+                            denied,
+                            answered: true,
+                        });
+                    }
                 }
 
                 if (successful && WRITE_TOOLS.has(toolName)) {
@@ -552,7 +581,17 @@ async function handleAssistantResponse(
     }
 }
 
+function hasLaterUserMessage(messageIndex: number): boolean {
+    return messages.value
+        .slice(messageIndex + 1)
+        .some((item) => item.role === 'user');
+}
+
 function handleComposerKeydown(event: KeyboardEvent): void {
+    if (event.isComposing) {
+        return;
+    }
+
     if (event.key === 'Enter' && !event.shiftKey) {
         event.preventDefault();
         void sendPrompt();
@@ -721,7 +760,7 @@ function handleComposerKeydown(event: KeyboardEvent): void {
                     </div>
 
                     <div
-                        v-for="message in messages"
+                        v-for="(message, messageIndex) in messages"
                         :key="message.id"
                         class="flex flex-col gap-2"
                         :class="
@@ -821,7 +860,7 @@ function handleComposerKeydown(event: KeyboardEvent): void {
                             </div>
 
                             <div
-                                v-else-if="streaming"
+                                v-else-if="streaming && !message.input_form"
                                 class="flex items-center gap-2 rounded-2xl rounded-tl-sm border border-border/70 bg-card/70 px-3.5 py-2.5 text-xs text-muted-foreground"
                             >
                                 <Loader2
@@ -829,6 +868,17 @@ function handleComposerKeydown(event: KeyboardEvent): void {
                                 />
                                 <span>Thinking…</span>
                             </div>
+
+                            <AssistantInputCard
+                                v-if="message.input_form"
+                                :form-id="message.id"
+                                :form="message.input_form"
+                                :submitted="hasLaterUserMessage(messageIndex)"
+                                :disabled="
+                                    streaming || pendingApprovals.length > 0
+                                "
+                                @submit="sendPrompt($event)"
+                            />
                         </template>
                     </div>
 

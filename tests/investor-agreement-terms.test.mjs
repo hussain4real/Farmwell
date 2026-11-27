@@ -1070,3 +1070,107 @@ test('AssistantMessageContent renders formatted markdown tables safely without X
     assert.equal(partialBlocks[0].type, 'table');
     assert.equal(partialBlocks[0].rows[0].cells[1], '');
 });
+
+test('AssistantInputCard renders rich controls, accessible fieldsets, optional section, and submitted state', async () => {
+    const { default: AssistantInputCard } = await server.ssrLoadModule(
+        '/resources/js/components/assistant/AssistantInputCard.vue',
+    );
+
+    const sampleForm = {
+        title: 'Funding Release Request',
+        description: 'Matched MDSxclusive Farms — Rice and Dry Season Pepper',
+        submit_label: 'Prepare funding request',
+        currency: 'NGN',
+        fields: [
+            {
+                name: 'phase_name',
+                label: 'Phase name',
+                type: 'text',
+                required: true,
+                placeholder: 'e.g. Land Prep & Seeds',
+            },
+            {
+                name: 'requested_amount',
+                label: 'Requested amount',
+                type: 'currency',
+                required: true,
+            },
+            {
+                name: 'decision_mode',
+                label: 'Priority',
+                type: 'radio',
+                required: true,
+                options: [
+                    {
+                        value: 'urgent',
+                        label: 'Urgent',
+                        hint: 'Needed this week',
+                    },
+                    { value: 'scheduled', label: 'Scheduled' },
+                ],
+            },
+            {
+                name: 'tags',
+                label: 'Activities covered',
+                type: 'multiselect',
+                required: false,
+                options: [
+                    { value: 'clearing', label: 'Land clearing' },
+                    { value: 'seedlings', label: 'Seedlings' },
+                ],
+            },
+            {
+                name: 'production_cycle_id',
+                label: 'Production cycle',
+                type: 'select',
+                required: false,
+                options: [{ value: '12', label: 'Dry Season Pepper 2026' }],
+            },
+            {
+                name: 'expected_on',
+                label: 'Target date',
+                type: 'date',
+                required: false,
+            },
+        ],
+    };
+
+    const activeHtml = await renderToString(
+        createSSRApp({
+            render: () =>
+                h(AssistantInputCard, {
+                    formId: 'msg-1',
+                    form: sampleForm,
+                    submitted: false,
+                }),
+        }),
+    );
+
+    assert.match(activeHtml, /Funding Release Request/);
+    assert.match(activeHtml, /Input needed/);
+    assert.match(activeHtml, /<form[^>]*novalidate/);
+    assert.match(activeHtml, /<fieldset/);
+    assert.match(activeHtml, /<legend[^>]*>Priority/);
+    assert.match(activeHtml, /inputmode="decimal"/);
+    assert.match(activeHtml, /₦/);
+    assert.match(activeHtml, /aria-expanded="false"/);
+    assert.match(activeHtml, /Optional details \(3\)/);
+    assert.match(activeHtml, /<select/);
+    assert.match(activeHtml, /type="date"/);
+    assert.match(activeHtml, /Prepare funding request/);
+
+    const submittedHtml = await renderToString(
+        createSSRApp({
+            render: () =>
+                h(AssistantInputCard, {
+                    formId: 'msg-1',
+                    form: sampleForm,
+                    submitted: true,
+                }),
+        }),
+    );
+
+    assert.match(submittedHtml, /Funding Release Request/);
+    assert.match(submittedHtml, /Submitted/);
+    assert.doesNotMatch(submittedHtml, /<form/);
+});

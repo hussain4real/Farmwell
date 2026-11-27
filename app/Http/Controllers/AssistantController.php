@@ -55,21 +55,46 @@ class AssistantController extends Controller
                 ->where('conversation_id', $activeId)
                 ->orderBy('id')
                 ->get(['id', 'role', 'content', 'steps', 'created_at'])
-                ->map(fn (ConversationMessage $message): array => [
-                    'id' => $message->id,
-                    'role' => $message->role,
-                    'content' => $message->content ?? '',
-                    'tool_calls' => array_values(array_map(
-                        static fn (array $call): array => [
+                ->map(function (ConversationMessage $message): array {
+                    $inputForm = null;
+                    $visibleToolCalls = [];
+
+                    foreach ($message->tool_calls as $call) {
+                        $name = $call['name'] ?? '';
+
+                        if ($name === 'AskUserInputTool') {
+                            $rawResult = $call['result'] ?? null;
+                            $decoded = is_string($rawResult) ? json_decode($rawResult, true) : $rawResult;
+
+                            if (
+                                is_array($decoded)
+                                && ($decoded['ui_type'] ?? null) === 'input_form'
+                                && is_array($decoded['fields'] ?? null)
+                                && $decoded['fields'] !== []
+                            ) {
+                                $inputForm = $decoded;
+                            }
+
+                            continue;
+                        }
+
+                        $visibleToolCalls[] = [
                             'id' => $call['id'] ?? '',
-                            'name' => $call['name'] ?? '',
+                            'name' => $name,
                             'successful' => empty($call['failed']) && empty($call['denied']),
                             'denied' => ! empty($call['denied']),
                             'answered' => PendingApproval::isAnswered($call),
-                        ],
-                        $message->tool_calls,
-                    )),
-                ])
+                        ];
+                    }
+
+                    return [
+                        'id' => $message->id,
+                        'role' => $message->role,
+                        'content' => $message->content ?? '',
+                        'tool_calls' => $visibleToolCalls,
+                        'input_form' => $inputForm,
+                    ];
+                })
                 ->all();
 
             $pendingApprovals = array_map(

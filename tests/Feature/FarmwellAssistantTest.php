@@ -2,6 +2,7 @@
 
 use App\Actions\Finance\RecordExpense;
 use App\Ai\Agents\FarmwellAssistant;
+use App\Ai\Tools\AskUserInputTool;
 use App\Ai\Tools\CreateFundingPhaseTool;
 use App\Ai\Tools\DecideApprovalRequestTool;
 use App\Ai\Tools\GetFinanceSummaryTool;
@@ -44,6 +45,7 @@ use Laravel\Ai\Approvals\PendingApproval;
 use Laravel\Ai\Contracts\Tool;
 use Laravel\Ai\Exceptions\ApprovalMismatchException;
 use Laravel\Ai\Models\Conversation;
+use Laravel\Ai\Models\ConversationMessage;
 use Laravel\Ai\Responses\AgentResponse;
 use Laravel\Ai\Tools\Request as ToolRequest;
 
@@ -140,6 +142,7 @@ test('assistant instructions and tools adapt strictly to user role', function ()
     $ownerAssistant = new FarmwellAssistant($team, $owner);
     $ownerTools = array_map('get_class', [...$ownerAssistant->tools()]);
     expect($ownerTools)->toEqualCanonicalizing([
+        AskUserInputTool::class,
         GetWorkspaceOverviewTool::class,
         GetFinanceSummaryTool::class,
         GetInvestorSummaryTool::class,
@@ -154,6 +157,7 @@ test('assistant instructions and tools adapt strictly to user role', function ()
 
     $operatorAssistant = new FarmwellAssistant($team, $operator);
     expect(array_map('get_class', [...$operatorAssistant->tools()]))->toEqualCanonicalizing([
+        AskUserInputTool::class,
         GetWorkspaceOverviewTool::class,
         RecordDailyLogTool::class,
         RecordFarmActivityTool::class,
@@ -164,6 +168,7 @@ test('assistant instructions and tools adapt strictly to user role', function ()
     $investorAssistant = new FarmwellAssistant($team, $investor);
     $investorTools = [...$investorAssistant->tools()];
     expect(array_map('get_class', $investorTools))->toEqualCanonicalizing([
+        AskUserInputTool::class,
         GetInvestorSummaryTool::class,
         ListPendingApprovalsTool::class,
         DecideApprovalRequestTool::class,
@@ -187,7 +192,7 @@ test('assistant instructions and tools adapt strictly to user role', function ()
 
     expect($ownerAssistant->instructions())
         ->toContain('Approve and Decline buttons')
-        ->toContain('ask concisely ONLY for the missing required details');
+        ->toContain('AskUserInputTool');
 
     $this->actingAs($operator)
         ->getJson(route('assistant.index', $team))
@@ -607,10 +612,69 @@ test('assistant streams messages, handles pending approvals, isolates conversati
     expect(collect(parseSsePayloads($rejectStream))->pluck('type')->all())->toContain('text_delta');
 
     // History returns tool_calls & answered state
+    $membership = $team->memberships()->where('user_id', $owner->id)->firstOrFail();
+    $askInputResult = (new AskUserInputTool($team, $owner))->handle(new ToolRequest([
+        'title' => 'Funding Release Details',
+        'description' => 'Matched MDSxclusive Farms',
+        'submit_label' => 'Prepare release',
+        'fields' => [
+            'not-an-array',
+            ['name' => '', 'label' => 'Missing name', 'type' => 'text'],
+            ['name' => 'phase_name', 'label' => 'Phase name', 'type' => 'text', 'placeholder' => 'Phase 1', 'hint' => 'Brief title'],
+            ['name' => 'amount', 'label' => 'Requested amount', 'type' => 'currency'],
+            ['name' => 'category', 'label' => 'Category', 'type' => 'radio', 'options' => [
+                'bad-opt',
+                ['value' => '', 'label' => 'Empty value'],
+                ['value' => 'seed', 'label' => 'Seeds & Fertilizer', 'hint' => 'Pre-planting inputs'],
+            ]],
+            ['name' => 'unknown_ctrl', 'label' => 'Extra', 'type' => 'bogus', 'required' => false, 'default_value' => 'N/A'],
+        ],
+    ]));
+
+    ConversationMessage::query()->create([
+        'id' => Str::uuid7()->toString(),
+        'conversation_id' => $conversationId,
+        'participant_type' => $membership->getMorphClass(),
+        'participant_id' => $membership->getKey(),
+        'agent' => FarmwellAssistant::class,
+        'role' => 'assistant',
+        'content' => 'Fill out the details below to continue.',
+        'attachments' => [],
+        'steps' => [[
+            'text' => 'Fill out the details below to continue.',
+            'tool_calls' => [
+                [
+                    'id' => 'call_input_1',
+                    'name' => 'AskUserInputTool',
+                    'arguments' => ['title' => 'Funding Release Details'],
+                    'result' => $askInputResult,
+                ],
+                [
+                    'id' => 'call_read_1',
+                    'name' => 'GetFinanceSummaryTool',
+                    'arguments' => [],
+                    'result' => '{"currency":"NGN"}',
+                ],
+            ],
+            'reasoning' => '',
+        ]],
+        'usage' => [],
+        'meta' => [],
+        'status' => 'completed',
+    ]);
+
     $history = $this->getJson(route('assistant.index', ['current_team' => $team, 'conversation_id' => $conversationId]))
         ->assertOk()
         ->json();
     expect(collect($history['messages'])->pluck('tool_calls')->flatten(1)->isNotEmpty())->toBeTrue();
+    $formMessage = collect($history['messages'])->firstWhere('input_form.ui_type', 'input_form');
+    expect($formMessage)->not->toBeNull()
+        ->and($formMessage['input_form']['title'])->toBe('Funding Release Details')
+        ->and($formMessage['input_form']['fields'])->toHaveCount(4)
+        ->and($formMessage['input_form']['fields'][2]['options'][0]['hint'])->toBe('Pre-planting inputs')
+        ->and($formMessage['input_form']['fields'][3]['type'])->toBe('text')
+        ->and($formMessage['input_form']['fields'][3]['required'])->toBeFalse()
+        ->and(collect($formMessage['tool_calls'])->pluck('name')->all())->toBe(['GetFinanceSummaryTool']);
 
     $mismatchStream = $this->postJson(route('assistant.messages.store', $team), [
         'message' => 'Trigger mismatch',
