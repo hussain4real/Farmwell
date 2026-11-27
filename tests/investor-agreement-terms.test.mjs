@@ -1011,3 +1011,62 @@ test('FarmwellAssistantDrawer renders trigger only on enabled plans without plat
     assert.match(cardHtml, /Edit/);
     assert.match(cardHtml, /Cancel/);
 });
+
+test('AssistantMessageContent renders formatted markdown tables safely without XSS', async () => {
+    const { parseAssistantMarkdown } = await server.ssrLoadModule(
+        '/resources/js/lib/assistantMarkdown.ts',
+    );
+    const { default: AssistantMessageContent } = await server.ssrLoadModule(
+        '/resources/js/components/assistant/AssistantMessageContent.vue',
+    );
+
+    const sampleMarkdown = [
+        '### Investment summary',
+        '**MDSxclusive Farms — Rice and Dry Season Pepper**',
+        '',
+        '| Item | Amount |',
+        '|---|---:|',
+        '| Committed capital | ₦1,144,500.00 |',
+        '| **Current balance** | **₦0.00** |',
+        '',
+        '- Status is `active`',
+        '> Verify bank alert before confirming release.',
+        '',
+        'Unsafe <script>alert(1)<\/script> [bad](javascript:alert(1)) [Portal](/mdsxclusive-farms/investor-portal)',
+    ].join('\n');
+
+    const blocks = parseAssistantMarkdown(sampleMarkdown);
+    assert.equal(blocks[0].type, 'heading');
+    assert.equal(blocks[2].type, 'table');
+    assert.equal(blocks[2].alignments[1], 'right');
+    assert.equal(blocks[2].rows[1].highlighted, true);
+
+    const rendered = await renderToString(
+        createSSRApp({
+            render: () =>
+                h(AssistantMessageContent, { content: sampleMarkdown }),
+        }),
+    );
+
+    assert.match(rendered, /<h3[^>]*>(?:<!--.*?-->)*Investment summary/);
+    assert.match(rendered, /role="region"/);
+    assert.match(rendered, /tabindex="0"/);
+    assert.match(rendered, /<table/);
+    assert.match(rendered, /scope="col"/);
+    assert.match(rendered, /scope="row"/);
+    assert.match(rendered, /tabular-nums/);
+    assert.match(rendered, /bg-primary\/\[0\.08\]/);
+    assert.match(rendered, /<code[^>]*>active<\/code>/);
+    assert.match(rendered, /<blockquote/);
+    assert.match(rendered, /href="\/mdsxclusive-farms\/investor-portal"/);
+    assert.doesNotMatch(rendered, /<script>/);
+    assert.doesNotMatch(rendered, /javascript:/);
+    assert.doesNotMatch(rendered, /bad\)/);
+
+    // Partial mid-stream table row parses cleanly without throwing
+    const partialBlocks = parseAssistantMarkdown(
+        '| Item | Amount |\n|---|---:|\n| Pending',
+    );
+    assert.equal(partialBlocks[0].type, 'table');
+    assert.equal(partialBlocks[0].rows[0].cells[1], '');
+});

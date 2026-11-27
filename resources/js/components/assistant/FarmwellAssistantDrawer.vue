@@ -2,7 +2,9 @@
 import { router, usePage } from '@inertiajs/vue3';
 import {
     AlertCircle,
+    Check,
     CheckCircle2,
+    Copy,
     Loader2,
     MessageSquarePlus,
     Send,
@@ -13,6 +15,7 @@ import {
 import { computed, nextTick, ref, watch } from 'vue';
 import AssistantApprovalCard from '@/components/assistant/AssistantApprovalCard.vue';
 import type { PendingApprovalItem } from '@/components/assistant/AssistantApprovalCard.vue';
+import AssistantMessageContent from '@/components/assistant/AssistantMessageContent.vue';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -81,6 +84,32 @@ const messages = ref<AssistantMessage[]>([]);
 const pendingApprovals = ref<PendingApprovalItem[]>([]);
 const starterPrompts = ref<string[]>([]);
 const messagesViewport = ref<HTMLElement | null>(null);
+const copiedMessageId = ref<string | null>(null);
+
+let copyResetTimer: ReturnType<typeof setTimeout> | null = null;
+
+async function copyMessageContent(id: string, text: string): Promise<void> {
+    if (!text || typeof navigator === 'undefined' || !navigator.clipboard) {
+        return;
+    }
+
+    try {
+        await navigator.clipboard.writeText(text);
+        copiedMessageId.value = id;
+
+        if (copyResetTimer) {
+            clearTimeout(copyResetTimer);
+        }
+
+        copyResetTimer = setTimeout(() => {
+            if (copiedMessageId.value === id) {
+                copiedMessageId.value = null;
+            }
+        }, 1800);
+    } catch {
+        // Clipboard permission denied
+    }
+}
 
 const canSend = computed(
     () =>
@@ -556,19 +585,25 @@ function handleComposerKeydown(event: KeyboardEvent): void {
                 side="right"
                 class="flex h-full w-full flex-col gap-0 p-0 sm:max-w-lg"
             >
-                <SheetHeader class="border-b px-4 py-3.5 pr-12">
+                <SheetHeader
+                    class="border-b border-border/80 bg-linear-to-b from-primary/[0.07] to-transparent px-4 py-3.5 pr-12"
+                >
                     <div class="flex items-center justify-between gap-2">
-                        <div class="min-w-0">
-                            <SheetTitle
-                                class="flex items-center gap-2 text-base"
+                        <div class="flex min-w-0 items-center gap-2.5">
+                            <div
+                                class="flex size-8 shrink-0 items-center justify-center rounded-xl bg-primary/12 text-primary ring-1 ring-primary/20"
                             >
-                                <Sparkles class="size-4 text-primary" />
-                                <span>Farmwell Assistant</span>
-                            </SheetTitle>
-                            <SheetDescription class="truncate text-xs">
-                                {{ currentTeam?.name }} · Actions require your
-                                confirmation
-                            </SheetDescription>
+                                <Sparkles class="size-4" />
+                            </div>
+                            <div class="min-w-0">
+                                <SheetTitle class="text-base leading-tight">
+                                    Farmwell Assistant
+                                </SheetTitle>
+                                <SheetDescription class="truncate text-xs">
+                                    {{ currentTeam?.name }} · Actions require
+                                    your confirmation
+                                </SheetDescription>
+                            </div>
                         </div>
                         <div class="flex items-center gap-1">
                             <Button
@@ -598,11 +633,11 @@ function handleComposerKeydown(event: KeyboardEvent): void {
                         </div>
                     </div>
 
-                    <div v-if="conversations.length > 0" class="mt-2">
+                    <div v-if="conversations.length > 0" class="mt-2.5">
                         <select
                             :value="activeConversationId ?? ''"
                             aria-label="Conversation history"
-                            class="h-8 w-full rounded-md border border-input bg-background px-2.5 text-xs text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
+                            class="h-8 w-full rounded-lg border border-input bg-background/80 px-2.5 text-xs font-medium text-foreground transition-colors outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
                             :disabled="streaming || loadingHistory"
                             @change="
                                 selectConversation(
@@ -629,7 +664,7 @@ function handleComposerKeydown(event: KeyboardEvent): void {
 
                 <div
                     ref="messagesViewport"
-                    class="flex-1 space-y-4 overflow-y-auto px-4 py-4"
+                    class="flex-1 space-y-5 overflow-y-auto px-4 py-4"
                 >
                     <div
                         v-if="loadingHistory && messages.length === 0"
@@ -645,11 +680,17 @@ function handleComposerKeydown(event: KeyboardEvent): void {
 
                     <div
                         v-else-if="messages.length === 0"
-                        class="space-y-4 py-4"
+                        class="space-y-4 py-3"
                     >
                         <div
-                            class="rounded-xl border border-border/80 bg-muted/40 p-3.5 text-xs leading-relaxed text-muted-foreground"
+                            class="rounded-2xl border border-primary/15 bg-linear-to-br from-primary/[0.07] via-card to-card p-4 text-xs leading-relaxed text-muted-foreground shadow-xs"
                         >
+                            <div
+                                class="mb-1.5 flex items-center gap-1.5 font-medium text-foreground"
+                            >
+                                <Sparkles class="size-3.5 text-primary" />
+                                <span>Workspace Copilot</span>
+                            </div>
                             Ask about your farm operations, finance ledger,
                             funding phases, or investor portal. Whenever a
                             change is ready to record, you&apos;ll see a
@@ -658,18 +699,18 @@ function handleComposerKeydown(event: KeyboardEvent): void {
 
                         <div v-if="starterPrompts.length > 0" class="space-y-2">
                             <p
-                                class="text-xs font-medium text-muted-foreground"
+                                class="text-[11px] font-medium tracking-wide text-muted-foreground uppercase"
                             >
                                 Try asking
                             </p>
-                            <div class="flex flex-wrap gap-2">
+                            <div class="flex flex-col gap-2">
                                 <Button
                                     v-for="prompt in starterPrompts"
                                     :key="prompt"
                                     type="button"
                                     variant="outline"
                                     size="sm"
-                                    class="h-auto py-1.5 text-left text-xs whitespace-normal"
+                                    class="h-auto justify-start rounded-xl border-border/80 bg-card/70 px-3.5 py-2.5 text-left text-xs font-medium whitespace-normal transition-colors hover:border-primary/40 hover:bg-primary/[0.06]"
                                     :disabled="streaming"
                                     @click="sendPrompt(prompt)"
                                 >
@@ -682,7 +723,7 @@ function handleComposerKeydown(event: KeyboardEvent): void {
                     <div
                         v-for="message in messages"
                         :key="message.id"
-                        class="flex flex-col gap-1.5"
+                        class="flex flex-col gap-2"
                         :class="
                             message.role === 'user'
                                 ? 'items-end'
@@ -690,52 +731,105 @@ function handleComposerKeydown(event: KeyboardEvent): void {
                         "
                     >
                         <div
-                            v-if="message.tool_calls.length > 0"
-                            class="flex flex-wrap gap-1.5"
-                        >
-                            <Badge
-                                v-for="call in message.tool_calls"
-                                :key="call.id || call.name"
-                                variant="secondary"
-                                class="gap-1 text-[11px] font-normal"
-                            >
-                                <Loader2
-                                    v-if="streaming && !call.answered"
-                                    class="size-3 animate-spin"
-                                />
-                                <XCircle
-                                    v-else-if="call.denied || !call.successful"
-                                    class="size-3 text-destructive"
-                                />
-                                <CheckCircle2
-                                    v-else
-                                    class="size-3 text-emerald-600 dark:text-emerald-400"
-                                />
-                                <span>{{ formatToolName(call.name) }}</span>
-                            </Badge>
-                        </div>
-
-                        <div
-                            v-if="message.content"
-                            class="max-w-[88%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap"
-                            :class="
-                                message.role === 'user'
-                                    ? 'bg-primary text-primary-foreground'
-                                    : 'bg-muted text-foreground'
-                            "
+                            v-if="message.role === 'user'"
+                            class="max-w-[85%] rounded-2xl rounded-br-sm bg-primary px-3.5 py-2.5 text-sm leading-relaxed font-medium whitespace-pre-wrap text-primary-foreground shadow-xs"
                         >
                             {{ message.content }}
                         </div>
 
-                        <div
-                            v-else-if="
-                                streaming && message.role === 'assistant'
-                            "
-                            class="flex items-center gap-2 rounded-2xl bg-muted px-3.5 py-2.5 text-xs text-muted-foreground"
-                        >
-                            <Loader2 class="size-3.5 animate-spin" />
-                            <span>Thinking…</span>
-                        </div>
+                        <template v-else>
+                            <div
+                                class="flex w-full max-w-[96%] items-center justify-between gap-2 px-0.5"
+                            >
+                                <div
+                                    class="flex flex-wrap items-center gap-1.5"
+                                >
+                                    <span
+                                        class="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground"
+                                    >
+                                        <Sparkles class="size-3 text-primary" />
+                                        <span>Farmwell AI</span>
+                                    </span>
+
+                                    <Badge
+                                        v-for="call in message.tool_calls"
+                                        :key="call.id || call.name"
+                                        variant="outline"
+                                        class="gap-1 rounded-full border-border/70 bg-muted/40 px-2 py-0 text-[11px] font-normal"
+                                        :class="
+                                            call.answered &&
+                                            !call.denied &&
+                                            call.successful
+                                                ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                                                : call.denied ||
+                                                    !call.successful
+                                                  ? 'border-destructive/30 bg-destructive/10 text-destructive'
+                                                  : ''
+                                        "
+                                    >
+                                        <Loader2
+                                            v-if="streaming && !call.answered"
+                                            class="size-2.5 animate-spin"
+                                        />
+                                        <XCircle
+                                            v-else-if="
+                                                call.denied || !call.successful
+                                            "
+                                            class="size-2.5"
+                                        />
+                                        <CheckCircle2 v-else class="size-2.5" />
+                                        <span>{{
+                                            formatToolName(call.name)
+                                        }}</span>
+                                    </Badge>
+                                </div>
+
+                                <Button
+                                    v-if="message.content && !streaming"
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon-sm"
+                                    class="size-6 rounded-md text-muted-foreground hover:text-foreground"
+                                    :title="
+                                        copiedMessageId === message.id
+                                            ? 'Copied'
+                                            : 'Copy response'
+                                    "
+                                    @click="
+                                        copyMessageContent(
+                                            message.id,
+                                            message.content,
+                                        )
+                                    "
+                                >
+                                    <Check
+                                        v-if="copiedMessageId === message.id"
+                                        class="size-3 text-emerald-600 dark:text-emerald-400"
+                                    />
+                                    <Copy v-else class="size-3" />
+                                    <span class="sr-only">Copy response</span>
+                                </Button>
+                            </div>
+
+                            <div
+                                v-if="message.content"
+                                class="w-full max-w-[96%] rounded-2xl rounded-tl-sm border border-border/75 bg-card/95 px-4 py-3.5 shadow-xs dark:bg-card/85"
+                            >
+                                <AssistantMessageContent
+                                    :content="message.content"
+                                />
+                            </div>
+
+                            <div
+                                v-else-if="streaming"
+                                class="flex items-center gap-2 rounded-2xl rounded-tl-sm border border-border/70 bg-card/70 px-3.5 py-2.5 text-xs text-muted-foreground"
+                            >
+                                <Loader2
+                                    class="size-3.5 animate-spin text-primary"
+                                />
+                                <span>Thinking…</span>
+                            </div>
+                        </template>
                     </div>
 
                     <div v-if="pendingApprovals.length > 0" class="space-y-3">
@@ -757,7 +851,7 @@ function handleComposerKeydown(event: KeyboardEvent): void {
                 </div>
 
                 <form
-                    class="border-t bg-background p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
+                    class="border-t border-border/80 bg-background/95 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur-xs"
                     @submit.prevent="sendPrompt()"
                 >
                     <p
@@ -767,20 +861,22 @@ function handleComposerKeydown(event: KeyboardEvent): void {
                         Confirm or cancel the pending action above before
                         sending another message.
                     </p>
-                    <div class="flex items-end gap-2">
+                    <div
+                        class="flex items-end gap-2 rounded-xl border border-input bg-card/80 p-1.5 transition-colors focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/20"
+                    >
                         <textarea
                             v-model="promptInput"
                             rows="2"
                             placeholder="Ask Farmwell or request a change…"
                             aria-label="Message Farmwell Assistant"
-                            class="min-h-10 flex-1 resize-none rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-50"
+                            class="min-h-10 flex-1 resize-none bg-transparent px-2 py-1.5 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
                             :disabled="streaming || pendingApprovals.length > 0"
                             @keydown="handleComposerKeydown"
                         />
                         <Button
                             type="submit"
                             size="icon"
-                            class="shrink-0"
+                            class="shrink-0 rounded-lg"
                             :disabled="!canSend"
                         >
                             <Loader2
