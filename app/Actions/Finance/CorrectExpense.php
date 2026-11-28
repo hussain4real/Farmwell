@@ -46,6 +46,11 @@ class CorrectExpense
         Gate::forUser($actor)->authorize('manageFinance', $team);
 
         return DB::transaction(function () use ($team, $actor, $expenseId, $changes): Expense {
+            $budgetLineId = $team->expenses()->whereKey($expenseId)->value('budget_line_id');
+            if ($budgetLineId !== null) {
+                $team->budgetLines()->lockForUpdate()->findOrFail($budgetLineId);
+            }
+
             $expense = $team->expenses()->lockForUpdate()->findOrFail($expenseId);
             if (! self::isCorrectable($expense)) {
                 throw ValidationException::withMessages(['amount' => 'Expenses linked to stock movements or external transfers, reconciled expenses, and voided expenses cannot be corrected here.']);

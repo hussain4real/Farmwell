@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Finance\RecordExpense;
 use App\Ai\Tools\CorrectExpenseTool;
 use App\Ai\Tools\GetFinanceSummaryTool;
 use App\Ai\Tools\ListPendingApprovalsTool;
@@ -315,3 +316,108 @@ test('assistant corrections and clarification replies reject records from anothe
         expect($result)->toBe(['error' => 'Record not found in this workspace.']);
     }
 });
+
+test('correcting a private expense updates the open overrun on another expense in the budget line', function () {
+    $budget = Budget::factory()->for($this->team)->for($this->farm)->create();
+    $line = BudgetLine::factory()->for($budget)->create(['planned_amount_minor' => 10_000]);
+    $privateExpense = Expense::factory()->for($this->team)->for($this->farm)
+        ->for($budget)->for($line)->for($line->expenseCategory)->create([
+            'amount_minor' => 10_000, 'investor_agreement_id' => null,
+        ]);
+    $investorExpense = Expense::factory()->for($this->team)->for($this->farm)->for($this->agreement)
+        ->for($budget)->for($line)->for($line->expenseCategory)->create([
+            'amount_minor' => 5_000, 'investor_visibility_status' => InvestorVisibilityStatus::ClarificationRequested,
+        ]);
+    $approval = ApprovalRequest::factory()->for($this->team)->for($this->agreement)->for($investorExpense, 'subject')->create([
+        'request_type' => ApprovalRequestType::BudgetOverrun,
+        'status' => ApprovalRequestStatus::ClarificationRequested,
+        'decision_comment' => 'Why did this line exceed its budget?',
+        'requested_amount_minor' => 5_000,
+    ]);
+    $decidedApproval = ApprovalRequest::factory()->for($this->team)->for($this->agreement)->for($investorExpense, 'subject')->create([
+        'request_type' => ApprovalRequestType::BudgetOverrun, 'status' => ApprovalRequestStatus::Approved,
+        'requested_amount_minor' => 5_000, 'approved_amount_minor' => 5_000,
+    ]);
+    $otherLine = BudgetLine::factory()->for($budget)->create(['planned_amount_minor' => 10_000]);
+    $unrelatedExpense = Expense::factory()->for($this->team)->for($this->farm)->for($this->agreement)
+        ->for($budget)->for($otherLine, 'budgetLine')->for($otherLine->expenseCategory)->create(['amount_minor' => 15_000]);
+    $unrelatedApproval = ApprovalRequest::factory()->for($this->team)->for($this->agreement)->for($unrelatedExpense, 'subject')->create([
+        'request_type' => ApprovalRequestType::BudgetOverrun, 'requested_amount_minor' => 5_000,
+    ]);
+
+    $correctionUrl = route('finance.expenses.update', [$this->team, $privateExpense]);
+    $replyUrl = route('investors.approvals.replies.store', [$this->team, $approval]);
+    $decisionUrl = route('investors.approvals.decisions.store', [$this->team, $approval]);
+    $previousToken = $approval->reviewToken();
+
+    $this->actingAs($this->owner)->post($replyUrl, ['body' => 'I am checking the line items.'])
+        ->assertRedirect()->assertSessionHasNoErrors();
+    $this->patch($correctionUrl, ['amount' => '75.00', 'reason' => 'Reconciled the private receipt.'])
+        ->assertRedirect()->assertSessionHasNoErrors();
+
+    expect($approval->fresh()->requested_amount_minor)->toBe(2_500)
+        ->and($approval->fresh()->status)->toBe(ApprovalRequestStatus::ClarificationRequested)
+        ->and($approval->fresh()->decision_comment)->toBe('Why did this line exceed its budget?')
+        ->and($approval->clarificationReplies()->count())->toBe(1);
+
+    $this->actingAs($this->investor)->post($decisionUrl, ['status' => 'approved', 'review_token' => $previousToken])
+        ->assertSessionHasErrors('status');
+    $this->actingAs($this->owner)->patch($correctionUrl, ['amount' => '50.00', 'reason' => 'Removed a duplicate line item.'])
+        ->assertRedirect()->assertSessionHasNoErrors();
+    $this->actingAs($this->investor)->post($decisionUrl, ['status' => 'approved'])->assertSessionHasErrors('status');
+
+    expect($approval->fresh()->status)->toBe(ApprovalRequestStatus::Cancelled)
+        ->and($approval->clarificationReplies()->count())->toBe(1)
+        ->and($unrelatedApproval->fresh()->status)->toBe(ApprovalRequestStatus::Pending)
+        ->and($unrelatedApproval->fresh()->requested_amount_minor)->toBe(5_000)
+        ->and($decidedApproval->fresh()->status)->toBe(ApprovalRequestStatus::Approved)
+        ->and($decidedApproval->fresh()->approved_amount_minor)->toBe(5_000)
+        ->and($privateExpense->approvalRequests()->count())->toBe(0);
+});
+
+test('clearing a budget overrun restores the related expense visibility from its remaining approvals or original sharing choice', function (
+    InvestorVisibilityStatus $recordedVisibility,
+    ?ApprovalRequestStatus $remainingApproval,
+    InvestorVisibilityStatus $expectedVisibility,
+) {
+    $budget = Budget::factory()->for($this->team)->for($this->farm)->create();
+    $line = BudgetLine::factory()->for($budget)->create(['planned_amount_minor' => 10_000]);
+    $privateExpense = Expense::factory()->for($this->team)->for($this->farm)
+        ->for($budget)->for($line)->for($line->expenseCategory)->create(['amount_minor' => 10_000]);
+    $expense = app(RecordExpense::class)->handle($this->team, $this->owner, [
+        'farm_id' => $this->farm->id,
+        'budget_id' => $budget->id,
+        'budget_line_id' => $line->id,
+        'expense_category_id' => $line->expense_category_id,
+        'investor_agreement_id' => $this->agreement->id,
+        'amount_minor' => 5_000,
+        'description' => 'Investor expense on the same budget line',
+        'incurred_on' => '2026-10-15',
+        'investor_visibility_status' => $recordedVisibility->value,
+    ]);
+
+    $overrun = $expense->approvalRequests()->sole();
+    expect($overrun->request_type)->toBe(ApprovalRequestType::BudgetOverrun)
+        ->and($expense->investor_visibility_status)->toBe(InvestorVisibilityStatus::PendingApproval);
+    if ($remainingApproval !== null) {
+        ApprovalRequest::factory()->for($this->team)->for($this->agreement)->for($expense, 'subject')->create([
+            'request_type' => ApprovalRequestType::Expense, 'status' => $remainingApproval,
+        ]);
+    }
+
+    $this->actingAs($this->owner)->patch(route('finance.expenses.update', [$this->team, $privateExpense]), [
+        'amount' => '50.00', 'reason' => 'Removed a duplicate charge.',
+    ])->assertRedirect()->assertSessionHasNoErrors();
+
+    expect($overrun->fresh()->status)->toBe(ApprovalRequestStatus::Cancelled)
+        ->and($expense->fresh()->investor_visibility_status)->toBe($expectedVisibility);
+
+    $this->actingAs($this->investor)->get(route('investor-portal.index', $this->team))->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->has('agreements.0.expenses', $expectedVisibility === InvestorVisibilityStatus::Approved ? 1 : 0));
+})->with([
+    'approved for sharing when recorded' => [InvestorVisibilityStatus::Approved, null, InvestorVisibilityStatus::Approved],
+    'recorded as private' => [InvestorVisibilityStatus::Private, null, InvestorVisibilityStatus::Private],
+    'expense approval remains pending' => [InvestorVisibilityStatus::Approved, ApprovalRequestStatus::Pending, InvestorVisibilityStatus::PendingApproval],
+    'expense clarification remains open' => [InvestorVisibilityStatus::Approved, ApprovalRequestStatus::ClarificationRequested, InvestorVisibilityStatus::ClarificationRequested],
+    'expense was rejected' => [InvestorVisibilityStatus::Approved, ApprovalRequestStatus::Rejected, InvestorVisibilityStatus::Rejected],
+]);
