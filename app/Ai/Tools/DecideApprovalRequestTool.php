@@ -75,6 +75,7 @@ class DecideApprovalRequestTool implements Approvable, Tool
                 status: $decision,
                 approvedAmountMinor: $approvedMinor,
                 comment: $request->filled('comment') ? trim((string) $request['comment']) : null,
+                reviewToken: $request->filled('review_token') ? (string) $request['review_token'] : null,
             );
         } catch (ValidationException $exception) {
             return $this->encodeResult(['error' => $exception->getMessage()]);
@@ -98,6 +99,7 @@ class DecideApprovalRequestTool implements Approvable, Tool
     {
         return [
             'approval_request_id' => $schema->integer()->required(),
+            'review_token' => $schema->string()->description('Copy from ListPendingApprovalsTool when deciding an approval request.'),
             'decision' => $schema->string()->enum(['approved', 'rejected', 'clarification_requested'])->required(),
             'approved_amount' => $schema->string()->description('Optional partial or full approved decimal amount'),
             'comment' => $schema->string(),

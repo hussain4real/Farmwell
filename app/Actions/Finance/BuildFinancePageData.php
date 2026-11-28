@@ -96,7 +96,7 @@ class BuildFinancePageData
     /**
      * @return array<string, mixed>
      */
-    public function expenses(Team $team, User $user): array
+    public function expenses(Team $team, User $user, string $search = ''): array
     {
         if (! PlatformAccess::activeFor($user, $team)) {
             $this->ensureDefaultExpenseCategories->handle($team);
@@ -112,7 +112,8 @@ class BuildFinancePageData
             'fundingPhases' => $this->fundingPhasesQuery($team)->map(fn (FundingPhase $phase) => $this->fundingPhaseSummaryPayload($phase)),
             'investorAgreements' => $this->investorAgreements($team)->map(fn (InvestorAgreement $agreement) => $this->investorAgreementPayload($agreement)),
             'activities' => $this->activities($team)->map(fn (FarmActivity $activity) => $this->activityPayload($activity)),
-            'expenses' => $this->latestExpenses($team, 25)->map(fn (Expense $expense) => $this->expensePayload($expense, $team)),
+            'expenseSearch' => $search,
+            'expenses' => $this->latestExpenses($team, 25, $search)->map(fn (Expense $expense) => $this->expensePayload($expense, $team)),
             'variance' => $this->calculateBudgetVariance->handle($team),
             'options' => $this->options(),
         ];
@@ -228,7 +229,9 @@ class BuildFinancePageData
     private function fundingPhasesQuery(Team $team): Collection
     {
         return $team->fundingPhases()
-            ->with(['team', 'farm', 'productionCycle', 'budget', 'investorAgreement.investor', 'media'])
+            ->with(['team', 'farm', 'productionCycle', 'budget', 'investorAgreement.investor', 'media',
+                'approvalRequests' => fn ($query) => $query->where('request_type', 'funding_release')->latest('id'),
+            ])
             ->withExists(['approvalRequests as funding_approval_exists' => fn ($query) => $query->where('request_type', 'funding_release')])
             ->orderBy('expected_on')
             ->latest()
@@ -238,10 +241,12 @@ class BuildFinancePageData
     /**
      * @return Collection<int, Expense>
      */
-    private function latestExpenses(Team $team, int $limit): Collection
+    private function latestExpenses(Team $team, int $limit, string $search = ''): Collection
     {
         return $team->expenses()
+            ->matchingRecord($search)
             ->with(['farm', 'productionCycle', 'expenseCategory', 'budget', 'fundingPhase', 'farmActivity', 'investorAgreement.investor', 'media'])
+            ->withExists(['inventoryMovements', 'externalTransfers'])
             ->latest('incurred_on')
             ->latest()
             ->limit($limit)
@@ -370,6 +375,8 @@ class BuildFinancePageData
         return [
             ...$this->fundingPhaseSummaryPayload($phase),
             'milestone' => $phase->milestone,
+            'canEditRequest' => UpdateFundingRequest::isEditable($phase, $phase->approvalRequests
+                ->first(fn ($approval) => $approval->team_id === $phase->team_id && $approval->investor_agreement_id === $phase->investor_agreement_id)),
             'fundingApprovalExists' => (bool) $phase->getAttribute('funding_approval_exists'),
             'milestoneEvidence' => $phase->getMedia(FundingPhase::EvidenceCollection)->map(fn (Media $media) => $this->mediaPayload($media, $phase->team))->values(),
             'plannedAmountMinor' => $phase->planned_amount_minor,
@@ -417,6 +424,7 @@ class BuildFinancePageData
     {
         return [
             ...$this->expenseSummaryPayload($expense),
+            'canCorrect' => CorrectExpense::isCorrectable($expense),
             'vendor' => $expense->vendor,
             'paymentMethod' => $expense->payment_method,
             'description' => $expense->description,

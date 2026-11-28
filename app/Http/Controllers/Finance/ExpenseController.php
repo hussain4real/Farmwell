@@ -3,9 +3,12 @@
 namespace App\Http\Controllers\Finance;
 
 use App\Actions\Finance\BuildFinancePageData;
+use App\Actions\Finance\CorrectExpense;
 use App\Actions\Finance\RecordExpense;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Finance\CorrectExpenseRequest;
 use App\Http\Requests\Finance\StoreExpenseRequest;
+use App\Models\Expense;
 use App\Models\Team;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
@@ -23,7 +26,10 @@ class ExpenseController extends Controller
         $user = $request->user();
         assert($user instanceof User);
 
-        return Inertia::render('finance/Expenses', $pageData->expenses($currentTeam, $user));
+        $search = $request->query('search');
+        $search = is_string($search) ? mb_substr(trim($search), 0, 200) : '';
+
+        return Inertia::render('finance/Expenses', $pageData->expenses($currentTeam, $user, $search));
     }
 
     public function store(StoreExpenseRequest $request, Team $currentTeam, RecordExpense $recordExpense): RedirectResponse
@@ -42,5 +48,14 @@ class ExpenseController extends Controller
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Expense recorded.')]);
 
         return to_route('finance.expenses.index', ['current_team' => $currentTeam]);
+    }
+
+    public function update(CorrectExpenseRequest $request, Team $currentTeam, Expense $expense, CorrectExpense $correctExpense): RedirectResponse
+    {
+        $correctExpense->handle($currentTeam, $request->user(), $expense->id, $request->validated());
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Expense correction saved.')]);
+
+        return back();
     }
 }

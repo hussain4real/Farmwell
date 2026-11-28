@@ -59,6 +59,7 @@ class DecideApprovalRequestRequest extends FormRequest
                 ]),
             ],
             'approved_amount' => ['nullable', 'regex:/^\d+(\.\d{1,2})?$/'],
+            'review_token' => ['nullable', 'string', 'size:64'],
             'decision_comment' => ['nullable', 'string', 'max:2000'],
         ];
     }

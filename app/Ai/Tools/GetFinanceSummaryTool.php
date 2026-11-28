@@ -4,6 +4,7 @@ namespace App\Ai\Tools;
 
 use App\Actions\Finance\ResolveTeamFinanceCurrency;
 use App\Ai\Tools\Concerns\InteractsWithFarmwellContext;
+use App\Enums\ExpenseStatus;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
 use App\Models\FundingPhase;
@@ -19,7 +20,7 @@ class GetFinanceSummaryTool implements Tool
 
     public function description(): string
     {
-        return 'Get farm accounting balances (released, spent, remaining balance), expense categories, recent expenses, and funding phases.';
+        return 'Get farm accounting balances (released, spent, remaining balance), expense categories, recent expenses and funding phases. Search for older records by ID or text.';
     }
 
     public function handle(Request $request): string
@@ -29,6 +30,8 @@ class GetFinanceSummaryTool implements Tool
         }
 
         $farmId = $request->integer('farm_id');
+        $search = trim($request->string('record_search')->toString());
+        $recordId = ctype_digit($search) ? (int) $search : null;
         $currency = app(ResolveTeamFinanceCurrency::class)->handle($this->team);
 
         $releasedMinor = (int) FundingPhase::query()
@@ -41,6 +44,7 @@ class GetFinanceSummaryTool implements Tool
             ->where('team_id', $this->team->id)
             ->when($farmId > 0, fn ($query) => $query->where('farm_id', $farmId))
             ->where('currency', $currency)
+            ->whereIn('status', ExpenseStatus::spendableValues())
             ->sum('amount_minor');
 
         $categories = ExpenseCategory::query()
@@ -51,6 +55,7 @@ class GetFinanceSummaryTool implements Tool
         $recentExpenses = Expense::query()
             ->where('team_id', $this->team->id)
             ->when($farmId > 0, fn ($query) => $query->where('farm_id', $farmId))
+            ->matchingRecord($search)
             ->with(['expenseCategory:id,name', 'farm:id,name'])
             ->latest('incurred_on')
             ->latest('id')
@@ -60,6 +65,8 @@ class GetFinanceSummaryTool implements Tool
         $fundingPhases = FundingPhase::query()
             ->where('team_id', $this->team->id)
             ->when($farmId > 0, fn ($query) => $query->where('farm_id', $farmId))
+            ->when($recordId !== null, fn ($query) => $query->whereKey($recordId))
+            ->when($search !== '' && $recordId === null, fn ($query) => $query->whereLike('name', '%'.$search.'%'))
             ->with('farm:id,name')
             ->latest('id')
             ->limit(10)
@@ -84,6 +91,7 @@ class GetFinanceSummaryTool implements Tool
                 'amount' => Money::toDecimal($expense->amount_minor),
                 'currency' => $expense->currency,
                 'incurred_on' => $expense->incurred_on->toDateString(),
+                'status' => $expense->status->value,
             ])->all(),
             'funding_phases' => $fundingPhases->map(fn (FundingPhase $phase): array => [
                 'id' => $phase->id,
@@ -106,6 +114,7 @@ class GetFinanceSummaryTool implements Tool
     public function schema(JsonSchema $schema): array
     {
         return [
+            'record_search' => $schema->string()->description('Optional record ID or phrase from the expense description or funding phase name.'),
             'farm_id' => $schema->integer()->description('Optional farm ID to filter finance records.'),
         ];
     }

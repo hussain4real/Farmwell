@@ -156,9 +156,19 @@ export type InvestorApprovalRequest = {
     subjectLabel: string;
     expenseDescription: string | null;
     milestone: string | null;
+    expectedOn: string | null;
     milestoneEvidence: { id: number; fileName: string; downloadUrl: string }[];
     requesterComment: string | null;
     decisionComment: string | null;
+    reviewToken: string | null;
+    editableFundingPhaseId: number | null;
+    canReplyToClarification: boolean;
+    clarificationReplies: {
+        id: number;
+        authorName: string | null;
+        body: string;
+        createdAt: string | null;
+    }[];
     requestedAt: string;
     decidedAt: string | null;
 };
