@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Teams;
 
-use App\Actions\Teams\SyncTeamRolePermissions;
+use App\Actions\Teams\AcceptTeamInvitation;
 use App\Enums\TeamRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Teams\AcceptTeamInvitationRequest;
@@ -18,7 +18,7 @@ use Inertia\Inertia;
 
 class TeamInvitationController extends Controller
 {
-    public function __construct(private SyncTeamRolePermissions $syncTeamRolePermissions)
+    public function __construct(private AcceptTeamInvitation $acceptInvitation)
     {
         //
     }
@@ -32,15 +32,17 @@ class TeamInvitationController extends Controller
 
         $invitation = $team->invitations()->create([
             'email' => $request->validated('email'),
+            'phone' => $request->validated('phone'),
             'role' => TeamRole::from($request->validated('role')),
             'invited_by' => $request->user()->id,
             'expires_at' => now()->addDays(3),
         ]);
 
-        Notification::route('mail', $invitation->email)
-            ->notify(new TeamInvitationNotification($invitation));
+        if ($invitation->email !== null) {
+            Notification::route('mail', $invitation->email)->notify(new TeamInvitationNotification($invitation));
+        }
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => __('Invitation sent.')]);
+        Inertia::flash('toast', ['type' => 'success', 'message' => $invitation->phone ? __('Phone invitation created. Share the invitation link with the recipient.') : __('Invitation sent.')]);
 
         return to_route('teams.edit', ['team' => $team->slug]);
     }
@@ -66,22 +68,7 @@ class TeamInvitationController extends Controller
      */
     public function accept(AcceptTeamInvitationRequest $request, TeamInvitation $invitation): RedirectResponse
     {
-        $user = $request->user();
-
-        DB::transaction(function () use ($user, $invitation) {
-            $team = $invitation->team;
-
-            $membership = $team->memberships()->firstOrCreate(
-                ['user_id' => $user->id],
-                ['role' => $invitation->role],
-            );
-
-            $this->syncTeamRolePermissions->syncMembership($user, $team, $membership->role);
-
-            $invitation->update(['accepted_at' => now()]);
-
-            $user->switchTeam($team);
-        });
+        DB::transaction(fn () => $this->acceptInvitation->handle($invitation, $request->user()));
 
         return to_route('dashboard');
     }

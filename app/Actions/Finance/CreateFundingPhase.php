@@ -10,12 +10,14 @@ use App\Enums\FundingPhaseStatus;
 use App\Models\FundingPhase;
 use App\Models\Team;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 
 class CreateFundingPhase
 {
     public function __construct(
         private CreateApprovalRequest $createApprovalRequest,
+        private AttachFinanceEvidence $attachFinanceEvidence,
         private DetermineInvestorApprovalRequirement $determineInvestorApprovalRequirement,
         private RecordAuditEvent $recordAuditEvent,
         private ResolveTeamFinanceCurrency $resolveTeamFinanceCurrency,
@@ -25,10 +27,11 @@ class CreateFundingPhase
 
     /**
      * @param  array<string, mixed>  $attributes
+     * @param  array<int, UploadedFile>  $evidence
      */
-    public function handle(Team $team, User $actor, array $attributes): FundingPhase
+    public function handle(Team $team, User $actor, array $attributes, array $evidence = []): FundingPhase
     {
-        return DB::transaction(function () use ($team, $actor, $attributes): FundingPhase {
+        return DB::transaction(function () use ($team, $actor, $attributes, $evidence): FundingPhase {
             $phase = FundingPhase::create([
                 ...$attributes,
                 'team_id' => $team->id,
@@ -58,13 +61,17 @@ class CreateFundingPhase
                 ],
             );
 
+            if ($evidence !== []) {
+                $this->attachFinanceEvidence->handle($phase, $evidence, FundingPhase::EvidenceCollection, $actor);
+            }
+
             $agreement = $phase->investorAgreement;
-            if ($agreement && $phase->externally_released_amount_minor > 0) {
+            if ($agreement && $phase->status === FundingPhaseStatus::Requested && $phase->requested_amount_minor > 0) {
                 $requirement = $this->determineInvestorApprovalRequirement->handle(
                     team: $team,
                     agreement: $agreement,
                     requestType: ApprovalRequestType::FundingRelease,
-                    amountMinor: $phase->externally_released_amount_minor,
+                    amountMinor: $phase->requested_amount_minor,
                     fundingPhase: $phase,
                     farmType: $phase->farm->farm_type->value,
                 );
@@ -77,7 +84,7 @@ class CreateFundingPhase
                         subject: $phase,
                         requestType: ApprovalRequestType::FundingRelease,
                         triggerType: $requirement['triggerType'],
-                        requestedAmountMinor: $phase->externally_released_amount_minor,
+                        requestedAmountMinor: $phase->requested_amount_minor,
                         currency: $phase->currency,
                         rule: $requirement['rule'],
                         thresholdAmountMinor: $requirement['thresholdAmountMinor'],

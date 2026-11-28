@@ -2,9 +2,12 @@
 
 namespace App\Http\Requests\Teams;
 
+use App\Actions\Teams\ResolveInvestorMode;
+use App\Actions\Teams\ResolveWorkspacePlan;
 use App\Models\Team;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Validator;
 
 class UpdateTeamSettingRequest extends FormRequest
 {
@@ -15,7 +18,18 @@ class UpdateTeamSettingRequest extends FormRequest
     {
         $team = $this->route('team');
 
-        return $team instanceof Team && $this->user()?->can('manageSettings', $team) === true;
+        if (! $team instanceof Team || $this->user()?->can('manageSettings', $team) !== true) {
+            return false;
+        }
+
+        if (
+            $this->route('settingGroup') === ResolveWorkspacePlan::SettingGroup
+            && $this->route('settingKey') === ResolveWorkspacePlan::SettingKey
+        ) {
+            return false;
+        }
+
+        return true;
     }
 
     /**
@@ -28,6 +42,30 @@ class UpdateTeamSettingRequest extends FormRequest
         return [
             'value' => ['required', 'array'],
             'reason' => ['nullable', 'string', 'max:500'],
+        ];
+    }
+
+    /**
+     * Validate plan eligibility when updating workspace feature flags.
+     *
+     * @return array<int, callable(Validator): void>
+     */
+    public function after(): array
+    {
+        return [
+            function (Validator $validator): void {
+                $team = $this->route('team');
+
+                if (
+                    $team instanceof Team
+                    && $this->route('settingGroup') === ResolveInvestorMode::SettingGroup
+                    && $this->route('settingKey') === ResolveInvestorMode::SettingKey
+                    && ! empty($this->input('value.enabled'))
+                    && ! app(ResolveWorkspacePlan::class)->handle($team)->allowsInvestorMode()
+                ) {
+                    $validator->errors()->add('value', __('Investor Transparency Mode requires the Investor / Pilot plan.'));
+                }
+            },
         ];
     }
 

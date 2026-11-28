@@ -1,13 +1,18 @@
 <script setup lang="ts">
 import { Form, Head, usePage } from '@inertiajs/vue3';
-import { FileUp, ReceiptText } from 'lucide-vue-next';
+import { Plus, ReceiptText } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
+import EmptyState from '@/components/farm/EmptyState.vue';
+import EvidenceGallery from '@/components/farm/EvidenceGallery.vue';
+import PageHero from '@/components/farm/PageHero.vue';
+import SlideOverForm from '@/components/farm/SlideOverForm.vue';
 import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { formatCurrency } from '@/lib/currency';
 import { dashboard } from '@/routes';
 import { index as financeIndex } from '@/routes/finance';
 import {
@@ -25,6 +30,7 @@ import type {
     FinanceOptions,
     FinancePermissions,
     FinanceVariance,
+    FinanceVarianceCategory,
     FundingPhase,
     Team,
 } from '@/types';
@@ -77,6 +83,10 @@ defineOptions({
 
 const currentTeam = computed(() => page.props.currentTeam as Team | null);
 const currentTeamSlug = computed(() => currentTeam.value?.slug ?? '');
+const drawerOpen = ref(false);
+const farmFilter = ref('all');
+const categoryFilter = ref('all');
+const statusFilter = ref('all');
 const expenseFarmId = ref(props.farms[0]?.id ? String(props.farms[0].id) : '');
 const expenseCycleId = ref('');
 const expenseBudgetId = ref('');
@@ -131,6 +141,34 @@ const farmActivities = computed(() =>
     ),
 );
 
+const filteredExpenses = computed(() =>
+    props.expenses.filter(
+        (expense) =>
+            (farmFilter.value === 'all' ||
+                String(expense.farmId) === farmFilter.value) &&
+            (categoryFilter.value === 'all' ||
+                String(expense.expenseCategoryId) === categoryFilter.value) &&
+            (statusFilter.value === 'all' ||
+                expense.status === statusFilter.value),
+    ),
+);
+
+function categoryUtilization(category: FinanceVarianceCategory): number {
+    if (category.budgetedMinor <= 0) {
+        return category.spentMinor > 0 ? 100 : 0;
+    }
+
+    return Math.min(
+        100,
+        Math.round((category.spentMinor / category.budgetedMinor) * 100),
+    );
+}
+
+const handleCreated = () => {
+    formKey.value++;
+    drawerOpen.value = false;
+};
+
 watch(expenseFarmId, () => {
     expenseCycleId.value = '';
     expenseBudgetId.value = '';
@@ -150,36 +188,263 @@ watch(expenseCycleId, () => {
 </script>
 
 <template>
-    <Head title="Finance / Expenses" />
+    <div class="flex flex-1 flex-col gap-6 p-4 md:p-6">
+        <Head title="Finance / Expenses" />
 
-    <div class="flex flex-1 flex-col gap-8 p-4 md:p-6">
-        <Heading
+        <PageHero
+            eyebrow="Farm Accounting"
             title="Expenses"
-            description="Recorded spending, receipts, category variance, and activity links"
-        />
+            description="Official finance spending, receipts, category variance, and activity links."
+        >
+            <template #actions>
+                <Button
+                    v-if="
+                        permissions.canManageFinance &&
+                        currentTeamSlug &&
+                        farms.length > 0 &&
+                        categories.length > 0
+                    "
+                    type="button"
+                    class="bg-white text-[#1b4d3e] hover:bg-emerald-50"
+                    @click="drawerOpen = true"
+                >
+                    <Plus class="mr-1.5 size-4" />
+                    Record expense
+                </Button>
+            </template>
+            <template #metrics>
+                <div class="px-4 py-3 sm:px-6">
+                    <p class="text-xs text-emerald-100/75">Expenses</p>
+                    <p class="mt-0.5 text-lg font-semibold tabular-nums">
+                        {{ expenses.length }}
+                    </p>
+                </div>
+                <div class="border-s border-white/15 px-4 py-3 sm:px-6">
+                    <p class="text-xs text-emerald-100/75">Total spent</p>
+                    <p
+                        class="mt-0.5 text-base font-semibold whitespace-nowrap tabular-nums sm:text-lg"
+                    >
+                        {{ formatCurrency(variance.spent, currency) }}
+                    </p>
+                </div>
+                <div
+                    class="col-span-2 border-t border-white/15 px-4 py-3 sm:col-span-2 sm:border-s sm:border-t-0 sm:px-6"
+                >
+                    <p class="text-xs text-emerald-100/75">Remaining budget</p>
+                    <p
+                        class="mt-0.5 text-base font-semibold whitespace-nowrap tabular-nums sm:text-lg"
+                    >
+                        {{ formatCurrency(variance.balance, currency) }}
+                    </p>
+                </div>
+            </template>
+        </PageHero>
+
+        <div class="flex flex-wrap items-center gap-2">
+            <select
+                v-model="farmFilter"
+                aria-label="Filter expenses by farm"
+                class="h-9 rounded-md border bg-card px-3 text-sm"
+            >
+                <option value="all">All farms</option>
+                <option
+                    v-for="farm in farms"
+                    :key="farm.id"
+                    :value="String(farm.id)"
+                >
+                    {{ farm.name }}
+                </option>
+            </select>
+            <select
+                v-model="categoryFilter"
+                aria-label="Filter expenses by category"
+                class="h-9 rounded-md border bg-card px-3 text-sm"
+            >
+                <option value="all">All categories</option>
+                <option
+                    v-for="category in categories"
+                    :key="category.id"
+                    :value="String(category.id)"
+                >
+                    {{ category.name }}
+                </option>
+            </select>
+            <select
+                v-model="statusFilter"
+                aria-label="Filter expenses by status"
+                class="h-9 rounded-md border bg-card px-3 text-sm"
+            >
+                <option value="all">All statuses</option>
+                <option
+                    v-for="option in options.expenseStatuses"
+                    :key="option.value"
+                    :value="option.value"
+                >
+                    {{ option.label }}
+                </option>
+            </select>
+        </div>
 
         <section
-            v-if="permissions.canManageFinance && currentTeamSlug"
-            class="space-y-4 rounded-lg border p-4"
+            class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(300px,380px)]"
         >
-            <div class="flex items-center gap-2">
-                <FileUp class="size-4" />
-                <Heading
-                    variant="small"
-                    title="Record expense"
-                    description="Official finance totals come from expenses, not diary cost notes"
+            <div class="space-y-4">
+                <div class="flex items-center gap-2">
+                    <ReceiptText class="size-4 text-primary" />
+                    <Heading
+                        variant="small"
+                        title="Expense register"
+                        description="Recorded expenses and receipt evidence"
+                    />
+                </div>
+
+                <div v-if="filteredExpenses.length > 0" class="space-y-3">
+                    <article
+                        v-for="expense in filteredExpenses"
+                        :key="expense.id"
+                        class="space-y-3 rounded-2xl border bg-card p-4 text-sm shadow-xs"
+                    >
+                        <div
+                            class="flex flex-wrap items-start justify-between gap-3"
+                        >
+                            <div class="min-w-0">
+                                <p class="font-semibold">
+                                    {{ expense.expenseCategoryName }}
+                                </p>
+                                <p class="text-xs text-muted-foreground">
+                                    {{ expense.farmName }}
+                                    <span v-if="expense.productionCycleName">
+                                        · {{ expense.productionCycleName }}
+                                    </span>
+                                    ·
+                                    <span class="whitespace-nowrap">{{
+                                        expense.incurredOn
+                                    }}</span>
+                                    <span v-if="expense.vendor">
+                                        · {{ expense.vendor }}
+                                    </span>
+                                </p>
+                            </div>
+                            <Badge variant="secondary" class="tabular-nums">
+                                {{
+                                    formatCurrency(
+                                        expense.amount,
+                                        expense.currency,
+                                    )
+                                }}
+                            </Badge>
+                        </div>
+                        <div class="flex flex-wrap gap-1.5">
+                            <Badge v-if="expense.investorAgreementTitle">
+                                {{ expense.investorAgreementTitle }}
+                            </Badge>
+                            <Badge variant="outline">
+                                {{ expense.investorVisibilityStatusLabel }}
+                            </Badge>
+                            <Badge variant="secondary">
+                                {{ expense.statusLabel }}
+                            </Badge>
+                        </div>
+                        <p v-if="expense.description">
+                            {{ expense.description }}
+                        </p>
+                        <EvidenceGallery
+                            v-if="expense.receipts?.length"
+                            :items="expense.receipts"
+                            compact
+                            dialog-title="Expense receipts"
+                        />
+                    </article>
+                </div>
+                <EmptyState
+                    v-else
+                    title="No matching expenses"
+                    description="Record an expense or adjust your farm, category, and status filters."
+                    :icon="ReceiptText"
                 />
             </div>
 
+            <aside
+                class="h-fit space-y-4 rounded-2xl border bg-card p-5 shadow-xs"
+            >
+                <Heading
+                    variant="small"
+                    title="Category variance"
+                    description="Budgeted vs. spent per category"
+                />
+                <div v-if="variance.byCategory.length > 0" class="space-y-3">
+                    <div
+                        v-for="category in variance.byCategory"
+                        :key="category.categoryId"
+                        class="space-y-2 rounded-xl border p-3 text-sm"
+                        :class="
+                            category.balanceMinor < 0
+                                ? 'border-rose-300/70 bg-rose-50/40 dark:border-rose-900/60 dark:bg-rose-950/20'
+                                : ''
+                        "
+                    >
+                        <div class="flex items-start justify-between gap-2">
+                            <p class="font-medium">
+                                {{ category.categoryName }}
+                            </p>
+                            <span
+                                class="text-xs font-medium tabular-nums"
+                                :class="
+                                    category.balanceMinor < 0
+                                        ? 'text-rose-700 dark:text-rose-300'
+                                        : 'text-muted-foreground'
+                                "
+                            >
+                                {{ formatCurrency(category.balance, currency) }}
+                                left
+                            </span>
+                        </div>
+                        <div
+                            class="h-1.5 w-full overflow-hidden rounded-full bg-muted"
+                        >
+                            <div
+                                class="h-full rounded-full transition-all"
+                                :class="
+                                    category.balanceMinor < 0
+                                        ? 'bg-rose-500'
+                                        : 'bg-primary'
+                                "
+                                :style="{
+                                    width: `${categoryUtilization(category)}%`,
+                                }"
+                            />
+                        </div>
+                        <p class="text-xs text-muted-foreground tabular-nums">
+                            {{ formatCurrency(category.spent, currency) }} spent
+                            of
+                            {{ formatCurrency(category.budgeted, currency) }}
+                        </p>
+                    </div>
+                </div>
+                <p v-else class="text-sm text-muted-foreground">
+                    No categories configured yet.
+                </p>
+            </aside>
+        </section>
+
+        <SlideOverForm
+            :open="drawerOpen"
+            title="Record expense"
+            description="Official finance totals come from expenses, not diary cost notes."
+            wide
+            @update:open="drawerOpen = $event"
+        >
             <Form
-                v-if="farms.length > 0 && categories.length > 0"
+                v-if="
+                    farms.length > 0 && categories.length > 0 && currentTeamSlug
+                "
                 :key="formKey"
                 v-bind="storeExpense.form(currentTeamSlug)"
-                class="grid gap-4 md:grid-cols-2 xl:grid-cols-4"
+                class="grid gap-4 sm:grid-cols-2"
                 v-slot="{ errors, processing, progress }"
-                @success="formKey++"
+                @success="handleCreated"
             >
-                <div class="grid gap-2">
+                <div class="grid gap-1.5">
                     <Label for="expense-farm">Farm</Label>
                     <select
                         id="expense-farm"
@@ -198,7 +463,7 @@ watch(expenseCycleId, () => {
                     </select>
                     <InputError :message="errors.farm_id" />
                 </div>
-                <div class="grid gap-2">
+                <div class="grid gap-1.5">
                     <Label for="expense-cycle">Cycle</Label>
                     <select
                         id="expense-cycle"
@@ -218,7 +483,7 @@ watch(expenseCycleId, () => {
                     </select>
                     <InputError :message="errors.production_cycle_id" />
                 </div>
-                <div class="grid gap-2">
+                <div class="grid gap-1.5">
                     <Label for="expense-category">Category</Label>
                     <select
                         id="expense-category"
@@ -237,7 +502,7 @@ watch(expenseCycleId, () => {
                     </select>
                     <InputError :message="errors.expense_category_id" />
                 </div>
-                <div class="grid gap-2">
+                <div class="grid gap-1.5">
                     <Label for="expense-status">Status</Label>
                     <select
                         id="expense-status"
@@ -255,7 +520,7 @@ watch(expenseCycleId, () => {
                     </select>
                     <InputError :message="errors.status" />
                 </div>
-                <div class="grid gap-2">
+                <div class="grid gap-1.5">
                     <Label for="expense-budget">Budget</Label>
                     <select
                         id="expense-budget"
@@ -274,7 +539,7 @@ watch(expenseCycleId, () => {
                     </select>
                     <InputError :message="errors.budget_id" />
                 </div>
-                <div class="grid gap-2">
+                <div class="grid gap-1.5">
                     <Label for="expense-budget-line">Budget line</Label>
                     <select
                         id="expense-budget-line"
@@ -293,7 +558,7 @@ watch(expenseCycleId, () => {
                     </select>
                     <InputError :message="errors.budget_line_id" />
                 </div>
-                <div class="grid gap-2">
+                <div class="grid gap-1.5">
                     <Label for="expense-phase">Funding phase</Label>
                     <select
                         id="expense-phase"
@@ -312,7 +577,7 @@ watch(expenseCycleId, () => {
                     </select>
                     <InputError :message="errors.funding_phase_id" />
                 </div>
-                <div class="grid gap-2">
+                <div class="grid gap-1.5">
                     <Label for="expense-investor-agreement">
                         Investor agreement
                     </Label>
@@ -333,7 +598,7 @@ watch(expenseCycleId, () => {
                     </select>
                     <InputError :message="errors.investor_agreement_id" />
                 </div>
-                <div class="grid gap-2">
+                <div class="grid gap-1.5">
                     <Label for="expense-investor-visibility">
                         Investor visibility
                     </Label>
@@ -353,7 +618,7 @@ watch(expenseCycleId, () => {
                     </select>
                     <InputError :message="errors.investor_visibility_status" />
                 </div>
-                <div class="grid gap-2">
+                <div class="grid gap-1.5">
                     <Label for="expense-activity">Activity</Label>
                     <select
                         id="expense-activity"
@@ -373,7 +638,7 @@ watch(expenseCycleId, () => {
                     </select>
                     <InputError :message="errors.farm_activity_id" />
                 </div>
-                <div class="grid gap-2">
+                <div class="grid gap-1.5">
                     <Label for="expense-date">Date</Label>
                     <Input
                         id="expense-date"
@@ -383,7 +648,7 @@ watch(expenseCycleId, () => {
                     />
                     <InputError :message="errors.incurred_on" />
                 </div>
-                <div class="grid gap-2">
+                <div class="grid gap-1.5">
                     <Label for="expense-amount">Amount ({{ currency }})</Label>
                     <Input
                         id="expense-amount"
@@ -393,17 +658,17 @@ watch(expenseCycleId, () => {
                     />
                     <InputError :message="errors.amount" />
                 </div>
-                <div class="grid gap-2">
+                <div class="grid gap-1.5">
                     <Label for="expense-vendor">Vendor</Label>
                     <Input id="expense-vendor" name="vendor" />
                     <InputError :message="errors.vendor" />
                 </div>
-                <div class="grid gap-2">
+                <div class="grid gap-1.5">
                     <Label for="expense-payment-method">Payment method</Label>
                     <Input id="expense-payment-method" name="payment_method" />
                     <InputError :message="errors.payment_method" />
                 </div>
-                <div class="grid gap-2 md:col-span-2">
+                <div class="grid gap-1.5 sm:col-span-2">
                     <Label for="expense-description">Description</Label>
                     <Input
                         id="expense-description"
@@ -412,12 +677,12 @@ watch(expenseCycleId, () => {
                     />
                     <InputError :message="errors.description" />
                 </div>
-                <div class="grid gap-2">
+                <div class="grid gap-1.5">
                     <Label for="receipt-caption">Receipt caption</Label>
                     <Input id="receipt-caption" name="receipt_caption" />
                     <InputError :message="errors.receipt_caption" />
                 </div>
-                <div class="grid gap-2">
+                <div class="grid gap-1.5">
                     <Label for="expense-receipts">Receipts</Label>
                     <Input
                         id="expense-receipts"
@@ -433,105 +698,15 @@ watch(expenseCycleId, () => {
                         class="h-1 w-full"
                     />
                 </div>
-                <div class="flex items-end">
-                    <Button :disabled="processing">Record expense</Button>
+                <div class="sm:col-span-2">
+                    <Button :disabled="processing" class="w-full sm:w-auto">
+                        Record expense
+                    </Button>
                 </div>
             </Form>
             <p v-else class="text-sm text-muted-foreground">
                 Create a farm and default category before recording expenses.
             </p>
-        </section>
-
-        <section
-            class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]"
-        >
-            <div class="space-y-4">
-                <div class="flex items-center gap-2">
-                    <ReceiptText class="size-4" />
-                    <Heading
-                        variant="small"
-                        title="Expense register"
-                        description="Recorded expenses and private receipt links"
-                    />
-                </div>
-
-                <div v-if="expenses.length > 0" class="space-y-3">
-                    <article
-                        v-for="expense in expenses"
-                        :key="expense.id"
-                        class="space-y-3 rounded-lg border p-4 text-sm"
-                    >
-                        <div class="flex items-start justify-between gap-3">
-                            <div>
-                                <p class="font-medium">
-                                    {{ expense.expenseCategoryName }}
-                                </p>
-                                <p class="text-muted-foreground">
-                                    {{ expense.farmName }}
-                                    <span v-if="expense.productionCycleName">
-                                        / {{ expense.productionCycleName }}
-                                    </span>
-                                </p>
-                            </div>
-                            <Badge variant="secondary">
-                                {{ expense.amount }} {{ expense.currency }}
-                            </Badge>
-                        </div>
-                        <div class="flex flex-wrap gap-2">
-                            <Badge v-if="expense.investorAgreementTitle">
-                                {{ expense.investorAgreementTitle }}
-                            </Badge>
-                            <Badge variant="outline">
-                                {{ expense.investorVisibilityStatusLabel }}
-                            </Badge>
-                            <Badge variant="secondary">
-                                {{ expense.statusLabel }}
-                            </Badge>
-                        </div>
-                        <p v-if="expense.description">
-                            {{ expense.description }}
-                        </p>
-                        <div
-                            v-if="expense.receipts?.length"
-                            class="flex flex-wrap gap-2"
-                        >
-                            <a
-                                v-for="receipt in expense.receipts"
-                                :key="receipt.id"
-                                :href="receipt.downloadUrl"
-                                class="text-sm underline underline-offset-4"
-                            >
-                                {{ receipt.fileName }}
-                            </a>
-                        </div>
-                    </article>
-                </div>
-                <p v-else class="text-sm text-muted-foreground">
-                    No expenses recorded yet.
-                </p>
-            </div>
-
-            <aside class="space-y-4 rounded-lg border p-4">
-                <Heading
-                    variant="small"
-                    title="Variance"
-                    description="Budgeted and spent by category"
-                />
-                <div v-if="variance.byCategory.length > 0" class="space-y-3">
-                    <div
-                        v-for="category in variance.byCategory"
-                        :key="category.categoryId"
-                        class="rounded-lg border p-3 text-sm"
-                    >
-                        <p class="font-medium">{{ category.categoryName }}</p>
-                        <p class="mt-1 text-muted-foreground">
-                            Budgeted {{ category.budgeted }} / spent
-                            {{ category.spent }}
-                        </p>
-                        <p class="mt-1">Balance {{ category.balance }}</p>
-                    </div>
-                </div>
-            </aside>
-        </section>
+        </SlideOverForm>
     </div>
 </template>

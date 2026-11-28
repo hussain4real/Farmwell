@@ -2,13 +2,18 @@
 
 namespace App\Http\Controllers\Investors;
 
+use App\Actions\Media\RenderMediaVariant;
+use App\Enums\ApprovalRequestStatus;
+use App\Enums\ApprovalRequestType;
 use App\Enums\InvestorAgreementStatus;
 use App\Enums\InvestorVisibilityStatus;
 use App\Http\Controllers\Controller;
+use App\Models\ApprovalRequest;
 use App\Models\DistributionRecord;
 use App\Models\Expense;
 use App\Models\ExternalTransfer;
 use App\Models\FarmActivity;
+use App\Models\FundingPhase;
 use App\Models\HarvestRecord;
 use App\Models\InvestorAgreement;
 use App\Models\SaleRecord;
@@ -17,11 +22,11 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\Response;
 
 class InvestorEvidenceController extends Controller
 {
-    public function show(Request $request, Team $currentTeam, Media $media): BinaryFileResponse
+    public function show(Request $request, Team $currentTeam, Media $media, RenderMediaVariant $renderVariant): Response
     {
         $user = $request->user();
         assert($user instanceof User);
@@ -31,14 +36,23 @@ class InvestorEvidenceController extends Controller
         abort_if(! $subject instanceof Model, 404);
         abort_unless((int) $subject->getAttribute('team_id') === $currentTeam->id, 404);
 
-        if ($user->can('viewInvestorAgreements', $currentTeam) || $user->can('viewFinance', $currentTeam)) {
-            return response()->download($media->getPath(), $media->file_name);
+        if (! $user->can('viewInvestorAgreements', $currentTeam) && ! $user->can('viewFinance', $currentTeam)) {
+            abort_unless($user->can('viewInvestorPortal', $currentTeam), 403);
+            abort_unless($this->isInvestorVisible($currentTeam, $user, $media, $subject), 404);
         }
 
-        abort_unless($user->can('viewInvestorPortal', $currentTeam), 403);
-        abort_unless($this->isInvestorVisible($currentTeam, $user, $media, $subject), 404);
+        if ($request->boolean('thumb') || $request->boolean('preview')) {
+            abort_unless($subject instanceof FarmActivity && $subject->sharesEvidenceWithInvestors($media)
+                && in_array($media->mime_type, FarmActivity::InvestorPhotoMimeTypes, true), 404);
 
-        return response()->download($media->getPath(), $media->file_name);
+            return $renderVariant->toResponse(
+                $request,
+                $media,
+                $request->boolean('thumb') ? RenderMediaVariant::VariantThumb : RenderMediaVariant::VariantPreview,
+            );
+        }
+
+        return $media->toResponse($request);
     }
 
     private function isInvestorVisible(Team $team, User $user, Media $media, Model $subject): bool
@@ -46,6 +60,17 @@ class InvestorEvidenceController extends Controller
         if ($subject instanceof InvestorAgreement) {
             return $subject->investor_id === $user->id
                 && in_array($subject->status, [InvestorAgreementStatus::Active, InvestorAgreementStatus::Completed], true);
+        }
+
+        if ($subject instanceof FundingPhase) {
+            return $media->collection_name === FundingPhase::EvidenceCollection
+                && $this->hasVisibleAgreement($team, $user, $subject)
+                && ApprovalRequest::query()->where('team_id', $team->id)
+                    ->where('investor_agreement_id', $subject->investor_agreement_id)
+                    ->where('subject_type', $subject->getMorphClass())->where('subject_id', $subject->id)
+                    ->where('request_type', ApprovalRequestType::FundingRelease->value)
+                    ->whereIn('status', [ApprovalRequestStatus::Pending->value, ApprovalRequestStatus::Approved->value, ApprovalRequestStatus::ClarificationRequested->value])
+                    ->exists();
         }
 
         if ($subject instanceof Expense || $subject instanceof ExternalTransfer || $subject instanceof HarvestRecord) {
@@ -67,8 +92,7 @@ class InvestorEvidenceController extends Controller
         }
 
         if ($subject instanceof FarmActivity) {
-            return $media->getCustomProperty('visibility') === 'investor_visible'
-                && $subject->investor_safe_summary !== null
+            return $subject->sharesEvidenceWithInvestors($media)
                 && InvestorAgreement::query()
                     ->where('team_id', $team->id)
                     ->where('investor_id', $user->id)

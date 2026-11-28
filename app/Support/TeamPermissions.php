@@ -16,6 +16,7 @@ readonly class TeamPermissions
         public bool $canViewAuditEvents,
         public bool $canViewFarmOperations,
         public bool $canManageFarmOperations,
+        public bool $canManageFieldWork,
         public bool $canViewFinance,
         public bool $canManageFinance,
         public bool $canViewInvestorPortal,

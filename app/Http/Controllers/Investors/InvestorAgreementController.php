@@ -4,8 +4,11 @@ namespace App\Http\Controllers\Investors;
 
 use App\Actions\Finance\ResolveTeamFinanceCurrency;
 use App\Actions\Investors\CreateInvestorAgreement;
+use App\Actions\Investors\UpdateInvestorAgreement;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Investors\StoreInvestorAgreementRequest;
+use App\Http\Requests\Investors\UpdateInvestorAgreementRequest;
+use App\Models\InvestorAgreement;
 use App\Models\Team;
 use App\Models\User;
 use App\Support\Money;
@@ -48,6 +51,38 @@ class InvestorAgreementController extends Controller
         );
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Investor agreement created.')]);
+
+        return to_route('investors.index', ['current_team' => $currentTeam]);
+    }
+
+    public function update(
+        UpdateInvestorAgreementRequest $request,
+        Team $currentTeam,
+        InvestorAgreement $investorAgreement,
+        UpdateInvestorAgreement $updateInvestorAgreement,
+    ): RedirectResponse {
+        $user = $request->user();
+        assert($user instanceof User);
+
+        $validated = $request->validated();
+        $currency = Money::normalizeCurrency(
+            is_string($validated['currency'] ?? null) ? $validated['currency'] : null,
+            $investorAgreement->currency,
+        );
+
+        $updateInvestorAgreement->handle(
+            team: $currentTeam,
+            agreement: $investorAgreement,
+            actor: $user,
+            attributes: [
+                ...Arr::except($validated, ['amount_committed', 'amount_funded']),
+                'currency' => $currency,
+                'amount_committed_minor' => Money::toMinorUnit((string) $validated['amount_committed']),
+                'amount_funded_minor' => Money::toMinorUnit((string) ($validated['amount_funded'] ?? '0')),
+            ],
+        );
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Investor agreement updated.')]);
 
         return to_route('investors.index', ['current_team' => $currentTeam]);
     }

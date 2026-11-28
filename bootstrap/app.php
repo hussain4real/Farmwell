@@ -1,16 +1,25 @@
 <?php
 
+use App\Http\Middleware\EnsurePilotPhoneAccess;
+use App\Http\Middleware\EnsurePlatformImpersonationValid;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\SetTeamUrlDefaults;
+use App\Http\Middleware\SignalQueuedWork;
+use App\Http\Middleware\StartFarmwellSession;
+use App\Models\User;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
 use Illuminate\Http\Request;
+use Illuminate\Session\Middleware\StartSession;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Spatie\Permission\Middleware\PermissionMiddleware;
 use Spatie\Permission\Middleware\RoleMiddleware;
 use Spatie\Permission\Middleware\RoleOrPermissionMiddleware;
+use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -19,14 +28,34 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->trustProxies(
+            headers: Request::HEADER_X_FORWARDED_FOR | Request::HEADER_X_FORWARDED_HOST | Request::HEADER_X_FORWARDED_PROTO,
+        );
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
+        $middleware->append(SignalQueuedWork::class);
+
+        $middleware->redirectUsersTo(function (Request $request): string {
+            $user = $request->user();
+            abort_unless($user instanceof User, 403);
+
+            $team = $user->currentTeam ?? $user->personalTeam();
+            abort_unless($team, 403);
+
+            $route = $user->can('viewInvestorPortal', $team) && $user->cannot('viewFieldWork', $team)
+                ? 'investor-portal.index'
+                : 'dashboard';
+
+            return route($route, ['current_team' => $team]);
+        });
 
         $middleware->web(append: [
+            EnsurePilotPhoneAccess::class,
+            EnsurePlatformImpersonationValid::class,
             HandleAppearance::class,
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
             SetTeamUrlDefaults::class,
-        ]);
+        ], replace: [StartSession::class => StartFarmwellSession::class]);
 
         $middleware->alias([
             'permission' => PermissionMiddleware::class,
@@ -35,7 +64,24 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        $exceptions->dontFlash(['otp']);
         $exceptions->shouldRenderJsonWhen(
-            fn (Request $request) => $request->is('api/*'),
+            fn (Request $request, Throwable $exception): bool => $request->is('api/*')
+                || ($exception instanceof ValidationException && $request->routeIs('login.store') && $request->wantsJson()),
         );
+        $exceptions->respond(function (SymfonyResponse $response, Throwable $exception, Request $request): SymfonyResponse {
+            if ($response->getStatusCode() >= 500 && $request->headers->get('X-Farmwell-Internal-Diagnostics') === '1') {
+                $message = trim((string) preg_replace(
+                    ['/\s+/', '/\b(?:postgres(?:ql)?|pgsql):\/\/[^\s]+/i', '/password=\S+/i'],
+                    [' ', '[redacted-db-url]', 'password=[redacted]'],
+                    $exception->getMessage(),
+                ));
+                $response->headers->set(
+                    'X-Farmwell-Error',
+                    sprintf('%s at %s:%d: %s', $exception::class, basename($exception->getFile()), $exception->getLine(), Str::limit($message, 180)),
+                );
+            }
+
+            return $response;
+        });
     })->create();

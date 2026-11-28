@@ -14,13 +14,16 @@ use Illuminate\Database\Eloquent\Builder;
 
 class CalculateBudgetVariance
 {
+    public function __construct(private ResolveTeamFinanceCurrency $resolveTeamFinanceCurrency) {}
+
     /**
      * @return array<string, mixed>
      */
     public function handle(Team $team, ?Farm $farm = null, ?ProductionCycle $cycle = null): array
     {
-        $budgetedMinor = $this->budgetLineQuery($team, $farm, $cycle)->sum('planned_amount_minor');
-        $spentMinor = $this->expenseQuery($team, $farm, $cycle)->sum('amount_minor');
+        $currency = $this->resolveTeamFinanceCurrency->handle($team);
+        $budgetedMinor = $this->budgetLineQuery($team, $farm, $cycle, $currency)->sum('planned_amount_minor');
+        $spentMinor = $this->expenseQuery($team, $farm, $cycle, $currency)->sum('amount_minor');
         $varianceMinor = $budgetedMinor - $spentMinor;
 
         return [
@@ -32,25 +35,25 @@ class CalculateBudgetVariance
             'spent' => Money::toDecimal((int) $spentMinor),
             'balance' => Money::toDecimal(max(0, (int) $varianceMinor)),
             'variance' => Money::toDecimal((int) $varianceMinor),
-            'byCategory' => $this->byCategory($team, $farm, $cycle),
+            'byCategory' => $this->byCategory($team, $farm, $cycle, $currency),
         ];
     }
 
     /**
      * @return array<int, array<string, mixed>>
      */
-    private function byCategory(Team $team, ?Farm $farm, ?ProductionCycle $cycle): array
+    private function byCategory(Team $team, ?Farm $farm, ?ProductionCycle $cycle, string $currency): array
     {
         return ExpenseCategory::query()
             ->where('team_id', $team->id)
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get()
-            ->map(function (ExpenseCategory $category) use ($team, $farm, $cycle): array {
-                $budgetedMinor = $this->budgetLineQuery($team, $farm, $cycle)
+            ->map(function (ExpenseCategory $category) use ($team, $farm, $cycle, $currency): array {
+                $budgetedMinor = $this->budgetLineQuery($team, $farm, $cycle, $currency)
                     ->where('expense_category_id', $category->id)
                     ->sum('planned_amount_minor');
-                $spentMinor = $this->expenseQuery($team, $farm, $cycle)
+                $spentMinor = $this->expenseQuery($team, $farm, $cycle, $currency)
                     ->where('expense_category_id', $category->id)
                     ->sum('amount_minor');
                 $varianceMinor = (int) $budgetedMinor - (int) $spentMinor;
@@ -72,18 +75,20 @@ class CalculateBudgetVariance
             ->toArray();
     }
 
-    private function budgetLineQuery(Team $team, ?Farm $farm, ?ProductionCycle $cycle): Builder
+    private function budgetLineQuery(Team $team, ?Farm $farm, ?ProductionCycle $cycle, string $currency): Builder
     {
         return BudgetLine::query()
             ->where('team_id', $team->id)
+            ->where('currency', $currency)
             ->when($farm, fn ($query) => $query->where('farm_id', $farm->id))
             ->when($cycle, fn ($query) => $query->where('production_cycle_id', $cycle->id));
     }
 
-    private function expenseQuery(Team $team, ?Farm $farm, ?ProductionCycle $cycle): Builder
+    private function expenseQuery(Team $team, ?Farm $farm, ?ProductionCycle $cycle, string $currency): Builder
     {
         return Expense::query()
             ->where('team_id', $team->id)
+            ->where('currency', $currency)
             ->whereIn('status', ExpenseStatus::spendableValues())
             ->when($farm, fn ($query) => $query->where('farm_id', $farm->id))
             ->when($cycle, fn ($query) => $query->where('production_cycle_id', $cycle->id));

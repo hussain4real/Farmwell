@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Investors;
 
 use App\Enums\ApprovalRequestStatus;
+use App\Enums\ApprovalRequestType;
 use App\Enums\InvestorAgreementStatus;
 use App\Models\ApprovalRequest;
 use App\Models\Team;
@@ -30,7 +31,7 @@ class DecideApprovalRequestRequest extends FormRequest
             return false;
         }
 
-        if ($user->can('manageApprovalRequests', $team)) {
+        if ($approvalRequest->request_type !== ApprovalRequestType::FundingRelease && $user->can('manageApprovalRequests', $team)) {
             return true;
         }
 

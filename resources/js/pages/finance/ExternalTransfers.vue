@@ -1,13 +1,18 @@
 <script setup lang="ts">
 import { Form, Head, usePage } from '@inertiajs/vue3';
-import { FileUp, Landmark } from 'lucide-vue-next';
+import { Landmark, Plus } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
+import EmptyState from '@/components/farm/EmptyState.vue';
+import EvidenceGallery from '@/components/farm/EvidenceGallery.vue';
+import PageHero from '@/components/farm/PageHero.vue';
+import SlideOverForm from '@/components/farm/SlideOverForm.vue';
 import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { formatCurrency } from '@/lib/currency';
 import { dashboard } from '@/routes';
 import { index as financeIndex } from '@/routes/finance';
 import {
@@ -75,6 +80,10 @@ defineOptions({
 
 const currentTeam = computed(() => page.props.currentTeam as Team | null);
 const currentTeamSlug = computed(() => currentTeam.value?.slug ?? '');
+const drawerOpen = ref(false);
+const farmFilter = ref('all');
+const directionFilter = ref('all');
+const statusFilter = ref('all');
 const transferFarmId = ref(props.farms[0]?.id ? String(props.farms[0].id) : '');
 const transferCycleId = ref('');
 const transferBudgetId = ref('');
@@ -118,6 +127,39 @@ const farmInvestorAgreements = computed(() =>
     ),
 );
 
+const filteredTransfers = computed(() =>
+    props.externalTransfers.filter(
+        (transfer) =>
+            (farmFilter.value === 'all' ||
+                String(transfer.farmId) === farmFilter.value) &&
+            (directionFilter.value === 'all' ||
+                transfer.direction === directionFilter.value) &&
+            (statusFilter.value === 'all' ||
+                transfer.status === statusFilter.value),
+    ),
+);
+
+const incomingTotal = computed(() => {
+    const minor = props.externalTransfers
+        .filter((t) => t.direction === 'incoming')
+        .reduce((sum, t) => sum + (t.amountMinor ?? 0), 0);
+
+    return formatCurrency((minor / 100).toFixed(2), props.currency);
+});
+
+const outgoingTotal = computed(() => {
+    const minor = props.externalTransfers
+        .filter((t) => t.direction === 'outgoing')
+        .reduce((sum, t) => sum + (t.amountMinor ?? 0), 0);
+
+    return formatCurrency((minor / 100).toFixed(2), props.currency);
+});
+
+const handleCreated = () => {
+    formKey.value++;
+    drawerOpen.value = false;
+};
+
 watch(transferFarmId, () => {
     transferCycleId.value = '';
     transferBudgetId.value = '';
@@ -132,36 +174,313 @@ watch(transferCycleId, () => {
 </script>
 
 <template>
-    <Head title="Finance / External Transfers" />
+    <div class="flex flex-1 flex-col gap-6 p-4 md:p-6">
+        <Head title="Finance / External Transfers" />
 
-    <div class="flex flex-1 flex-col gap-8 p-4 md:p-6">
-        <Heading
+        <PageHero
+            eyebrow="Farm Accounting"
             title="External transfers"
-            description="Recorded releases, transfer proof, references, and reconciliation"
-        />
-
-        <section
-            v-if="permissions.canManageFinance && currentTeamSlug"
-            class="space-y-4 rounded-lg border p-4"
+            description="Recorded bank/mobile releases, transfer proof, references, and reconciliation history."
         >
+            <template #actions>
+                <Button
+                    v-if="
+                        permissions.canManageFinance &&
+                        currentTeamSlug &&
+                        farms.length > 0
+                    "
+                    type="button"
+                    class="bg-white text-[#1b4d3e] hover:bg-emerald-50"
+                    @click="drawerOpen = true"
+                >
+                    <Plus class="mr-1.5 size-4" />
+                    Record transfer
+                </Button>
+            </template>
+            <template #metrics>
+                <div class="px-4 py-3 sm:px-6">
+                    <p class="text-xs text-emerald-100/75">Transfers</p>
+                    <p class="mt-0.5 text-lg font-semibold tabular-nums">
+                        {{ externalTransfers.length }}
+                    </p>
+                </div>
+                <div class="border-s border-white/15 px-4 py-3 sm:px-6">
+                    <p class="text-xs text-emerald-100/75">Incoming</p>
+                    <p
+                        class="mt-0.5 text-base font-semibold whitespace-nowrap tabular-nums sm:text-lg"
+                    >
+                        {{ incomingTotal }}
+                    </p>
+                </div>
+                <div
+                    class="col-span-2 border-t border-white/15 px-4 py-3 sm:col-span-2 sm:border-s sm:border-t-0 sm:px-6"
+                >
+                    <p class="text-xs text-emerald-100/75">Outgoing</p>
+                    <p
+                        class="mt-0.5 text-base font-semibold whitespace-nowrap tabular-nums sm:text-lg"
+                    >
+                        {{ outgoingTotal }}
+                    </p>
+                </div>
+            </template>
+        </PageHero>
+
+        <div class="flex flex-wrap items-center gap-2">
+            <select
+                v-model="farmFilter"
+                aria-label="Filter transfers by farm"
+                class="h-9 rounded-md border bg-card px-3 text-sm"
+            >
+                <option value="all">All farms</option>
+                <option
+                    v-for="farm in farms"
+                    :key="farm.id"
+                    :value="String(farm.id)"
+                >
+                    {{ farm.name }}
+                </option>
+            </select>
+            <select
+                v-model="directionFilter"
+                aria-label="Filter transfers by direction"
+                class="h-9 rounded-md border bg-card px-3 text-sm"
+            >
+                <option value="all">All directions</option>
+                <option
+                    v-for="option in options.externalTransferDirections"
+                    :key="option.value"
+                    :value="option.value"
+                >
+                    {{ option.label }}
+                </option>
+            </select>
+            <select
+                v-model="statusFilter"
+                aria-label="Filter transfers by status"
+                class="h-9 rounded-md border bg-card px-3 text-sm"
+            >
+                <option value="all">All statuses</option>
+                <option
+                    v-for="option in options.externalTransferStatuses"
+                    :key="option.value"
+                    :value="option.value"
+                >
+                    {{ option.label }}
+                </option>
+            </select>
+        </div>
+
+        <section class="space-y-4">
             <div class="flex items-center gap-2">
-                <FileUp class="size-4" />
+                <Landmark class="size-4 text-primary" />
                 <Heading
                     variant="small"
-                    title="Record external transfer"
-                    description="External tracking only: no wallet, escrow, collection, or disbursement"
+                    title="External transfer register"
+                    description="Proof and reconciliation history"
                 />
             </div>
 
+            <div v-if="filteredTransfers.length > 0" class="space-y-4">
+                <article
+                    v-for="transfer in filteredTransfers"
+                    :key="transfer.id"
+                    class="space-y-4 rounded-2xl border bg-card p-5 text-sm shadow-xs"
+                >
+                    <div
+                        class="flex flex-wrap items-start justify-between gap-3"
+                    >
+                        <div class="min-w-0">
+                            <h2 class="text-base font-semibold">
+                                {{ transfer.directionLabel }} /
+                                {{ transfer.transferType }}
+                            </h2>
+                            <p class="text-xs text-muted-foreground">
+                                {{ transfer.farmName }}
+                                <span v-if="transfer.productionCycleName">
+                                    · {{ transfer.productionCycleName }}
+                                </span>
+                                ·
+                                <span class="whitespace-nowrap">{{
+                                    transfer.transferredOn
+                                }}</span>
+                            </p>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <Badge variant="outline" class="tabular-nums">
+                                {{
+                                    formatCurrency(
+                                        transfer.amount,
+                                        transfer.currency,
+                                    )
+                                }}
+                            </Badge>
+                            <Badge variant="secondary">
+                                {{ transfer.statusLabel }}
+                            </Badge>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap gap-1.5">
+                        <Badge v-if="transfer.investorAgreementTitle">
+                            {{ transfer.investorAgreementTitle }}
+                        </Badge>
+                        <Badge variant="outline">
+                            {{ transfer.investorVisibilityStatusLabel }}
+                        </Badge>
+                    </div>
+                    <dl
+                        class="grid gap-3 rounded-xl bg-muted/40 p-3.5 sm:grid-cols-2"
+                    >
+                        <div class="min-w-0">
+                            <dt class="text-xs text-muted-foreground">
+                                Counterparty
+                            </dt>
+                            <dd class="mt-0.5 font-medium break-words">
+                                {{
+                                    transfer.counterpartyName ??
+                                    'No counterparty'
+                                }}
+                            </dd>
+                        </div>
+                        <div class="min-w-0">
+                            <dt class="text-xs text-muted-foreground">
+                                Reference
+                            </dt>
+                            <dd class="mt-0.5 font-medium break-words">
+                                {{ transfer.reference ?? 'No reference' }}
+                            </dd>
+                        </div>
+                    </dl>
+                    <EvidenceGallery
+                        v-if="transfer.proof.length"
+                        :items="transfer.proof"
+                        compact
+                        dialog-title="Transfer proof"
+                    />
+
+                    <div
+                        v-if="transfer.reconciliations.length"
+                        class="space-y-2"
+                    >
+                        <div
+                            v-for="reconciliation in transfer.reconciliations"
+                            :key="reconciliation.id"
+                            class="flex flex-wrap items-center justify-between gap-2 rounded-xl border bg-muted/20 p-3"
+                        >
+                            <p class="font-medium tabular-nums">
+                                {{ reconciliation.statusLabel }} ·
+                                {{
+                                    formatCurrency(
+                                        reconciliation.reconciledAmount,
+                                        transfer.currency,
+                                    )
+                                }}
+                            </p>
+                            <p class="text-xs text-muted-foreground">
+                                {{ reconciliation.reconciledAt }}
+                            </p>
+                        </div>
+                    </div>
+
+                    <details
+                        v-if="permissions.canManageFinance && currentTeamSlug"
+                        class="border-t pt-3"
+                    >
+                        <summary
+                            class="cursor-pointer text-xs font-medium text-primary hover:underline"
+                        >
+                            Reconcile transfer
+                        </summary>
+                        <Form
+                            v-bind="
+                                storeReconciliation.form({
+                                    current_team: currentTeamSlug,
+                                    external_transfer: transfer.id,
+                                })
+                            "
+                            class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
+                            v-slot="{ errors, processing }"
+                        >
+                            <div class="grid gap-1.5">
+                                <Label :for="`reconcile-status-${transfer.id}`">
+                                    Reconciliation
+                                </Label>
+                                <select
+                                    :id="`reconcile-status-${transfer.id}`"
+                                    name="status"
+                                    class="h-9 rounded-md border bg-background px-3 text-sm"
+                                >
+                                    <option
+                                        v-for="option in options.transferReconciliationStatuses"
+                                        :key="option.value"
+                                        :value="option.value"
+                                    >
+                                        {{ option.label }}
+                                    </option>
+                                </select>
+                                <InputError :message="errors.status" />
+                            </div>
+                            <div class="grid gap-1.5">
+                                <Label :for="`reconcile-amount-${transfer.id}`">
+                                    Amount
+                                </Label>
+                                <Input
+                                    :id="`reconcile-amount-${transfer.id}`"
+                                    name="reconciled_amount"
+                                    inputmode="decimal"
+                                    :value="transfer.amount"
+                                    required
+                                />
+                                <InputError
+                                    :message="errors.reconciled_amount"
+                                />
+                            </div>
+                            <div class="grid gap-1.5">
+                                <Label :for="`reconcile-at-${transfer.id}`">
+                                    Reconciled at
+                                </Label>
+                                <Input
+                                    :id="`reconcile-at-${transfer.id}`"
+                                    name="reconciled_at"
+                                    type="datetime-local"
+                                />
+                                <InputError :message="errors.reconciled_at" />
+                            </div>
+                            <div class="flex items-end">
+                                <Button
+                                    :disabled="processing"
+                                    class="w-full sm:w-auto"
+                                >
+                                    Reconcile
+                                </Button>
+                            </div>
+                        </Form>
+                    </details>
+                </article>
+            </div>
+            <EmptyState
+                v-else
+                title="No external transfers yet"
+                description="Record incoming investor funding or outgoing disbursements alongside bank transfer proof."
+                :icon="Landmark"
+            />
+        </section>
+
+        <SlideOverForm
+            :open="drawerOpen"
+            title="Record external transfer"
+            description="External tracking only: no wallet, escrow, collection, or disbursement."
+            wide
+            @update:open="drawerOpen = $event"
+        >
             <Form
-                v-if="farms.length > 0"
+                v-if="farms.length > 0 && currentTeamSlug"
                 :key="formKey"
                 v-bind="storeExternalTransfer.form(currentTeamSlug)"
-                class="grid gap-4 md:grid-cols-2 xl:grid-cols-4"
+                class="grid gap-4 sm:grid-cols-2"
                 v-slot="{ errors, processing, progress }"
-                @success="formKey++"
+                @success="handleCreated"
             >
-                <div class="grid gap-2">
+                <div class="grid gap-1.5">
                     <Label for="transfer-farm">Farm</Label>
                     <select
                         id="transfer-farm"
@@ -180,7 +499,7 @@ watch(transferCycleId, () => {
                     </select>
                     <InputError :message="errors.farm_id" />
                 </div>
-                <div class="grid gap-2">
+                <div class="grid gap-1.5">
                     <Label for="transfer-cycle">Cycle</Label>
                     <select
                         id="transfer-cycle"
@@ -200,7 +519,7 @@ watch(transferCycleId, () => {
                     </select>
                     <InputError :message="errors.production_cycle_id" />
                 </div>
-                <div class="grid gap-2">
+                <div class="grid gap-1.5">
                     <Label for="transfer-direction">Direction</Label>
                     <select
                         id="transfer-direction"
@@ -219,7 +538,7 @@ watch(transferCycleId, () => {
                     </select>
                     <InputError :message="errors.direction" />
                 </div>
-                <div class="grid gap-2">
+                <div class="grid gap-1.5">
                     <Label for="transfer-status">Status</Label>
                     <select
                         id="transfer-status"
@@ -237,7 +556,7 @@ watch(transferCycleId, () => {
                     </select>
                     <InputError :message="errors.status" />
                 </div>
-                <div class="grid gap-2">
+                <div class="grid gap-1.5">
                     <Label for="transfer-budget">Budget</Label>
                     <select
                         id="transfer-budget"
@@ -256,7 +575,7 @@ watch(transferCycleId, () => {
                     </select>
                     <InputError :message="errors.budget_id" />
                 </div>
-                <div class="grid gap-2">
+                <div class="grid gap-1.5">
                     <Label for="transfer-phase">Funding phase</Label>
                     <select
                         id="transfer-phase"
@@ -275,7 +594,7 @@ watch(transferCycleId, () => {
                     </select>
                     <InputError :message="errors.funding_phase_id" />
                 </div>
-                <div class="grid gap-2">
+                <div class="grid gap-1.5">
                     <Label for="transfer-expense">Expense</Label>
                     <select
                         id="transfer-expense"
@@ -290,12 +609,14 @@ watch(transferCycleId, () => {
                             :value="String(expense.id)"
                         >
                             {{ expense.expenseCategoryName }} /
-                            {{ expense.amount }}
+                            {{
+                                formatCurrency(expense.amount, expense.currency)
+                            }}
                         </option>
                     </select>
                     <InputError :message="errors.expense_id" />
                 </div>
-                <div class="grid gap-2">
+                <div class="grid gap-1.5">
                     <Label for="transfer-investor-agreement">
                         Investor agreement
                     </Label>
@@ -316,7 +637,7 @@ watch(transferCycleId, () => {
                     </select>
                     <InputError :message="errors.investor_agreement_id" />
                 </div>
-                <div class="grid gap-2">
+                <div class="grid gap-1.5">
                     <Label for="transfer-investor-visibility">
                         Investor visibility
                     </Label>
@@ -336,7 +657,7 @@ watch(transferCycleId, () => {
                     </select>
                     <InputError :message="errors.investor_visibility_status" />
                 </div>
-                <div class="grid gap-2">
+                <div class="grid gap-1.5">
                     <Label for="transfer-type">Type</Label>
                     <Input
                         id="transfer-type"
@@ -346,7 +667,7 @@ watch(transferCycleId, () => {
                     />
                     <InputError :message="errors.transfer_type" />
                 </div>
-                <div class="grid gap-2">
+                <div class="grid gap-1.5">
                     <Label for="transfer-amount">Amount ({{ currency }})</Label>
                     <Input
                         id="transfer-amount"
@@ -356,7 +677,7 @@ watch(transferCycleId, () => {
                     />
                     <InputError :message="errors.amount" />
                 </div>
-                <div class="grid gap-2">
+                <div class="grid gap-1.5">
                     <Label for="transfer-date">Transferred on</Label>
                     <Input
                         id="transfer-date"
@@ -366,7 +687,7 @@ watch(transferCycleId, () => {
                     />
                     <InputError :message="errors.transferred_on" />
                 </div>
-                <div class="grid gap-2">
+                <div class="grid gap-1.5">
                     <Label for="transfer-counterparty">Counterparty</Label>
                     <Input
                         id="transfer-counterparty"
@@ -374,17 +695,17 @@ watch(transferCycleId, () => {
                     />
                     <InputError :message="errors.counterparty_name" />
                 </div>
-                <div class="grid gap-2">
+                <div class="grid gap-1.5">
                     <Label for="transfer-reference">Reference</Label>
                     <Input id="transfer-reference" name="reference" />
                     <InputError :message="errors.reference" />
                 </div>
-                <div class="grid gap-2">
+                <div class="grid gap-1.5">
                     <Label for="proof-caption">Proof caption</Label>
                     <Input id="proof-caption" name="proof_caption" />
                     <InputError :message="errors.proof_caption" />
                 </div>
-                <div class="grid gap-2">
+                <div class="grid gap-1.5">
                     <Label for="transfer-proof">Proof</Label>
                     <Input id="transfer-proof" name="proof" type="file" />
                     <InputError :message="errors.proof" />
@@ -395,156 +716,15 @@ watch(transferCycleId, () => {
                         class="h-1 w-full"
                     />
                 </div>
-                <div class="flex items-end">
-                    <Button :disabled="processing">Record transfer</Button>
+                <div class="sm:col-span-2">
+                    <Button :disabled="processing" class="w-full sm:w-auto">
+                        Record transfer
+                    </Button>
                 </div>
             </Form>
-        </section>
-
-        <section class="space-y-4">
-            <div class="flex items-center gap-2">
-                <Landmark class="size-4" />
-                <Heading
-                    variant="small"
-                    title="External transfer register"
-                    description="Proof and reconciliation history"
-                />
-            </div>
-
-            <div v-if="externalTransfers.length > 0" class="space-y-4">
-                <article
-                    v-for="transfer in externalTransfers"
-                    :key="transfer.id"
-                    class="space-y-4 rounded-lg border p-4 text-sm"
-                >
-                    <div class="flex items-start justify-between gap-3">
-                        <div>
-                            <h3 class="font-medium">
-                                {{ transfer.directionLabel }} /
-                                {{ transfer.transferType }}
-                            </h3>
-                            <p class="text-muted-foreground">
-                                {{ transfer.farmName }}
-                                <span v-if="transfer.productionCycleName">
-                                    / {{ transfer.productionCycleName }}
-                                </span>
-                            </p>
-                        </div>
-                        <Badge variant="secondary">
-                            {{ transfer.statusLabel }}
-                        </Badge>
-                    </div>
-                    <div class="flex flex-wrap gap-2">
-                        <Badge v-if="transfer.investorAgreementTitle">
-                            {{ transfer.investorAgreementTitle }}
-                        </Badge>
-                        <Badge variant="outline">
-                            {{ transfer.investorVisibilityStatusLabel }}
-                        </Badge>
-                    </div>
-                    <div class="grid gap-2 md:grid-cols-4">
-                        <p>{{ transfer.amount }} {{ transfer.currency }}</p>
-                        <p>{{ transfer.transferredOn }}</p>
-                        <p>
-                            {{ transfer.counterpartyName ?? 'No counterparty' }}
-                        </p>
-                        <p>{{ transfer.reference ?? 'No reference' }}</p>
-                    </div>
-                    <div
-                        v-if="transfer.proof.length"
-                        class="flex flex-wrap gap-2"
-                    >
-                        <a
-                            v-for="proof in transfer.proof"
-                            :key="proof.id"
-                            :href="proof.downloadUrl"
-                            class="underline underline-offset-4"
-                        >
-                            {{ proof.fileName }}
-                        </a>
-                    </div>
-
-                    <div
-                        v-if="transfer.reconciliations.length"
-                        class="space-y-2"
-                    >
-                        <div
-                            v-for="reconciliation in transfer.reconciliations"
-                            :key="reconciliation.id"
-                            class="rounded-lg border p-3"
-                        >
-                            <p class="font-medium">
-                                {{ reconciliation.statusLabel }} /
-                                {{ reconciliation.reconciledAmount }}
-                            </p>
-                            <p class="text-muted-foreground">
-                                {{ reconciliation.reconciledAt }}
-                            </p>
-                        </div>
-                    </div>
-
-                    <Form
-                        v-if="permissions.canManageFinance && currentTeamSlug"
-                        v-bind="
-                            storeReconciliation.form({
-                                current_team: currentTeamSlug,
-                                external_transfer: transfer.id,
-                            })
-                        "
-                        class="grid gap-3 md:grid-cols-4"
-                        v-slot="{ errors, processing }"
-                    >
-                        <div class="grid gap-2">
-                            <Label :for="`reconcile-status-${transfer.id}`">
-                                Reconciliation
-                            </Label>
-                            <select
-                                :id="`reconcile-status-${transfer.id}`"
-                                name="status"
-                                class="h-9 rounded-md border bg-background px-3 text-sm"
-                            >
-                                <option
-                                    v-for="option in options.transferReconciliationStatuses"
-                                    :key="option.value"
-                                    :value="option.value"
-                                >
-                                    {{ option.label }}
-                                </option>
-                            </select>
-                            <InputError :message="errors.status" />
-                        </div>
-                        <div class="grid gap-2">
-                            <Label :for="`reconcile-amount-${transfer.id}`">
-                                Amount
-                            </Label>
-                            <Input
-                                :id="`reconcile-amount-${transfer.id}`"
-                                name="reconciled_amount"
-                                :value="transfer.amount"
-                                required
-                            />
-                            <InputError :message="errors.reconciled_amount" />
-                        </div>
-                        <div class="grid gap-2">
-                            <Label :for="`reconcile-at-${transfer.id}`">
-                                Reconciled at
-                            </Label>
-                            <Input
-                                :id="`reconcile-at-${transfer.id}`"
-                                name="reconciled_at"
-                                type="datetime-local"
-                            />
-                            <InputError :message="errors.reconciled_at" />
-                        </div>
-                        <div class="flex items-end">
-                            <Button :disabled="processing">Reconcile</Button>
-                        </div>
-                    </Form>
-                </article>
-            </div>
             <p v-else class="text-sm text-muted-foreground">
-                No external transfers recorded yet.
+                Create a farm before adding external transfers.
             </p>
-        </section>
+        </SlideOverForm>
     </div>
 </template>

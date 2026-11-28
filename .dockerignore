@@ -1,0 +1,17 @@
+.git
+.wrangler
+.env
+.env.*
+!.env.example
+node_modules
+vendor
+storage/logs
+storage/app
+public/build
+public/hot
+bootstrap/cache/*.php
+tests
+.agents
+.codex
+cloudflare-worker.js
+wrangler.jsonc

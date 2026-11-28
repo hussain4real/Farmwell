@@ -1,4 +1,4 @@
-export type TeamRole = 'owner' | 'admin' | 'member' | 'investor';
+export type TeamRole = 'owner' | 'admin' | 'member' | 'operator' | 'investor';
 
 export type Team = {
     id: number;
@@ -13,15 +13,17 @@ export type Team = {
 export type TeamMember = {
     id: number;
     name: string;
-    email: string;
+    email: string | null;
     avatar?: string | null;
     role: TeamRole;
     role_label: string;
 };
 
 export type TeamInvitation = {
+    phone: string | null;
+    phone_url: string | null;
     code: string;
-    email: string;
+    email: string | null;
     role: TeamRole;
     role_label: string;
     created_at: string;
@@ -39,6 +41,7 @@ export type TeamPermissions = {
     canViewAuditEvents: boolean;
     canViewFarmOperations: boolean;
     canManageFarmOperations: boolean;
+    canManageFieldWork: boolean;
     canViewFinance: boolean;
     canManageFinance: boolean;
     canViewInvestorPortal: boolean;
@@ -51,4 +54,23 @@ export type TeamPermissions = {
 export type RoleOption = {
     value: TeamRole;
     label: string;
+};
+
+export type WorkspacePlanSummary = {
+    key: 'starter' | 'pro' | 'investor';
+    label: string;
+    description: string;
+    maxFarms: number | null;
+    maxMembers: number | null;
+    allowsPhoneInvitations: boolean;
+    allowsAiSummaries: boolean;
+    allowsInvestorMode: boolean;
+    allowsAssistant: boolean;
+};
+
+export type TeamFeatures = {
+    investorMode: boolean;
+    needsOnboarding: boolean;
+    plan?: WorkspacePlanSummary;
+    canAddFarm?: boolean;
 };

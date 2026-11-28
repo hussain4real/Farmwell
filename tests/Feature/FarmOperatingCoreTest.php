@@ -148,6 +148,9 @@ test('owners can create farm operating records with mixed commodities', function
             ->where('stats.productionCycles', 2)
             ->where('stats.commodities', 2)
             ->where('farms.0.name', 'North Farm')
+            ->where('farms.0.location', 'Kaduna')
+            ->where('farms.0.productionUnitsCount', 1)
+            ->where('farms.0.productionCyclesCount', 2)
             ->where('farms.0.productionUnits.0.name', 'Block A')
             ->where('farms.0.productionCycles.0.commodities.0.role', CommodityRole::Primary->value)
         );

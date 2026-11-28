@@ -109,6 +109,8 @@ export type Evidence = {
     visibility: string;
     capturedOn: string | null;
     downloadUrl: string;
+    thumbnailUrl?: string | null;
+    previewUrl?: string | null;
 };
 
 export type FarmActivity = {

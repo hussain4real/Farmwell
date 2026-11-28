@@ -52,5 +52,47 @@ jobs:
       - name: Build Assets
         run: npm run build
 
+      - name: Test Client Behavior
+        run: |
+          npm run test:client
+          node --experimental-strip-types --test tests/summary-polling.test.mjs
+          node --experimental-strip-types --test tests/summary-review-text.test.mjs
+          node --test tests/font-build.test.mjs
+
+      - name: Install PostgreSQL 18 backup and restore tools
+        run: bash .github/scripts/setup-backup-postgres.sh
+
+      - name: Restore a synthetic encrypted staging backup
+        run: |
+          bash tests/backup-restore.sh
+          bash tests/backup-restore.sh supabase
+
+      - name: Rehearse a tenant-isolated pilot migration
+        run: bash tests/team-migration.sh
+
       - name: Quality Gate
         run: composer ci:check
+
+  queue-timeout-image:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Build application image
+        run: docker build -t farmwell-queue-test .
+
+      - name: Verify queue timeouts in the image
+        run: |
+          docker run --rm -i --entrypoint sh farmwell-queue-test \
+            -c 'cat > /tmp/queue-timeout-image.php && php /tmp/queue-timeout-image.php' < tests/queue-timeout-image.php
+
+      - name: Verify multipart upload limits in Apache
+        run: |
+          docker create --name farmwell-node-tool node:22-bookworm-slim
+          docker cp farmwell-node-tool:/usr/local/bin/node "$RUNNER_TEMP/farmwell-test-node"
+          docker rm farmwell-node-tool
+          docker run --rm --network none -i \
+            --mount "type=bind,src=$RUNNER_TEMP/farmwell-test-node,dst=/tmp/test-node,readonly" \
+            --entrypoint /tmp/test-node farmwell-queue-test \
+            --input-type=module < tests/upload-limits-image.mjs

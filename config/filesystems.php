@@ -38,12 +38,39 @@ return [
             'report' => false,
         ],
 
-        'farmwell_private' => [
+        'farmwell_private' => env('FARMWELL_PRIVATE_DISK', 'local') === 'r2' ? [
+            'driver' => 'r2',
+            'key' => env('AWS_ACCESS_KEY_ID'),
+            'secret' => env('AWS_SECRET_ACCESS_KEY'),
+            'region' => env('AWS_DEFAULT_REGION', 'auto'),
+            'bucket' => env('AWS_BUCKET'),
+            'endpoint' => env('AWS_ENDPOINT'),
+            'use_path_style_endpoint' => true,
+            'visibility' => 'private',
+            'retain_visibility' => false,
+            'throw' => true,
+        ] : [
             'driver' => 'local',
             'root' => storage_path('app/private/farmwell'),
             'visibility' => 'private',
             'throw' => false,
             'report' => false,
+        ],
+
+        'farmwell_backups' => env('FARMWELL_BACKUP_DISK') === 'r2' ? [
+            'driver' => 'r2',
+            'key' => env('BACKUP_R2_ACCESS_KEY_ID'),
+            'secret' => env('BACKUP_R2_SECRET_ACCESS_KEY'),
+            'region' => 'auto',
+            'bucket' => env('BACKUP_R2_BUCKET'),
+            'endpoint' => env('BACKUP_R2_ENDPOINT'),
+            'use_path_style_endpoint' => true,
+            'throw' => true,
+        ] : [
+            'driver' => 'local',
+            'root' => env('FARMWELL_BACKUP_ROOT', storage_path('app/backups')),
+            'visibility' => 'private',
+            'throw' => true,
         ],
 
         'public' => [

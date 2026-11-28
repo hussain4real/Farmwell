@@ -40,7 +40,7 @@ class ValidTeamInvitation implements ValidationRule
             return;
         }
 
-        if (strtolower($value->email) !== strtolower($this->user->email)) {
+        if ($value->email === null || $this->user->email === null || strtolower($value->email) !== strtolower($this->user->email)) {
             $fail(__('This invitation was sent to a different email address.'));
         }
     }

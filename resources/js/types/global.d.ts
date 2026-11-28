@@ -1,5 +1,5 @@
 import type { Auth } from '@/types/auth';
-import type { Team, TeamPermissions } from '@/types/teams';
+import type { Team, TeamFeatures, TeamPermissions } from '@/types/teams';
 
 // Extend ImportMeta interface for Vite...
 declare module 'vite/client' {
@@ -20,8 +20,29 @@ declare module '@inertiajs/core' {
             name: string;
             auth: Auth;
             sidebarOpen: boolean;
+            canManagePlatform: boolean;
+            platformAccess: {
+                id: string;
+                team_id: number;
+                team_name: string;
+                team_slug: string;
+                reason: string;
+                expires_at: number;
+            } | null;
+            platformImpersonation: {
+                id: string;
+                impersonator_id: number;
+                impersonator_name: string;
+                target_user_id: number;
+                target_user_name: string;
+                target_user_email: string | null;
+                reason: string;
+                started_at: number;
+                expires_at: number;
+            } | null;
             currentTeam: Team | null;
             currentTeamPermissions: TeamPermissions | null;
+            currentTeamFeatures: TeamFeatures | null;
             teams: Team[];
             [key: string]: unknown;
         };

@@ -1,13 +1,13 @@
 # Farmwell User Guides
 
-Applies through: Phase 6 - Harvest, Sales, Capital Recovery
-Last reviewed: 2026-06-11  
+Applies through: Phase 8 - Reports, Exports, and Operations Readiness
+Last reviewed: 2026-11-03
 Audience: All Farmwell users, support users, and implementation maintainers  
 Related app areas: Dashboard, Farms, Field Diary, Tasks, WhatsApp Intake, Finance, Harvests, Investors, Approvals, Investor Portal, Team Settings
 
-Farmwell is currently documented through Phase 6: tenant setup, farm operations, diary/tasks/intake, finance tracking, investor agreements, investor approvals, agreement-scoped investor transparency, harvest/output tracking, sales records, capital-first recovery, and investor distribution acknowledgement.
+Farmwell is documented through Phase 8: tenant setup, farm operations, diary/tasks/intake, finance tracking, investor agreements, investor approvals, agreement-scoped investor transparency, harvest/output tracking, sales records, capital-first recovery, and investor distribution acknowledgement.
 
-These guides describe current product behavior only. AI summaries, formal reports, exports, backups, marketplace workflows, and public investment workflows are not current user workflows in this guide set.
+AI summaries include internal drafts and reviewed investor progress publication. Investors can generate PDF statements, and authorized staff can generate Excel exports. Encrypted staging backups are configured.
 
 ## Guide Map
 
@@ -15,8 +15,8 @@ These guides describe current product behavior only. AI summaries, formal report
 | --- | --- | --- |
 | Farm owner | Owner | [Owner and Admin Guide](owner-admin-guide.md) |
 | Farm organization admin | Admin | [Owner and Admin Guide](owner-admin-guide.md) |
-| Farm manager / farmer | Member or Admin | [Farm Operations Guide](farm-operations-guide.md) |
-| Operations / log keeper | Member or Admin | [Farm Operations Guide](farm-operations-guide.md) |
+| Farm manager / farmer | Operator or Admin | [Farm Operations Guide](farm-operations-guide.md) |
+| Operations / log keeper | Operator or Admin | [Farm Operations Guide](farm-operations-guide.md) |
 | Finance / admin user | Owner or Admin | [Finance Guide](finance-guide.md) |
 | Investor | Investor | [Investor Guide](investor-guide.md) |
 | Support / implementation maintainer | Owner, Admin, or support context | [Permissions and Visibility](permissions-and-visibility.md) |
@@ -40,6 +40,7 @@ Small teams may give one person more than one responsibility. Use the permission
 | Harvests | Harvest/output records, sales, capital recovery, and investor distributions | Farm Operations Guide / Finance Guide |
 | Investors | Investor agreements, agreement documents, and approval settings | Owner and Admin Guide |
 | Approvals | Internal approval queue and decision tracking | Owner and Admin Guide |
+| AI summaries | Generate and review drafts; publish reviewed progress to an assigned investor | Owner and Admin Guide |
 | Investor Portal | Investor-only view of assigned approved agreement records | Investor Guide |
 | Team Settings | Team membership, invitations, settings, profile, and security | Owner and Admin Guide |
 
@@ -63,8 +64,6 @@ Small teams may give one person more than one responsibility. Use the permission
 
 The following are planned in later phases and should not be described to users as available now:
 
-- AI-generated weekly, risk, decision, or investor summary drafts.
-- Formal PDF reports, Excel exports, backup operations, and investor statements.
 - WhatsApp Business API automation.
 - Platform administrator, agronomist/advisor, buyer/customer, marketplace, and public investment workflows.
 
@@ -79,5 +78,4 @@ Use this checklist after every implementation phase:
 - Cross-check workspace names against route-backed app pages.
 - Confirm finance language remains external-tracking only.
 - Confirm investor language excludes internal notes, unapproved records, unrelated teams, unrelated investors, sensitive bank details, and private records.
-- Add Phase 7 content after Laravel AI SDK draft/review workflows ship.
-- Add Phase 8 content after report, export, and backup workflows ship.
+- Check report and export instructions when reporting behavior changes.

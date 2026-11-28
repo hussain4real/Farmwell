@@ -1,6 +1,6 @@
 # Farmwell MVP Implementation Progress
 
-Last updated: 2026-06-11
+Last updated: 2026-11-16
 
 ## Status Legend
 
@@ -10,7 +10,7 @@ Last updated: 2026-06-11
 
 ## Current Assessment
 
-Phases 0 through 6 are complete against the approved MVP plan. Phase 6 achieves its stated goal: harvest/output records, sales, capital-first recovery, investor distributions, partial recovery, loss handling, multiple-sale recovery, and investor acknowledgement visibility are implemented with audit, authorization, browser smoke, static analysis, and 100% coverage gates.
+Phase 8 passed private staging acceptance on November 3. Phases 0 through 7 were previously completed against the approved MVP plan. Phase 7 includes queued progress, weekly, risk/decision, and intake-cleanup drafts, with separate review and investor publication controls. Phase 6 achieves its stated goal: harvest/output records, sales, capital-first recovery, investor distributions, partial recovery, loss handling, multiple-sale recovery, and investor acknowledgement visibility are implemented with audit, authorization, browser smoke, static analysis, and 100% coverage gates.
 
 The pre-Phase-4 product structure follow-up is complete: Dashboard, Farm Operations, Field Diary, Task Calendar, and WhatsApp Intake now have separate route-backed page boundaries.
 
@@ -25,8 +25,8 @@ The pre-Phase-4 product structure follow-up is complete: Dashboard, Farm Operati
 | 4. Budgets, Expenses, Funding, Transfers | Track operating money without wallet/escrow behavior. | [x] Complete | Budgets, funding phases, expenses, receipts, external transfers, proof, reconciliation, variance, carry-forward, and finance pages are implemented. |
 | 5. Investor Agreements and Approvals | Add private investor transparency safely. | [x] Complete | Investor role, agreements, approval rules, decisions, approved feeds, comments, and scoped investor portal are implemented. |
 | 6. Harvest, Sales, Capital Recovery | Close the farm season financial loop. | [x] Complete | Harvests, sales, capital recovery, investor distribution calculations, acknowledgement approval, and investor portal visibility are implemented. |
-| 7. AI Summaries and Assisted Reporting | Add BRS AI capabilities safely after authoritative data exists. | [ ] Not started | Must use Laravel AI SDK and review-gated drafts. |
-| 8. Reports, Exports, Operations Readiness | Make the system shareable and pilot-ready. | [ ] Not started | Pending core finance, investor, harvest, and AI data paths. |
+| 7. AI Summaries and Assisted Reporting | Add BRS AI capabilities safely after authoritative data exists. | [x] Complete | Accepted on private staging with the live provider, queue recovery, review-gated publication, and investor isolation verified. |
+| 8. Reports, Exports, Operations Readiness | Make the system shareable and pilot-ready. | [x] Accepted on staging | Investors downloaded agreement statements and the owner downloaded all five spreadsheets. The staging backup and restore drill passed. |
 | 9. Later Enhancements | Start only after MVP sign-off. | [ ] Not started | Deferred until explicitly selected. |
 
 ## Completed Phase Details
@@ -137,40 +137,44 @@ The pre-Phase-4 product structure follow-up is complete: Dashboard, Farm Operati
 
 ### Phase 7. AI Summaries and Assisted Reporting
 
-- [ ] Install `laravel/ai`.
-- [ ] Publish Laravel AI SDK config and migrations.
-- [ ] Keep provider/model selection in `config/ai.php` and environment variables.
-- [ ] Use Sub-agents as needed for specialized tasks or data access.
-- [ ] Add Farmwell AI agent for investor-safe progress summaries.
-- [ ] Add Farmwell AI agent for weekly summaries.
-- [ ] Add Farmwell AI agent for risk/decision summaries.
-- [ ] Add Farmwell AI agent for WhatsApp/intake cleanup suggestions.
-- [ ] Queue long-running AI summary work.
-- [ ] Store prompts, selected source record IDs, generated output, review status, reviewer, and final published text.
-- [ ] Ensure AI outputs are drafts only and never publish directly to investors.
-- [ ] Ensure investor-facing prompts only include policy-approved records.
-- [ ] Exclude private notes, unrelated tenant data, unrelated investor data, sensitive bank details, and unapproved evidence from prompts.
-- [ ] Use Laravel AI SDK fakes/assertions in tests.
-- [ ] Maintain 100% coverage without calling live AI providers.
+Private staging acceptance, 2026-11-03: the scheduled worker generated all four summary types with OpenAI. A controlled transient failure produced one draft after retry. The investor saw the reviewed update only after publication. A two-investor regression verified agreement isolation on the same team and farm.
+
+Staging application revision `15f6295` served five successful warm portal requests with a median of 1.43 seconds to response headers (range 1.33–2.15 seconds). The cold request took 18.73 seconds. Track cold-start latency and any recurrence of Cloudflare 1101 during operations readiness. [PR #7 and acceptance evidence](https://github.com/hussain4real/Farmwell/pull/7)
+
+- [x] Install `laravel/ai`.
+- [x] Publish Laravel AI SDK config and migrations.
+- [x] Keep provider/model selection in `config/ai.php` and environment variables.
+- [x] Add Farmwell AI agent for investor-safe progress summaries and explicitly reviewed investor publication.
+- [x] Add Farmwell AI agent for weekly summaries.
+- [x] Add Farmwell AI agent for risk/decision summaries.
+- [x] Add Farmwell AI agent for WhatsApp/intake cleanup suggestions using a manually sanitized excerpt.
+- [x] Queue all four summary types.
+- [x] Store prompts, selected source record IDs, generated output, review status, reviewer, and final published text.
+- [x] Require approval and a separate publication action before an investor sees a progress summary.
+- [x] Restrict investor progress prompts to investor-safe activities within the agreement scope and recheck source and audience snapshots for publication and display.
+- [~] Exclude private notes, unrelated tenants and evidence from selected fields. Intake cleanup sends a user-provided sanitized excerpt; users must remove sensitive data before submission.
+- [x] Use Laravel AI SDK fakes/assertions for summary types.
+- [x] Maintain 100% coverage without calling live AI providers.
 
 ### Phase 8. Reports, Exports, Operations Readiness
 
-- [ ] Install Spatie PDF.
-- [ ] Install Laravel Excel.
-- [ ] Install Spatie Backup.
-- [ ] Add report artifact records.
-- [ ] Add investor statements.
-- [ ] Add activity exports.
-- [ ] Add budget exports.
-- [ ] Add harvest exports.
-- [ ] Add sales exports.
-- [ ] Add distribution exports.
-- [ ] Add queued report generation.
-- [ ] Add optional AI-generated summary sections for reviewable reports.
-- [ ] Ensure authorized report/export downloads work.
-- [ ] Ensure investor reports exclude private data.
-- [ ] Test backup and queue paths.
-- [ ] Maintain 100% coverage and static-analysis pass.
+- [x] Install Spatie PDF with the DOMPDF renderer.
+- [x] Install Laravel Excel for XLSX exports.
+- [x] Install Spatie Backup and configure encrypted PostgreSQL and private media archives.
+- [x] Add report artifact records with the team, agreement, generator, period, creation time, and saved output.
+- [x] Add investor-generated PDF statements for a selected period on an active or completed agreement.
+- [x] Add downloadable field diary XLSX snapshots with period, farm, unit, commodity, funding phase, and activity type filters.
+- [x] Add budget variance XLSX exports with category totals, expense notes, and linked field activities.
+- [x] Add harvest XLSX exports with farm and period filters, quantities sold through period end, and recorded labour costs.
+- [x] Add sales XLSX exports with buyer, quantity, price, deductions, payment status, and revenue totals by commodity, unit, and currency.
+- [x] Add distribution XLSX exports with recorded capital recovery, profit splits, payout status, and totals by agreement and currency.
+- [x] Generate investor statements and all five Excel exports on the database queue, with permission checks, bounded retries, and ready-only downloads.
+- [x] Offer an optional reviewed AI progress section on investor PDF statements. Only published, current updates for the agreement and statement period qualify.
+- [x] Ensure authorized report/export downloads work.
+- [x] Ensure investor reports exclude private data.
+- [x] Test the database queue and restore an encrypted backup into an isolated PostgreSQL cluster.
+- [x] Activate scheduled staging backups and restore an archive retrieved from the private backup bucket.
+- [x] Maintain 100% coverage and static-analysis pass.
 
 ### Phase 9. Later Enhancements
 
@@ -196,4 +200,33 @@ The pre-Phase-4 product structure follow-up is complete: Dashboard, Farm Operati
 
 ## Next Recommended Goal
 
-Start Phase 7: AI Summaries and Assisted Reporting.
+### Private staging pilot rehearsal, 5 November 2026
+
+**Run `PILOT-20261105-01` reconciled on private staging.** Operator Test recorded the milestone on Staging test farm (farm 1). Aminu Hussain acted for Finance, and Staging Test Investor reviewed it under Staging test agreement (agreement 1). Each used a separate signed-in session. All amounts and evidence were synthetic.
+
+| Step | Verified result |
+| --- | --- |
+| Mobile field diary | In Chrome Incognito at a 390 × 844 viewport, Operator Test saved diary entry #2 with private JPEG evidence #3. The operator’s direct visits to Finance and team administration both returned 403. |
+| Funding and evidence | Finance attached the same image to funding phase #3 and requested ₦120.00. The investor downloaded the approval evidence. Its SHA-256 matched the uploaded file, as did the owner’s download from diary entry #2. |
+| Approval and recorded release | On approval request #3, the investor approved ₦90.00. Finance showed ₦90.00 approved and ₦0.00 released before the owner recorded the ₦90.00 simulated external release. Expense #4 recorded ₦30.00 against the phase, budget #1 and diary entry #2. |
+| Investor statement | The investor downloaded PDF #8 for 5 November. Opening ₦77.66 + released ₦90.00 − approved spend ₦30.00 = closing ₦137.66. The investor portal also showed ₦137.66. |
+| Finance workbook | The owner downloaded budget variance export #9 for the same day. The approved ₦30.00 expense row contained the rehearsal reference and linked activity “#2 Milestone inspection.” Against the ₦1,000.00 full budget, the workbook showed ₦30.00 period spend and ₦970.00 variance. |
+
+**The staging rehearsal passed, and both sponsors approved starting the pilot.** The operator reopened the diary image on the intended phone after desktop Chrome Incognito returned `ERR_BLOCKED_BY_CLIENT`.
+
+| Acceptance item | Result or next action |
+| --- | --- |
+| Operator on the intended phone | Passed on 5 November 2026. The user confirmed that Chrome on their Redmi phone downloaded `PILOT-20261105-01.jpg` from diary entry #2 and that the opened image displayed “Synthetic field inspection.” |
+| Pilot farms | On 5 November 2026 the user confirmed MDSxclusive Farms and Muhammed Sanni’s fish farm, identified in the fish farming investment agreement dated 1 November 2026. |
+| Participants and sponsor | Awaiting the user’s confirmation of the field operator, finance lead, investor representative and sponsor. |
+| Launch decision | Record the sponsor’s explicit decision, date and any conditions after checking the device result and participant roster. |
+
+### Phase 8 staging acceptance and recovery
+
+Private staging accepted the Phase 8 reporting workflows on November 3. The scheduled queue generated seven artifacts and their SHA-256 hashes matched the files downloaded through the owner and investor sessions. Only the opted-in statement contained the published AI update. Both PDFs showed the approved spend for the assigned agreement. Direct investor requests for all five owner workbooks returned 403. The unassigned agreement’s statement list and a download URL under that agreement returned 404. [Phase 8 pull request and CI](https://github.com/hussain4real/Farmwell/pull/11)
+
+**Staging recovery evidence, 3 November 2026.** PR #8 merged the backup workflow onto `main` at `839f74b`. Post-merge tests (run `41611716541`) and lint (run `41611716421`) passed. The first live backup (run `41611718354`) wrote `Farmwell/2026-11-03-09-32-17.zip` to the private backup bucket. The downloaded archive restored into an isolated PostgreSQL cluster with 41 migrations, one farm, one agreement and 29 AI summaries, matching staging. Staging had no private media rows. A temporary R2 object matched its original SHA-256 after recovery and was removed from the source bucket. The recovery password is held in macOS Keychain under `Farmwell staging backup archive` for `hussain4real/Farmwell`.
+
+**Backup operations.** The staging workflow runs daily at 01:17 UTC on the default branch. Configure the `staging-backups` GitHub environment with the variables and secrets named in `.github/workflows/staging-backup.yml`. Use a direct Neon endpoint with a read-only login that can dump every Farmwell table and sequence, a read-only media bucket credential, and a separate read/write credential for a dedicated private backup bucket. Store the archive password in an operator password manager for recovery. Grant access to this environment only to trusted deployment branches. Workflow failures require operator attention. An independent 13:17 UTC check flags an empty destination or a latest backup older than two days. Retention keeps every archive for seven days, then one per week for four weeks.
+
+**Restore procedure.** Download the chosen archive into a private workspace and decrypt it with the saved password. Restore `database.dump` to a new empty database using `pg_restore --exit-on-error --single-transaction --no-owner --no-privileges`. Copy the contents of `media/` to a new private bucket with the same object keys. Reapply Farmwell’s scoped database grants and supply the original Laravel application key from the secret store. Keep workers and outbound notifications disabled while checking reports, roles, and protected media in the restored environment. The automated drill in `tests/backup-restore.sh` exercises the restore using synthetic data and local storage.

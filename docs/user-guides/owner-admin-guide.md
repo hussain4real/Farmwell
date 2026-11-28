@@ -1,7 +1,7 @@
 # Owner and Admin Guide
 
-Applies through: Phase 6 - Harvest, Sales, Capital Recovery
-Last reviewed: 2026-06-11  
+Applies through: Phase 8 and pilot operator access
+Last reviewed: 2026-11-03
 Audience: Farm owners and farm organization admins  
 Related app areas: Dashboard, Farms, Finance, Harvests, Investors, Approvals, Team Settings
 
@@ -22,13 +22,14 @@ Use this guide when you are responsible for setting up the farm organization, in
 
 Team settings and membership are managed from Team Settings.
 
-- Use invitations to add admins, members, and investors.
+- Use invitations to add admins, members, operators, and investors.
 - Use Admin for users who manage farm operations, finance, investor agreements, and approval requests.
 - Use Member for users who only need farm operations visibility.
+- Use Operator for users who need to record diary entries and manage tasks across the team’s farms without finance or team administration.
 - Use Investor only for users who should access the investor portal.
 - Review audit events when sensitive settings, roles, finance records, agreements, approvals, or visibility values change.
 
-The Owner role has full team permissions. Admin users have broad team management, farm operations, finance, investor agreement, and approval permissions. Members and Investors have narrower access.
+The Owner role has full team permissions. Admin users have broad team management, farm operations, finance, investor agreement, and approval permissions. Members, Operators, and Investors have narrower access.
 
 ## Farm Operations Setup
 
@@ -127,4 +128,8 @@ Distribution acknowledgement approval marks the distribution acknowledged and ap
 
 ## End-of-Phase Maintenance
 
-At the end of each implementation phase, update this guide only for workflows that are actually shipped. Phase 7 should add AI draft, review, and investor-safe summary guidance after those features are implemented.
+## AI Summaries
+
+Open AI summaries to generate investor progress, weekly, risks and decisions, or intake cleanup drafts. Investor progress uses an active or completed agreement; internal summaries use a farm and optional cycle. Weekly and risk drafts use investor-safe activities and investor-visible tasks. Intake cleanup uses the sanitized excerpt you enter: remove names, bank details and other sensitive information before submitting it to the configured AI provider.
+
+Review generated text against the source activities and approve or reject it. Approval alone keeps a summary internal. To share an approved investor progress summary, choose Publish to investor; Withdraw removes it from the portal. If the agreement audience or source activity changes, the portal hides the published summary and a new draft is required. Older drafts without recorded source and audience snapshots must be regenerated before publication.

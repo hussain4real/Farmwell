@@ -2,6 +2,7 @@
 import { Form, Head, router } from '@inertiajs/vue3';
 import { ChevronDown, Mail, UserPlus, X } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
+import { toast } from 'vue-sonner';
 import CancelInvitationModal from '@/components/CancelInvitationModal.vue';
 import DeleteTeamModal from '@/components/DeleteTeamModal.vue';
 import Heading from '@/components/Heading.vue';
@@ -28,12 +29,14 @@ import {
 import { useInitials } from '@/composables/useInitials';
 import { edit, index, update } from '@/routes/teams';
 import { update as updateMember } from '@/routes/teams/members';
+import { update as updateTeamSetting } from '@/routes/teams/settings';
 import type {
     RoleOption,
     Team,
     TeamInvitation,
     TeamMember,
     TeamPermissions,
+    WorkspacePlanSummary,
 } from '@/types';
 
 type Props = {
@@ -41,10 +44,21 @@ type Props = {
     members: TeamMember[];
     invitations: TeamInvitation[];
     permissions: TeamPermissions;
+    plan?: WorkspacePlanSummary;
+    canAddMember?: boolean;
+    usedSeatCount?: number;
+    investorMode: boolean;
+    dailyRemindersEnabled: boolean;
     availableRoles: RoleOption[];
+    phoneLoginEnabled: boolean;
+    callingCode: string | null;
+    phoneCountries: Record<string, string> | null;
 };
 
 const props = defineProps<Props>();
+
+const activePlan = computed(() => props.plan);
+const canInviteMore = computed(() => props.canAddMember !== false);
 
 defineOptions({
     layout: (props: { team: Team }) => ({
@@ -83,6 +97,50 @@ const updateMemberRole = (member: TeamMember, newRole: string) => {
     });
 };
 
+const togglingInvestorMode = ref(false);
+const toggleInvestorMode = () => {
+    togglingInvestorMode.value = true;
+    router.patch(
+        updateTeamSetting.url([props.team.slug, 'workspace', 'investor_mode']),
+        {
+            value: { enabled: !props.investorMode },
+            reason: !props.investorMode
+                ? 'Enabled investor transparency mode'
+                : 'Switched to standalone farm mode',
+        },
+        {
+            preserveScroll: true,
+            onFinish: () => {
+                togglingInvestorMode.value = false;
+            },
+        },
+    );
+};
+
+const togglingDailyReminders = ref(false);
+const toggleDailyReminders = () => {
+    togglingDailyReminders.value = true;
+    router.patch(
+        updateTeamSetting.url([
+            props.team.slug,
+            'operations',
+            'daily_reminders',
+        ]),
+        {
+            value: { enabled: !props.dailyRemindersEnabled },
+            reason: !props.dailyRemindersEnabled
+                ? 'Enabled daily farm operational reminders'
+                : 'Paused daily farm operational reminders',
+        },
+        {
+            preserveScroll: true,
+            onFinish: () => {
+                togglingDailyReminders.value = false;
+            },
+        },
+    );
+};
+
 const confirmRemoveMember = (member: TeamMember) => {
     memberToRemove.value = member;
     removeMemberDialogOpen.value = true;
@@ -91,6 +149,21 @@ const confirmRemoveMember = (member: TeamMember) => {
 const confirmCancelInvitation = (invitation: TeamInvitation) => {
     invitationToCancel.value = invitation;
     cancelInvitationDialogOpen.value = true;
+};
+
+const copyInvitationLink = async (url: string | null | undefined) => {
+    if (!url) {
+        return;
+    }
+
+    try {
+        await navigator.clipboard.writeText(url);
+        toast.success('Invitation link copied.');
+    } catch {
+        toast.error(
+            'Could not copy the link. Select the link to copy it manually.',
+        );
+    }
 };
 </script>
 
@@ -141,6 +214,131 @@ const confirmCancelInvitation = (invitation: TeamInvitation) => {
             <Heading variant="small" :title="team.name" />
         </div>
 
+        <!-- Workspace Plan Section -->
+        <div
+            v-if="activePlan"
+            class="space-y-2 rounded-xl border p-5"
+            data-test="workspace-plan-card"
+        >
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <div class="flex items-center gap-2">
+                    <h3 class="text-base font-medium">Workspace Plan</h3>
+                    <Badge variant="outline" data-test="workspace-plan-badge">
+                        {{ activePlan.label }}
+                    </Badge>
+                </div>
+                <span
+                    v-if="activePlan.maxMembers !== null"
+                    class="text-xs text-muted-foreground"
+                >
+                    {{ usedSeatCount ?? members.length }} of
+                    {{ activePlan.maxMembers }} member seats used
+                </span>
+            </div>
+            <p class="text-sm text-muted-foreground">
+                {{ activePlan.description }}
+            </p>
+        </div>
+
+        <!-- Workspace Mode Section -->
+        <div
+            v-if="permissions.canManageSettings"
+            class="space-y-4 rounded-xl border p-5"
+        >
+            <div class="flex flex-wrap items-center justify-between gap-4">
+                <div class="space-y-1">
+                    <div class="flex items-center gap-2">
+                        <h3 class="text-base font-medium">
+                            Investor Transparency Mode
+                        </h3>
+                        <Badge
+                            :variant="investorMode ? 'default' : 'secondary'"
+                        >
+                            {{
+                                investorMode
+                                    ? 'Enabled'
+                                    : 'Standalone Farm Mode'
+                            }}
+                        </Badge>
+                    </div>
+                    <p class="text-sm text-muted-foreground">
+                        {{
+                            investorMode
+                                ? 'Investor agreements, approvals, and investor-safe visibility fields are shown across the workspace.'
+                                : 'Optimized for standalone farmers. Enable this if you raise external farm capital and need investor approvals and statements.'
+                        }}
+                    </p>
+                    <p
+                        v-if="activePlan && !activePlan.allowsInvestorMode"
+                        class="text-xs text-muted-foreground"
+                    >
+                        Requires Investor / Pilot plan.
+                    </p>
+                </div>
+                <Button
+                    type="button"
+                    variant="outline"
+                    data-test="toggle-investor-mode"
+                    :disabled="
+                        togglingInvestorMode ||
+                        (!investorMode &&
+                            activePlan?.allowsInvestorMode === false)
+                    "
+                    @click="toggleInvestorMode"
+                >
+                    {{
+                        investorMode
+                            ? 'Switch to Standalone Mode'
+                            : 'Enable Investor Mode'
+                    }}
+                </Button>
+            </div>
+        </div>
+
+        <!-- Daily Reminders Section -->
+        <div
+            v-if="permissions.canManageSettings"
+            class="space-y-4 rounded-xl border p-5"
+        >
+            <div class="flex flex-wrap items-center justify-between gap-4">
+                <div class="space-y-1">
+                    <div class="flex items-center gap-2">
+                        <h3 class="text-base font-medium">
+                            Daily Farm Alert Emails
+                        </h3>
+                        <Badge
+                            :variant="
+                                dailyRemindersEnabled ? 'default' : 'secondary'
+                            "
+                        >
+                            {{ dailyRemindersEnabled ? 'Enabled' : 'Paused' }}
+                        </Badge>
+                    </div>
+                    <p class="text-sm text-muted-foreground">
+                        {{
+                            dailyRemindersEnabled
+                                ? 'Owners, admins, and operators receive a morning email digest when vaccinations, withdrawal periods, low stock, or water-quality alerts need attention.'
+                                : 'Morning operational email reminders are currently paused for this team.'
+                        }}
+                    </p>
+                </div>
+                <Button
+                    type="button"
+                    variant="outline"
+                    data-test="toggle-daily-reminders"
+                    class="min-h-11 w-full sm:min-h-9 sm:w-auto"
+                    :disabled="togglingDailyReminders"
+                    @click="toggleDailyReminders"
+                >
+                    {{
+                        dailyRemindersEnabled
+                            ? 'Pause Daily Alerts'
+                            : 'Enable Daily Alerts'
+                    }}
+                </Button>
+            </div>
+        </div>
+
         <!-- Members Section -->
         <div class="space-y-6">
             <div class="flex items-center justify-between">
@@ -157,21 +355,36 @@ const confirmCancelInvitation = (invitation: TeamInvitation) => {
                 <Button
                     v-if="permissions.canCreateInvitation"
                     data-test="invite-member-button"
+                    :disabled="!canInviteMore"
                     @click="inviteDialogOpen = true"
                 >
                     <UserPlus /> Invite member
                 </Button>
             </div>
 
+            <p
+                v-if="
+                    permissions.canCreateInvitation &&
+                    !canInviteMore &&
+                    activePlan?.maxMembers !== null
+                "
+                class="rounded-lg border border-dashed p-3 text-sm text-muted-foreground"
+            >
+                Starter plan limit reached ({{
+                    usedSeatCount ?? members.length
+                }}/{{ activePlan?.maxMembers }} members). Upgrade to Pro Farm to
+                invite more workers.
+            </p>
+
             <div class="space-y-3">
                 <div
                     v-for="member in members"
                     :key="member.id"
                     data-test="member-row"
-                    class="flex items-center justify-between rounded-lg border p-4"
+                    class="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4"
                 >
-                    <div class="flex items-center gap-4">
-                        <Avatar class="h-10 w-10">
+                    <div class="flex min-w-0 items-center gap-3">
+                        <Avatar class="h-10 w-10 shrink-0">
                             <AvatarImage
                                 v-if="member.avatar"
                                 :src="member.avatar"
@@ -181,11 +394,11 @@ const confirmCancelInvitation = (invitation: TeamInvitation) => {
                                 getInitials(member.name)
                             }}</AvatarFallback>
                         </Avatar>
-                        <div>
-                            <div class="font-medium">
+                        <div class="min-w-0">
+                            <div class="truncate font-medium">
                                 {{ member.name }}
                             </div>
-                            <div class="text-sm text-muted-foreground">
+                            <div class="truncate text-sm text-muted-foreground">
                                 {{ member.email }}
                             </div>
                         </div>
@@ -237,6 +450,7 @@ const confirmCancelInvitation = (invitation: TeamInvitation) => {
                                 <TooltipTrigger as-child>
                                     <Button
                                         data-test="member-remove-button"
+                                        aria-label="Remove member"
                                         variant="ghost"
                                         size="sm"
                                         @click="confirmRemoveMember(member)"
@@ -267,7 +481,7 @@ const confirmCancelInvitation = (invitation: TeamInvitation) => {
                     v-for="invitation in invitations"
                     :key="invitation.code"
                     data-test="invitation-row"
-                    class="flex items-center justify-between rounded-lg border p-4"
+                    class="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4"
                 >
                     <div class="flex items-center gap-4">
                         <div
@@ -277,7 +491,7 @@ const confirmCancelInvitation = (invitation: TeamInvitation) => {
                         </div>
                         <div>
                             <div class="font-medium">
-                                {{ invitation.email }}
+                                {{ invitation.email ?? invitation.phone }}
                             </div>
                             <div class="text-sm text-muted-foreground">
                                 {{ invitation.role_label }}
@@ -285,6 +499,39 @@ const confirmCancelInvitation = (invitation: TeamInvitation) => {
                         </div>
                     </div>
 
+                    <div
+                        v-if="
+                            invitation.phone &&
+                            invitation.phone_url &&
+                            phoneLoginEnabled &&
+                            permissions.canCreateInvitation
+                        "
+                        class="order-last grid w-full min-w-0 gap-1 sm:order-none sm:w-auto sm:flex-1"
+                    >
+                        <Label :for="'share-' + invitation.code"
+                            >Invitation link</Label
+                        >
+                        <div class="flex gap-2">
+                            <Input
+                                :id="'share-' + invitation.code"
+                                readonly
+                                :model-value="invitation.phone_url"
+                                @focus="
+                                    ($event.target as HTMLInputElement).select()
+                                "
+                            />
+                            <Button
+                                type="button"
+                                variant="outline"
+                                class="shrink-0"
+                                @click="
+                                    copyInvitationLink(invitation.phone_url)
+                                "
+                            >
+                                Copy link
+                            </Button>
+                        </div>
+                    </div>
                     <TooltipProvider v-if="permissions.canCancelInvitation">
                         <Tooltip>
                             <TooltipTrigger as-child>
@@ -341,6 +588,9 @@ const confirmCancelInvitation = (invitation: TeamInvitation) => {
         v-if="permissions.canCreateInvitation"
         :team="team"
         :available-roles="availableRoles"
+        :phone-login-enabled="phoneLoginEnabled"
+        :calling-code="callingCode"
+        :phone-countries="phoneCountries"
         :open="inviteDialogOpen"
         @update:open="inviteDialogOpen = $event"
     />

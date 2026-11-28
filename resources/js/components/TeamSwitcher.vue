@@ -37,8 +37,8 @@ const currentTeam = computed(() => page.props.currentTeam);
 const teams = computed(() => page.props.teams ?? []);
 const menuContentClass = computed(() =>
     props.inHeader
-        ? 'w-56'
-        : 'w-(--reka-dropdown-menu-trigger-width) min-w-56 rounded-lg',
+        ? 'w-64'
+        : 'w-(--reka-dropdown-menu-trigger-width) min-w-64 rounded-lg',
 );
 const teamItemClass = computed(() =>
     props.inHeader ? 'cursor-pointer gap-2' : 'cursor-pointer gap-2 p-2',
@@ -139,7 +139,7 @@ onUnmounted(() => {
             :side-offset="props.inHeader ? undefined : 4"
         >
             <DropdownMenuLabel class="text-xs text-muted-foreground">
-                Teams
+                Farms
             </DropdownMenuLabel>
             <DropdownMenuItem
                 v-for="team in teams"
@@ -148,7 +148,13 @@ onUnmounted(() => {
                 :class="teamItemClass"
                 @click="switchTeam(team)"
             >
-                {{ team.name }}
+                <span class="truncate">{{ team.name }}</span>
+                <span
+                    v-if="team.role === 'investor'"
+                    class="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300"
+                >
+                    Investor
+                </span>
                 <Check
                     v-if="currentTeam?.id === team.id"
                     :class="checkIconClass"
@@ -162,7 +168,7 @@ onUnmounted(() => {
                     @select.prevent
                 >
                     <Plus :class="plusIconClass" />
-                    <span class="text-muted-foreground">New team</span>
+                    <span class="text-muted-foreground">New Farm</span>
                 </DropdownMenuItem>
             </CreateTeamModal>
         </DropdownMenuContent>

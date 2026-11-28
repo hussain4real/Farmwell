@@ -68,6 +68,7 @@ export type CarryForward = {
 };
 
 export type FinanceDashboardSummary = FinanceSummary & {
+    currency: string;
     variance: FinanceVariance;
     carryForward: CarryForward;
 };
@@ -129,6 +130,8 @@ export type FundingPhase = {
     statusLabel: string;
     currency: string;
     milestone?: string | null;
+    fundingApprovalExists?: boolean;
+    milestoneEvidence?: { id: number; fileName: string; downloadUrl: string }[];
     plannedAmountMinor?: number;
     requestedAmountMinor?: number;
     approvedAmountMinor?: number;

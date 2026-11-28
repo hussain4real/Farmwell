@@ -22,10 +22,11 @@ class UniqueTeamInvitation implements ValidationRule
      */
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
-        $email = strtolower($value);
+        $column = $attribute === 'phone' ? 'phone' : 'email';
+        $recipient = strtolower($value);
 
         $isMember = $this->team->members()
-            ->whereRaw('LOWER(email) = ?', [$email])
+            ->whereRaw("LOWER({$column}) = ?", [$recipient])
             ->exists();
 
         if ($isMember) {
@@ -35,7 +36,7 @@ class UniqueTeamInvitation implements ValidationRule
         }
 
         $hasPendingInvitation = TeamInvitation::where('team_id', $this->team->id)
-            ->whereRaw('LOWER(email) = ?', [$email])
+            ->whereRaw("LOWER({$column}) = ?", [$recipient])
             ->whereNull('accepted_at')
             ->where(function ($query) {
                 $query->whereNull('expires_at')
@@ -44,7 +45,7 @@ class UniqueTeamInvitation implements ValidationRule
             ->exists();
 
         if ($hasPendingInvitation) {
-            $fail(__('An invitation has already been sent to this email address.'));
+            $fail(__('An invitation has already been sent to this recipient.'));
         }
     }
 }

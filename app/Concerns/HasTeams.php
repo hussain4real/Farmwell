@@ -6,8 +6,10 @@ use App\Enums\TeamPermission;
 use App\Enums\TeamRole;
 use App\Models\Membership;
 use App\Models\Team;
+use App\Support\PlatformAccess;
 use App\Support\TeamPermissions;
 use App\Support\UserTeam;
+use Closure;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -169,26 +171,56 @@ trait HasTeams
      */
     public function toTeamPermissions(Team $team): TeamPermissions
     {
-        return new TeamPermissions(
-            canUpdateTeam: $this->hasTeamPermission($team, TeamPermission::UpdateTeam),
-            canDeleteTeam: $this->hasTeamPermission($team, TeamPermission::DeleteTeam),
-            canAddMember: $this->hasTeamPermission($team, TeamPermission::AddMember),
-            canUpdateMember: $this->hasTeamPermission($team, TeamPermission::UpdateMember),
-            canRemoveMember: $this->hasTeamPermission($team, TeamPermission::RemoveMember),
-            canCreateInvitation: $this->hasTeamPermission($team, TeamPermission::CreateInvitation),
-            canCancelInvitation: $this->hasTeamPermission($team, TeamPermission::CancelInvitation),
-            canManageSettings: $this->hasTeamPermission($team, TeamPermission::ManageSettings),
-            canViewAuditEvents: $this->hasTeamPermission($team, TeamPermission::ViewAuditEvents),
-            canViewFarmOperations: $this->hasTeamPermission($team, TeamPermission::ViewFarmOperations),
-            canManageFarmOperations: $this->hasTeamPermission($team, TeamPermission::ManageFarmOperations),
-            canViewFinance: $this->hasTeamPermission($team, TeamPermission::ViewFinance),
-            canManageFinance: $this->hasTeamPermission($team, TeamPermission::ManageFinance),
-            canViewInvestorPortal: $this->hasTeamPermission($team, TeamPermission::ViewInvestorPortal),
-            canViewInvestorAgreements: $this->hasTeamPermission($team, TeamPermission::ViewInvestorAgreements),
-            canManageInvestorAgreements: $this->hasTeamPermission($team, TeamPermission::ManageInvestorAgreements),
-            canViewApprovalRequests: $this->hasTeamPermission($team, TeamPermission::ViewApprovalRequests),
-            canManageApprovalRequests: $this->hasTeamPermission($team, TeamPermission::ManageApprovalRequests),
-        );
+        $attributes = request()->attributes;
+        $key = "farmwell.team-permissions.{$this->id}.{$team->id}";
+        $permissions = $attributes->get($key);
+        if ($permissions instanceof TeamPermissions) {
+            return $permissions;
+        }
+
+        $role = $this->teamRole($team);
+        $permissions = $this->inTeamPermissionContext($team, function () use ($role, $team): TeamPermissions {
+            $can = fn (TeamPermission $permission): bool => PlatformAccess::activeFor($this, $team)
+                ? PlatformAccess::allows($this, $team, $permission)
+                : $role !== null && ($role->hasPermission($permission) || $this->can($permission->value, 'web'));
+
+            return new TeamPermissions(
+                canUpdateTeam: $can(TeamPermission::UpdateTeam),
+                canDeleteTeam: $can(TeamPermission::DeleteTeam),
+                canAddMember: $can(TeamPermission::AddMember),
+                canUpdateMember: $can(TeamPermission::UpdateMember),
+                canRemoveMember: $can(TeamPermission::RemoveMember),
+                canCreateInvitation: $can(TeamPermission::CreateInvitation),
+                canCancelInvitation: $can(TeamPermission::CancelInvitation),
+                canManageSettings: $can(TeamPermission::ManageSettings),
+                canViewAuditEvents: $can(TeamPermission::ViewAuditEvents),
+                canViewFarmOperations: $can(TeamPermission::ViewFarmOperations),
+                canManageFarmOperations: $can(TeamPermission::ManageFarmOperations),
+                canManageFieldWork: $can(TeamPermission::ManageFarmOperations) || $can(TeamPermission::ManageFieldWork),
+                canViewFinance: $can(TeamPermission::ViewFinance),
+                canManageFinance: $can(TeamPermission::ManageFinance),
+                canViewInvestorPortal: $can(TeamPermission::ViewInvestorPortal),
+                canViewInvestorAgreements: $can(TeamPermission::ViewInvestorAgreements),
+                canManageInvestorAgreements: $can(TeamPermission::ManageInvestorAgreements),
+                canViewApprovalRequests: $can(TeamPermission::ViewApprovalRequests),
+                canManageApprovalRequests: $can(TeamPermission::ManageApprovalRequests),
+            );
+        });
+        $attributes->set($key, $permissions);
+
+        return $permissions;
+    }
+
+    public function switchAfterLeaving(Team $team): void
+    {
+        $personal = $this->personalTeam();
+        $next = $personal && ! $personal->is($team) ? $personal : $this->fallbackTeam($team);
+        if ($next) {
+            $this->switchTeam($next);
+        } else {
+            $this->update(['current_team_id' => null]);
+            $this->unsetRelation('currentTeam');
+        }
     }
 
     public function fallbackTeam(?Team $excluding = null): ?Team
@@ -204,6 +236,9 @@ trait HasTeams
      */
     public function hasTeamPermission(Team $team, TeamPermission $permission): bool
     {
+        if (PlatformAccess::activeFor($this, $team)) {
+            return PlatformAccess::allows($this, $team, $permission);
+        }
         $role = $this->teamRole($team);
 
         if ($role === null) {
@@ -214,13 +249,24 @@ trait HasTeams
             return true;
         }
 
+        return $this->inTeamPermissionContext($team, fn (): bool => $this->can($permission->value, 'web'));
+    }
+
+    /**
+     * @template T
+     *
+     * @param  Closure(): T  $check
+     * @return T
+     */
+    private function inTeamPermissionContext(Team $team, Closure $check): mixed
+    {
         $previousTeamId = getPermissionsTeamId();
 
         setPermissionsTeamId($team->id);
         $this->unsetRelation('roles')->unsetRelation('permissions');
 
         try {
-            return $this->can($permission->value, 'web');
+            return $check();
         } finally {
             setPermissionsTeamId($previousTeamId);
             $this->unsetRelation('roles')->unsetRelation('permissions');

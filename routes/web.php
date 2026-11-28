@@ -1,6 +1,12 @@
 <?php
 
+use App\Http\Controllers\AiSummaryController;
+use App\Http\Controllers\AssistantController;
+use App\Http\Controllers\Auth\PhoneLoginController;
+use App\Http\Controllers\FarmOperations\ActivityExportController;
+use App\Http\Controllers\FarmOperations\AquacultureGradeTransferController;
 use App\Http\Controllers\FarmOperations\CommodityController;
+use App\Http\Controllers\FarmOperations\CycleSummaryExportController;
 use App\Http\Controllers\FarmOperations\EvidenceController;
 use App\Http\Controllers\FarmOperations\FarmActivityController;
 use App\Http\Controllers\FarmOperations\FarmController;
@@ -9,12 +15,16 @@ use App\Http\Controllers\FarmOperations\FarmOperationsController;
 use App\Http\Controllers\FarmOperations\FarmTaskCalendarController;
 use App\Http\Controllers\FarmOperations\FarmTaskController;
 use App\Http\Controllers\FarmOperations\FieldDiaryController;
+use App\Http\Controllers\FarmOperations\OnboardingController;
 use App\Http\Controllers\FarmOperations\ProductionCycleController;
+use App\Http\Controllers\FarmOperations\ProductionLogController;
 use App\Http\Controllers\FarmOperations\ProductionPlanChangeController;
 use App\Http\Controllers\FarmOperations\ProductionUnitController;
+use App\Http\Controllers\FarmOperations\QuickEggSaleController;
 use App\Http\Controllers\FarmOperations\WhatsappIntakeController;
 use App\Http\Controllers\FarmOperations\WhatsappIntakeReviewController;
 use App\Http\Controllers\Finance\BudgetController;
+use App\Http\Controllers\Finance\BudgetExportController;
 use App\Http\Controllers\Finance\BudgetLineController;
 use App\Http\Controllers\Finance\ExpenseController;
 use App\Http\Controllers\Finance\ExternalTransferController;
@@ -23,9 +33,16 @@ use App\Http\Controllers\Finance\FinanceEvidenceController;
 use App\Http\Controllers\Finance\FinanceSettingController;
 use App\Http\Controllers\Finance\FundingPhaseController;
 use App\Http\Controllers\Finance\TransferReconciliationController;
+use App\Http\Controllers\Harvests\DistributionExportController;
 use App\Http\Controllers\Harvests\HarvestDashboardController;
+use App\Http\Controllers\Harvests\HarvestExportController;
 use App\Http\Controllers\Harvests\HarvestRecordController;
 use App\Http\Controllers\Harvests\SaleRecordController;
+use App\Http\Controllers\Harvests\SalesExportController;
+use App\Http\Controllers\Health\HealthEventController;
+use App\Http\Controllers\Health\HealthPresetController;
+use App\Http\Controllers\Inventory\InventoryItemController;
+use App\Http\Controllers\Inventory\InventoryMovementController;
 use App\Http\Controllers\Investors\InvestorAgreementController;
 use App\Http\Controllers\Investors\InvestorAgreementDocumentController;
 use App\Http\Controllers\Investors\InvestorApprovalController;
@@ -35,33 +52,138 @@ use App\Http\Controllers\Investors\InvestorCommentController;
 use App\Http\Controllers\Investors\InvestorController;
 use App\Http\Controllers\Investors\InvestorEvidenceController;
 use App\Http\Controllers\Investors\InvestorPortalController;
+use App\Http\Controllers\Investors\InvestorPortfolioController;
+use App\Http\Controllers\Investors\InvestorStatementController;
+use App\Http\Controllers\PlatformAccessController;
+use App\Http\Controllers\PlatformAdminController;
+use App\Http\Controllers\PlatformAiUsageController;
+use App\Http\Controllers\PlatformImpersonationController;
 use App\Http\Controllers\Teams\TeamInvitationController;
+use App\Http\Middleware\EnsureContactIsVerified;
 use App\Http\Middleware\EnsureTeamMembership;
 use Illuminate\Support\Facades\Route;
 
 Route::inertia('/', 'Welcome')->name('home');
+Route::get('my-investments', InvestorPortfolioController::class)
+    ->middleware(['auth', EnsureContactIsVerified::class])->name('my-investments.index');
+
+Route::delete('platform/impersonate', [PlatformImpersonationController::class, 'destroy'])
+    ->middleware(['auth'])
+    ->name('platform.impersonate.destroy')
+    ->block();
+
+Route::prefix('platform')->name('platform.')->middleware(['auth', EnsureContactIsVerified::class, 'can:managePlatform'])->controller(PlatformAdminController::class)->group(function () {
+    Route::get('/', 'index')->name('index');
+    Route::get('/ai-usage', [PlatformAiUsageController::class, 'index'])->name('ai-usage.index');
+    Route::get('/ai-usage/export', [PlatformAiUsageController::class, 'export'])->name('ai-usage.export');
+    Route::delete('/access', [PlatformAccessController::class, 'destroy'])->name('access.destroy')->block();
+    Route::middleware('throttle:platform-admin')->group(function () {
+        Route::post('/ai-usage/sync-pricing', [PlatformAiUsageController::class, 'syncPricing'])->name('ai-usage.sync-pricing');
+        Route::post('/ai-usage/backfill', [PlatformAiUsageController::class, 'backfill'])->name('ai-usage.backfill');
+        Route::post('/access', [PlatformAccessController::class, 'store'])->name('access.store')->block();
+        Route::post('/impersonate', [PlatformImpersonationController::class, 'store'])->name('impersonate.store')->block();
+        Route::post('/farms', 'storeFarm')->name('farms.store');
+        Route::patch('/farms/{farm}', 'updateFarm')->name('farms.update');
+        Route::patch('/farms/{farm}/status', 'updateFarmStatus')->name('farms.status.update');
+        Route::delete('/farms/{farm}', 'destroyFarm')->name('farms.destroy');
+        Route::patch('/users/{user}', 'updateUser')->name('users.update');
+        Route::put('/users/{user}/membership', 'updateMembership')->name('memberships.update');
+        Route::patch('/workspaces/{team}/plan', 'updateWorkspacePlan')->name('workspaces.plan.update');
+    });
+});
+
+Route::middleware('guest')->controller(PhoneLoginController::class)->prefix('login/phone')->name('phone-login.')->group(function () {
+    Route::get('/', 'show')->name('show');
+    Route::post('/code', 'send')->middleware('throttle:phone-send')->block()->name('send');
+    Route::post('/verify', 'verify')->middleware('throttle:phone-verify')->block()->name('verify');
+});
 
 Route::prefix('{current_team}')
-    ->middleware(['auth', 'verified', EnsureTeamMembership::class])
+    ->middleware(['auth', EnsureContactIsVerified::class, EnsureTeamMembership::class])
     ->scopeBindings()
     ->group(function () {
         Route::get('dashboard', FarmDashboardController::class)->name('dashboard');
+        Route::prefix('assistant')->name('assistant.')->middleware('throttle:ai-assistant')->controller(AssistantController::class)->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::post('/messages', 'send')->name('messages.store');
+            Route::post('/conversations/{conversation}/approvals', 'resolveApprovals')->name('approvals.store');
+            Route::delete('/conversations/{conversation}', 'destroy')->name('conversations.destroy');
+        });
+        Route::get('onboarding', [OnboardingController::class, 'index'])->name('onboarding.index');
+        Route::post('onboarding', [OnboardingController::class, 'store'])->name('onboarding.store');
         Route::get('farms', FarmOperationsController::class)->name('farms.index');
+        Route::get('farms/{farm}', [FarmController::class, 'show'])->name('farms.show');
+        Route::patch('farms/{farm}', [FarmController::class, 'update'])->name('farms.update');
+        Route::get('farms/{farm}/production-cycles/{production_cycle}', [ProductionCycleController::class, 'show'])->name('farms.production-cycles.show');
+        Route::get('farms/{farm}/production-cycles/{production_cycle}/summary-pdf', CycleSummaryExportController::class)->name('farms.production-cycles.summary-pdf');
+        Route::patch('farms/{farm}/production-cycles/{production_cycle}', [ProductionCycleController::class, 'update'])->name('farms.production-cycles.update');
+        Route::post('farms/{farm}/production-cycles/{production_cycle}/quick-egg-sale', QuickEggSaleController::class)->name('farms.production-cycles.quick-egg-sale.store');
+        Route::post('farms/{farm}/production-cycles/{production_cycle}/production-logs', [ProductionLogController::class, 'store'])->name('farms.production-cycles.production-logs.store');
+        Route::delete('farms/{farm}/production-cycles/{production_cycle}/production-logs/{production_log}', [ProductionLogController::class, 'destroy'])->name('farms.production-cycles.production-logs.destroy');
+        Route::post('farms/{farm}/production-cycles/{production_cycle}/grade-transfer', [AquacultureGradeTransferController::class, 'store'])->name('farms.production-cycles.grade-transfer.store');
+        Route::post('farms/{farm}/production-cycles/{production_cycle}/health-presets', [HealthPresetController::class, 'store'])->name('farms.production-cycles.health-presets.store');
+        Route::get('inventory', [InventoryItemController::class, 'index'])->name('inventory.index');
+        Route::post('inventory', [InventoryItemController::class, 'store'])->name('inventory.store');
+        Route::patch('inventory/{inventory_item}', [InventoryItemController::class, 'update'])->name('inventory.update');
+        Route::post('inventory/{inventory_item}/movements', [InventoryMovementController::class, 'store'])->name('inventory.movements.store');
+        Route::get('health', [HealthEventController::class, 'index'])->name('health.index');
+        Route::post('health', [HealthEventController::class, 'store'])->name('health.store');
+        Route::patch('health/{health_event}', [HealthEventController::class, 'update'])->name('health.update');
+        Route::controller(ActivityExportController::class)->prefix('field-diary/exports')->name('activity-exports.')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::post('/', 'store')->middleware('throttle:report-generation')->name('store');
+            Route::get('{report_artifact}', 'download')->middleware('throttle:report-downloads')->whereNumber('report_artifact')->name('download');
+        });
         Route::get('field-diary', FieldDiaryController::class)->name('field-diary.index');
         Route::get('farm-tasks', FarmTaskCalendarController::class)->name('farm-tasks.index');
         Route::get('whatsapp-intakes', WhatsappIntakeReviewController::class)->name('whatsapp-intakes.index');
         Route::get('finance', FinanceDashboardController::class)->name('finance.index');
         Route::get('finance/budgets', [BudgetController::class, 'index'])->name('finance.budgets.index');
+        Route::prefix('finance/budgets/{budget}/exports')->name('finance.budget-exports.')
+            ->middleware('can:manageFinance,current_team')->controller(BudgetExportController::class)->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::post('/', 'store')->middleware('throttle:report-generation')->name('store');
+                Route::get('{report_artifact}', 'download')->middleware('throttle:report-downloads')->whereNumber('report_artifact')->name('download');
+            });
         Route::get('finance/expenses', [ExpenseController::class, 'index'])->name('finance.expenses.index');
         Route::get('finance/funding-phases', [FundingPhaseController::class, 'index'])->name('finance.funding-phases.index');
         Route::get('finance/external-transfers', [ExternalTransferController::class, 'index'])->name('finance.external-transfers.index');
+        Route::prefix('harvests/exports')->name('harvests.exports.')->middleware('can:manageHarvests,current_team')
+            ->controller(HarvestExportController::class)->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::post('/', 'store')->middleware('throttle:report-generation')->name('store');
+                Route::get('{report_artifact}', 'download')->middleware('throttle:report-downloads')->whereNumber('report_artifact')->name('download');
+            });
+        Route::prefix('harvests/sales/exports')->name('harvests.sales.exports.')->middleware('can:manageFinance,current_team')
+            ->controller(SalesExportController::class)->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::post('/', 'store')->middleware('throttle:report-generation')->name('store');
+                Route::get('{report_artifact}', 'download')->middleware('throttle:report-downloads')->whereNumber('report_artifact')->name('download');
+            });
+        Route::prefix('harvests/distributions/exports')->name('harvests.distributions.exports.')->middleware('can:manageFinance,current_team')
+            ->controller(DistributionExportController::class)->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::post('/', 'store')->middleware('throttle:report-generation')->name('store');
+                Route::get('{report_artifact}', 'download')->middleware('throttle:report-downloads')->whereNumber('report_artifact')->name('download');
+            });
         Route::get('harvests', HarvestDashboardController::class)->name('harvests.index');
+        Route::get('ai-summaries', [AiSummaryController::class, 'index'])->name('ai-summaries.index');
+        Route::post('ai-summaries', [AiSummaryController::class, 'store'])->middleware('throttle:ai-generation')->name('ai-summaries.store');
+        Route::patch('ai-summaries/{ai_summary}', [AiSummaryController::class, 'review'])->name('ai-summaries.review');
+        Route::patch('ai-summaries/{ai_summary}/publish', [AiSummaryController::class, 'publish'])->name('ai-summaries.publish');
+        Route::patch('ai-summaries/{ai_summary}/withdraw', [AiSummaryController::class, 'withdraw'])->name('ai-summaries.withdraw');
         Route::get('investors', InvestorController::class)->name('investors.index');
         Route::get('investors/approvals', InvestorApprovalController::class)->name('investors.approvals.index');
         Route::get('investor-portal', InvestorPortalController::class)->name('investor-portal.index');
+        Route::prefix('investor-portal/{investor_agreement}/statements')->name('investor-statements.')->controller(InvestorStatementController::class)->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::post('/', 'store')->middleware('throttle:report-generation')->name('store');
+            Route::get('{report_artifact}', 'download')->middleware('throttle:report-downloads')->whereNumber('report_artifact')->name('download');
+        });
         Route::post('commodities', [CommodityController::class, 'store'])->name('commodities.store');
         Route::post('farms', [FarmController::class, 'store'])->name('farms.store');
         Route::post('farms/{farm}/production-units', [ProductionUnitController::class, 'store'])->name('farms.production-units.store');
+        Route::patch('farms/{farm}/production-units/{production_unit}', [ProductionUnitController::class, 'update'])->name('farms.production-units.update');
         Route::post('farms/{farm}/production-cycles', [ProductionCycleController::class, 'store'])->name('farms.production-cycles.store');
         Route::post('farms/{farm}/production-cycles/{production_cycle}/plan-changes', [ProductionPlanChangeController::class, 'store'])
             ->name('farms.production-cycles.plan-changes.store');
@@ -75,6 +197,8 @@ Route::prefix('{current_team}')
         Route::post('finance/budgets', [BudgetController::class, 'store'])->name('finance.budgets.store');
         Route::post('finance/budgets/{budget}/lines', [BudgetLineController::class, 'store'])->name('finance.budget-lines.store');
         Route::post('finance/funding-phases', [FundingPhaseController::class, 'store'])->name('finance.funding-phases.store');
+        Route::post('finance/funding-phases/{funding_phase}/submit', [FundingPhaseController::class, 'submit'])->name('finance.funding-phases.submit');
+        Route::post('finance/funding-phases/{funding_phase}/release', [FundingPhaseController::class, 'release'])->name('finance.funding-phases.release');
         Route::post('finance/expenses', [ExpenseController::class, 'store'])->name('finance.expenses.store');
         Route::post('finance/external-transfers', [ExternalTransferController::class, 'store'])->name('finance.external-transfers.store');
         Route::post('finance/external-transfers/{external_transfer}/reconciliations', [TransferReconciliationController::class, 'store'])
@@ -82,9 +206,10 @@ Route::prefix('{current_team}')
         Route::post('harvests', [HarvestRecordController::class, 'store'])->name('harvests.store');
         Route::post('harvests/sales', [SaleRecordController::class, 'store'])->name('harvests.sales.store');
         Route::post('investors/agreements', [InvestorAgreementController::class, 'store'])->name('investors.agreements.store');
+        Route::patch('investors/agreements/{investor_agreement}', [InvestorAgreementController::class, 'update'])->name('investors.agreements.update');
         Route::post('investors/agreements/{investor_agreement}/documents', [InvestorAgreementDocumentController::class, 'store'])->name('investors.agreements.documents.store');
         Route::patch('investors/approval-settings', [InvestorApprovalSettingController::class, 'update'])->name('investors.approval-settings.update');
-        Route::post('investors/approvals/{approval_request}/decisions', [InvestorApprovalDecisionController::class, 'store'])->name('investors.approvals.decisions.store');
+        Route::post('investors/approvals/{approval_request}/decisions', [InvestorApprovalDecisionController::class, 'store'])->middleware('throttle:approval-decisions')->name('investors.approvals.decisions.store');
         Route::post('investor-agreements/{investor_agreement}/comments', [InvestorCommentController::class, 'store'])->name('investor-comments.store');
         Route::get('evidence/{media}', [EvidenceController::class, 'show'])
             ->withoutScopedBindings()

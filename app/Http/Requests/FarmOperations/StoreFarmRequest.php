@@ -2,11 +2,13 @@
 
 namespace App\Http\Requests\FarmOperations;
 
+use App\Actions\Teams\ResolveWorkspacePlan;
 use App\Enums\FarmType;
 use App\Models\Team;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class StoreFarmRequest extends FormRequest
 {
@@ -43,6 +45,22 @@ class StoreFarmRequest extends FormRequest
             'contact_name' => ['nullable', 'string', 'max:255'],
             'contact_phone' => ['nullable', 'string', 'max:100'],
             'description' => ['nullable', 'string', 'max:2000'],
+        ];
+    }
+
+    /**
+     * Enforce workspace farm limits.
+     *
+     * @return array<int, callable(Validator): void>
+     */
+    public function after(): array
+    {
+        return [
+            function (Validator $validator): void {
+                if (! app(ResolveWorkspacePlan::class)->canAddFarm($this->team())) {
+                    $validator->errors()->add('name', __('Your Starter plan includes 1 farm. Upgrade to Pro Farm to add more farms.'));
+                }
+            },
         ];
     }
 

@@ -12,6 +12,16 @@ trait RedirectsToCurrentTeam
 
         URL::defaults(['current_team' => $team->slug]);
 
+        $user = $request->user();
+        if ($redirect === '/dashboard' && $user?->can('viewInvestorPortal', $team) && ! $user->can('viewFarmOperations', $team)) {
+            $intended = $request->session()->get('url.intended');
+            if (is_string($intended) && parse_url($intended, PHP_URL_PATH) !== "/{$team->slug}/investor-portal") {
+                $request->session()->forget('url.intended');
+            }
+
+            return "/{$team->slug}/investor-portal";
+        }
+
         return "/{$team->slug}{$redirect}";
     }
 

@@ -22,7 +22,7 @@ class UpdateFarmTaskStatusRequest extends FormRequest
         return $team instanceof Team
             && $task instanceof FarmTask
             && $task->team_id === $team->id
-            && $this->user()?->can('manageFarmOperations', $team) === true;
+            && $this->user()?->can('manageFieldWork', $team) === true;
     }
 
     /**

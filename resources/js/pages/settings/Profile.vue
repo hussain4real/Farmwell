@@ -36,7 +36,11 @@ const user = computed(() => page.props.auth.user);
         <Heading
             variant="small"
             title="Profile"
-            description="Update your name and email address"
+            :description="
+                user.email
+                    ? 'Update your name and email address'
+                    : 'Update your name'
+            "
         />
 
         <Form
@@ -58,7 +62,7 @@ const user = computed(() => page.props.auth.user);
                 <InputError class="mt-2" :message="errors.name" />
             </div>
 
-            <div class="grid gap-2">
+            <div v-if="user.email" class="grid gap-2">
                 <Label for="email">Email address</Label>
                 <Input
                     id="email"
@@ -73,7 +77,13 @@ const user = computed(() => page.props.auth.user);
                 <InputError class="mt-2" :message="errors.email" />
             </div>
 
-            <div v-if="page.props.mustVerifyEmail && !user.email_verified_at">
+            <div
+                v-if="
+                    user.email &&
+                    page.props.mustVerifyEmail &&
+                    !user.email_verified_at
+                "
+            >
                 <p class="-mt-4 text-sm text-muted-foreground">
                     Your email address is unverified.
                     <Link
@@ -101,5 +111,5 @@ const user = computed(() => page.props.auth.user);
         </Form>
     </div>
 
-    <DeleteUser />
+    <DeleteUser v-if="user.email" />
 </template>

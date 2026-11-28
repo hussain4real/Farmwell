@@ -22,6 +22,7 @@ use App\Models\InvestorAgreement;
 use App\Models\Team;
 use App\Models\User;
 use App\Support\Money;
+use App\Support\PlatformAccess;
 use Illuminate\Database\Eloquent\Collection;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
@@ -41,7 +42,9 @@ class BuildFinancePageData
      */
     public function dashboard(Team $team, User $user): array
     {
-        $this->ensureDefaultExpenseCategories->handle($team);
+        if (! PlatformAccess::activeFor($user, $team)) {
+            $this->ensureDefaultExpenseCategories->handle($team);
+        }
 
         return [
             'permissions' => $user->toTeamPermissions($team),
@@ -59,7 +62,9 @@ class BuildFinancePageData
      */
     public function budgets(Team $team, User $user): array
     {
-        $this->ensureDefaultExpenseCategories->handle($team);
+        if (! PlatformAccess::activeFor($user, $team)) {
+            $this->ensureDefaultExpenseCategories->handle($team);
+        }
 
         return [
             'permissions' => $user->toTeamPermissions($team),
@@ -93,7 +98,9 @@ class BuildFinancePageData
      */
     public function expenses(Team $team, User $user): array
     {
-        $this->ensureDefaultExpenseCategories->handle($team);
+        if (! PlatformAccess::activeFor($user, $team)) {
+            $this->ensureDefaultExpenseCategories->handle($team);
+        }
 
         return [
             'permissions' => $user->toTeamPermissions($team),
@@ -136,6 +143,7 @@ class BuildFinancePageData
     {
         return [
             ...$this->summary($team),
+            'currency' => $this->resolveTeamFinanceCurrency->handle($team),
             'variance' => $this->calculateBudgetVariance->handle($team),
             'carryForward' => $this->calculateCarryForwardBalance->handle($team),
         ];
@@ -146,10 +154,11 @@ class BuildFinancePageData
      */
     private function summary(Team $team): array
     {
-        $budgetedMinor = (int) $team->budgetLines()->sum('planned_amount_minor');
-        $spentMinor = (int) $team->expenses()->whereIn('status', ExpenseStatus::spendableValues())->sum('amount_minor');
-        $releasedMinor = (int) $team->fundingPhases()->sum('externally_released_amount_minor');
-        $transfersMinor = (int) $team->externalTransfers()->sum('amount_minor');
+        $currency = $this->resolveTeamFinanceCurrency->handle($team);
+        $budgetedMinor = (int) $team->budgetLines()->where('currency', $currency)->sum('planned_amount_minor');
+        $spentMinor = (int) $team->expenses()->where('currency', $currency)->whereIn('status', ExpenseStatus::spendableValues())->sum('amount_minor');
+        $releasedMinor = (int) $team->fundingPhases()->where('currency', $currency)->sum('externally_released_amount_minor');
+        $transfersMinor = (int) $team->externalTransfers()->where('currency', $currency)->sum('amount_minor');
 
         return [
             'budgets' => $team->budgets()->count(),
@@ -219,7 +228,8 @@ class BuildFinancePageData
     private function fundingPhasesQuery(Team $team): Collection
     {
         return $team->fundingPhases()
-            ->with(['farm', 'productionCycle', 'budget', 'investorAgreement.investor'])
+            ->with(['team', 'farm', 'productionCycle', 'budget', 'investorAgreement.investor', 'media'])
+            ->withExists(['approvalRequests as funding_approval_exists' => fn ($query) => $query->where('request_type', 'funding_release')])
             ->orderBy('expected_on')
             ->latest()
             ->get();
@@ -360,6 +370,8 @@ class BuildFinancePageData
         return [
             ...$this->fundingPhaseSummaryPayload($phase),
             'milestone' => $phase->milestone,
+            'fundingApprovalExists' => (bool) $phase->getAttribute('funding_approval_exists'),
+            'milestoneEvidence' => $phase->getMedia(FundingPhase::EvidenceCollection)->map(fn (Media $media) => $this->mediaPayload($media, $phase->team))->values(),
             'plannedAmountMinor' => $phase->planned_amount_minor,
             'requestedAmountMinor' => $phase->requested_amount_minor,
             'approvedAmountMinor' => $phase->approved_amount_minor,
@@ -512,6 +524,8 @@ class BuildFinancePageData
      */
     private function mediaPayload(Media $media, Team $team): array
     {
+        $isPhoto = in_array($media->mime_type, FarmActivity::InvestorPhotoMimeTypes, true);
+
         return [
             'id' => $media->id,
             'name' => $media->name,
@@ -520,6 +534,8 @@ class BuildFinancePageData
             'size' => $media->size,
             'caption' => $media->getCustomProperty('caption'),
             'downloadUrl' => route('finance.evidence.show', [$team, $media]),
+            'thumbnailUrl' => $isPhoto ? route('finance.evidence.show', [$team, $media, 'thumb' => 1]) : null,
+            'previewUrl' => $isPhoto ? route('finance.evidence.show', [$team, $media, 'preview' => 1]) : null,
         ];
     }
 

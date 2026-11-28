@@ -2,6 +2,7 @@
 
 use App\Actions\Finance\EnsureDefaultExpenseCategories;
 use App\Actions\Investors\ResolveInvestorApprovalSettings;
+use App\Actions\Teams\SyncTeamRolePermissions;
 use App\Enums\ApprovalRequestType;
 use App\Enums\ApprovalTriggerType;
 use App\Enums\TeamPermission;
@@ -138,4 +139,19 @@ test('database seeder delegates to farmwell baseline without creating demo users
     expect(User::query()->count())->toBe(0)
         ->and(Role::query()->count())->toBe(count(TeamRole::cases()))
         ->and(Permission::query()->count())->toBe(count(TeamPermission::cases()));
+});
+
+test('the field work migration removes the previous broad operator grant without changing admin permissions', function () {
+    app(SyncTeamRolePermissions::class)->ensureBaseline();
+    $operator = Role::query()->whereNull('team_id')->where('name', TeamRole::Operator->value)->firstOrFail();
+    $admin = Role::query()->whereNull('team_id')->where('name', TeamRole::Admin->value)->firstOrFail();
+    $operator->syncPermissions([TeamPermission::ManageFarmOperations->value]);
+    $adminPermissions = $admin->permissions->pluck('name')->sort()->values()->all();
+
+    $migration = require database_path('migrations/2026_11_03_183212_sync_operator_field_work_permissions.php');
+    $migration->up();
+    $migration->up();
+
+    expect($operator->fresh()->permissions->pluck('name')->all())->toBe([TeamPermission::ManageFieldWork->value])
+        ->and($admin->fresh()->permissions->pluck('name')->sort()->values()->all())->toBe($adminPermissions);
 });

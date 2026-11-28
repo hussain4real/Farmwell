@@ -3,11 +3,13 @@
 namespace App\Models;
 
 use App\Concerns\HasTeams;
+use App\Enums\PlatformRole;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -16,14 +18,26 @@ use Laravel\Fortify\PasskeyAuthenticatable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 use Spatie\Permission\Traits\HasRoles;
 
+/**
+ * @property PlatformRole|null $platform_role
+ */
 #[Fillable(['name', 'email', 'password', 'current_team_id'])]
-#[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
+#[Hidden(['phone', 'password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
 class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, HasRoles, HasTeams, Notifiable, PasskeyAuthenticatable, TwoFactorAuthenticatable {
         HasRoles::teams as permissionTeams;
         HasTeams::teams insteadof HasRoles;
+    }
+
+    /**
+     * @return BelongsToMany<Team, $this>
+     */
+    public function phoneInvitedTeams(): BelongsToMany
+    {
+        return $this->teams()->whereIn('teams.id', TeamInvitation::query()
+            ->select('team_id')->whereNotNull('phone')->where('phone', $this->phone)->whereNotNull('accepted_at'));
     }
 
     /**
@@ -74,7 +88,9 @@ class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
     protected function casts(): array
     {
         return [
+            'platform_role' => PlatformRole::class,
             'email_verified_at' => 'datetime',
+            'phone_verified_at' => 'datetime',
             'password' => 'hashed',
             'two_factor_confirmed_at' => 'datetime',
         ];

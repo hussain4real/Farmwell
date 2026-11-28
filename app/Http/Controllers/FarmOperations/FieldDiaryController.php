@@ -18,7 +18,7 @@ class FieldDiaryController extends Controller
      */
     public function __invoke(Request $request, Team $currentTeam, BuildFarmOperationsPageData $pageData): Response
     {
-        Gate::authorize('viewFarmOperations', $currentTeam);
+        Gate::authorize('viewFieldWork', $currentTeam);
 
         $user = $request->user();
         assert($user instanceof User);

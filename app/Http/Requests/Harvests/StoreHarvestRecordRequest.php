@@ -29,11 +29,7 @@ class StoreHarvestRecordRequest extends FormRequest
     {
         $team = $this->route('current_team');
 
-        return $team instanceof Team
-            && (
-                $this->user()?->can('manageFarmOperations', $team) === true
-                || $this->user()?->can('manageFinance', $team) === true
-            );
+        return $team instanceof Team && $this->user()?->can('manageHarvests', $team) === true;
     }
 
     /**

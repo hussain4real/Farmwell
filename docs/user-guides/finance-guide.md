@@ -1,7 +1,7 @@
 # Finance Guide
 
-Applies through: Phase 6 - Harvest, Sales, Capital Recovery
-Last reviewed: 2026-06-11  
+Applies through: Phase 8 - Reports, Exports, and Operations Readiness
+Last reviewed: 2026-11-03
 Audience: Finance/admin users and farm organization admins  
 Related app areas: Finance, Budgets, Expenses, Funding Phases, External Transfers, Harvests, Investors, Approvals
 
@@ -54,10 +54,11 @@ Budget variance compares planned budget lines against recorded expenses.
 
 Use Funding Phases to track staged funding.
 
-- Record requested, approved, expected, and externally released amounts.
 - Link a funding phase to a farm and production cycle when available.
-- Link it to an investor agreement when the funding phase belongs to that agreement.
-- Funding releases linked to agreements can create approval requests.
+- For investor funding, select the agreement, enter the requested amount and milestone, and attach milestone evidence when available. Creating the requested phase sends it to the assigned investor for a decision.
+- For an existing requested phase without an approval request, attach any evidence and select **Submit for investor approval**.
+- After the investor approves, record the externally released amount and date. The amount cannot exceed the investor's approval, which may be lower than the request. A rejection or clarification is not approval to record a release.
+- Phases without an investor agreement can record their funding amounts directly.
 
 Carry-forward balances compare released funds against spending across funding phases.
 
@@ -161,4 +162,10 @@ Investor-linked finance records should be checked before approval.
 
 ## Current Limits
 
-This guide does not cover formal statements, exports, AI summaries, or backup operations because those workflows are not current through Phase 6.
+## Export financial records
+
+Open **Budgets** and select **Export budget variance** for a budget. Choose the reporting period and select **Generate workbook**. The workbook includes budget totals and expenses in the period, including draft and submitted expenses.
+
+In **Harvests**, use the report exports to generate harvest, sales, or distribution workbooks. Select a farm and dates, then apply any relevant filters. Wait for generation to finish and select **Download XLSX**. Each workbook is limited to 1,000 matching records. Narrow the date range or filters if generation reports that the limit was exceeded.
+
+Investors generate their own PDF statements from the Investor Portal. See the Investor Guide.

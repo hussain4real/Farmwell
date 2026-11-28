@@ -4,8 +4,17 @@ import AppLayout from '@/layouts/AppLayout.vue';
 import AuthLayout from '@/layouts/AuthLayout.vue';
 import SettingsLayout from '@/layouts/settings/Layout.vue';
 import { initializeFlashToast } from '@/lib/flashToast';
+import { initializeInstallPrompt } from '@/lib/installApp';
+import { registerServiceWorker } from '@/lib/offlineLogQueue';
 
-const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
+const configuredAppName = import.meta.env.VITE_APP_NAME;
+const appName =
+    !configuredAppName || configuredAppName === 'Laravel'
+        ? 'Farmwell'
+        : configuredAppName;
+
+initializeInstallPrompt();
+registerServiceWorker();
 
 createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),

@@ -7,6 +7,7 @@ enum TeamRole: string
     case Owner = 'owner';
     case Admin = 'admin';
     case Member = 'member';
+    case Operator = 'operator';
     case Investor = 'investor';
 
     /**
@@ -33,6 +34,7 @@ enum TeamRole: string
                 TeamPermission::ManageSettings,
                 TeamPermission::ViewFarmOperations,
                 TeamPermission::ManageFarmOperations,
+                TeamPermission::ManageFieldWork,
                 TeamPermission::ViewFinance,
                 TeamPermission::ManageFinance,
                 TeamPermission::ViewInvestorAgreements,
@@ -42,6 +44,9 @@ enum TeamRole: string
             ],
             self::Member => [
                 TeamPermission::ViewFarmOperations,
+            ],
+            self::Operator => [
+                TeamPermission::ManageFieldWork,
             ],
             self::Investor => [
                 TeamPermission::ViewInvestorPortal,
@@ -67,6 +72,7 @@ enum TeamRole: string
             self::Owner => 3,
             self::Admin => 2,
             self::Member => 1,
+            self::Operator => 1,
             self::Investor => 0,
         };
     }

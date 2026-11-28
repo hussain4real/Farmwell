@@ -2,6 +2,11 @@
 
 namespace App\Http\Middleware;
 
+use App\Actions\Teams\ResolveInvestorMode;
+use App\Actions\Teams\ResolveWorkspacePlan;
+use App\Support\PlatformAccess;
+use App\Support\PlatformImpersonation;
+use App\Support\UserTeam;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -36,7 +41,6 @@ class HandleInertiaRequests extends Middleware
     public function share(Request $request): array
     {
         $user = $request->user();
-        $currentTeam = $user?->currentTeam;
 
         return [
             ...parent::share($request),
@@ -44,9 +48,37 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $user,
             ],
+            'canManagePlatform' => fn () => $user?->can('managePlatform') ?? false,
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
-            'currentTeam' => fn () => $currentTeam ? $user?->toUserTeam($currentTeam) : null,
-            'currentTeamPermissions' => fn () => $user && $currentTeam ? $user->toTeamPermissions($currentTeam) : null,
+            'platformAccess' => fn () => PlatformAccess::context($request),
+            'platformImpersonation' => fn () => PlatformImpersonation::context($request),
+            'currentTeam' => function () use ($request, $user) {
+                $team = $request->attributes->get('platform_access_team');
+
+                return $team ? new UserTeam($team->id, $team->name, $team->slug, $team->is_personal, null, 'Super Admin · read only', true)
+                    : ($user?->currentTeam ? $user->toUserTeam($user->currentTeam) : null);
+            },
+            'currentTeamPermissions' => function () use ($request, $user) {
+                $team = $request->attributes->get('platform_access_team') ?? $user?->currentTeam;
+
+                return $team && $user ? $user->toTeamPermissions($team) : null;
+            },
+            'currentTeamFeatures' => function () use ($request, $user) {
+                $team = $request->attributes->get('platform_access_team') ?? $user?->currentTeam;
+
+                if (! $team) {
+                    return null;
+                }
+
+                $plans = app(ResolveWorkspacePlan::class);
+
+                return [
+                    'investorMode' => app(ResolveInvestorMode::class)->handle($team),
+                    'needsOnboarding' => $team->farms()->doesntExist(),
+                    'plan' => $plans->handle($team)->summary(),
+                    'canAddFarm' => $plans->canAddFarm($team),
+                ];
+            },
             'teams' => fn () => $user?->toUserTeams(includeCurrent: true) ?? [],
         ];
     }

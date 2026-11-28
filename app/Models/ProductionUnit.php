@@ -22,6 +22,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string|null $capacity
  * @property string $status
  * @property string|null $gps_coordinates
+ * @property string|null $water_source
+ * @property string|null $housing_system
  * @property string|null $suitability_notes
  * @property string|null $history_notes
  * @property-read Team $team
@@ -37,6 +39,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'capacity',
     'status',
     'gps_coordinates',
+    'water_source',
+    'housing_system',
     'suitability_notes',
     'history_notes',
 ])]
@@ -104,6 +108,26 @@ class ProductionUnit extends Model
     public function harvestRecords(): HasMany
     {
         return $this->hasMany(HarvestRecord::class);
+    }
+
+    /**
+     * Get production logs recorded for this unit.
+     *
+     * @return HasMany<ProductionLog, $this>
+     */
+    public function productionLogs(): HasMany
+    {
+        return $this->hasMany(ProductionLog::class);
+    }
+
+    /**
+     * Get health events recorded for this unit.
+     *
+     * @return HasMany<HealthEvent, $this>
+     */
+    public function healthEvents(): HasMany
+    {
+        return $this->hasMany(HealthEvent::class);
     }
 
     /**

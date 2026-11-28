@@ -1,21 +1,23 @@
 <script setup lang="ts">
 import { Link, usePage } from '@inertiajs/vue3';
 import {
-    BookOpen,
+    BarChart3,
     ClipboardList,
-    FolderGit2,
+    FileText,
     Handshake,
+    HeartPulse,
     Landmark,
     LayoutGrid,
     ListTodo,
     MessageSquare,
+    Package,
+    PlusCircle,
     ShieldCheck,
     Sprout,
     Tractor,
 } from 'lucide-vue-next';
 import { computed } from 'vue';
 import AppLogo from '@/components/AppLogo.vue';
-import NavFooter from '@/components/NavFooter.vue';
 import NavMain from '@/components/NavMain.vue';
 import NavUser from '@/components/NavUser.vue';
 import TeamSwitcher from '@/components/TeamSwitcher.vue';
@@ -29,66 +31,32 @@ import {
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { dashboard } from '@/routes';
+import { index as aiSummariesIndex } from '@/routes/ai-summaries';
 import { index as farmTasksIndex } from '@/routes/farm-tasks';
 import { index as farmsIndex } from '@/routes/farms';
 import { index as fieldDiaryIndex } from '@/routes/field-diary';
 import { index as financeIndex } from '@/routes/finance';
 import { index as harvestsIndex } from '@/routes/harvests';
+import { index as healthIndex } from '@/routes/health';
+import { index as inventoryIndex } from '@/routes/inventory';
 import { index as investorPortalIndex } from '@/routes/investor-portal';
 import { index as investorsIndex } from '@/routes/investors';
 import { index as investorApprovalsIndex } from '@/routes/investors/approvals';
+import { index as myInvestments } from '@/routes/my-investments';
+import { index as onboardingIndex } from '@/routes/onboarding';
+import { index as platformIndex } from '@/routes/platform';
+import { index as platformAiUsageIndex } from '@/routes/platform/ai-usage';
 import { index as whatsappIntakesIndex } from '@/routes/whatsapp-intakes';
 import type { NavItem } from '@/types';
 
 const page = usePage();
 
-const dashboardUrl = computed(() =>
-    page.props.currentTeam ? dashboard(page.props.currentTeam.slug).url : '/',
-);
-const farmsUrl = computed(() =>
-    page.props.currentTeam ? farmsIndex(page.props.currentTeam.slug).url : '/',
-);
-const fieldDiaryUrl = computed(() =>
-    page.props.currentTeam
-        ? fieldDiaryIndex(page.props.currentTeam.slug).url
-        : '/',
-);
-const farmTasksUrl = computed(() =>
-    page.props.currentTeam
-        ? farmTasksIndex(page.props.currentTeam.slug).url
-        : '/',
-);
-const whatsappIntakesUrl = computed(() =>
-    page.props.currentTeam
-        ? whatsappIntakesIndex(page.props.currentTeam.slug).url
-        : '/',
-);
-const financeUrl = computed(() =>
-    page.props.currentTeam
-        ? financeIndex(page.props.currentTeam.slug).url
-        : '/',
-);
-const harvestsUrl = computed(() =>
-    page.props.currentTeam
-        ? harvestsIndex(page.props.currentTeam.slug).url
-        : '/',
-);
-const investorsUrl = computed(() =>
-    page.props.currentTeam
-        ? investorsIndex(page.props.currentTeam.slug).url
-        : '/',
-);
-const investorApprovalsUrl = computed(() =>
-    page.props.currentTeam
-        ? investorApprovalsIndex(page.props.currentTeam.slug).url
-        : '/',
-);
-const investorPortalUrl = computed(() =>
-    page.props.currentTeam
-        ? investorPortalIndex(page.props.currentTeam.slug).url
-        : '/',
-);
+const slug = computed(() => page.props.currentTeam?.slug ?? '');
 const currentPermissions = computed(() => page.props.currentTeamPermissions);
+const investorMode = computed(
+    () => page.props.currentTeamFeatures?.investorMode === true,
+);
+
 const investorOnly = computed(
     () =>
         currentPermissions.value?.canViewInvestorPortal === true &&
@@ -96,15 +64,111 @@ const investorOnly = computed(
         currentPermissions.value.canViewFinance !== true &&
         currentPermissions.value.canViewInvestorAgreements !== true,
 );
-const homeUrl = computed(() =>
-    investorOnly.value ? investorPortalUrl.value : dashboardUrl.value,
+
+const dashboardUrl = computed(() =>
+    slug.value ? dashboard(slug.value).url : '/',
 );
+const onboardingUrl = computed(() =>
+    slug.value ? onboardingIndex(slug.value).url : '/',
+);
+const farmsUrl = computed(() =>
+    slug.value ? farmsIndex(slug.value).url : '/',
+);
+const fieldDiaryUrl = computed(() =>
+    slug.value ? fieldDiaryIndex(slug.value).url : '/',
+);
+const farmTasksUrl = computed(() =>
+    slug.value ? farmTasksIndex(slug.value).url : '/',
+);
+const inventoryUrl = computed(() =>
+    slug.value ? inventoryIndex(slug.value).url : '/',
+);
+const healthUrl = computed(() =>
+    slug.value ? healthIndex(slug.value).url : '/',
+);
+const whatsappIntakesUrl = computed(() =>
+    slug.value ? whatsappIntakesIndex(slug.value).url : '/',
+);
+const financeUrl = computed(() =>
+    slug.value ? financeIndex(slug.value).url : '/',
+);
+const harvestsUrl = computed(() =>
+    slug.value ? harvestsIndex(slug.value).url : '/',
+);
+const investorsUrl = computed(() =>
+    slug.value ? investorsIndex(slug.value).url : '/',
+);
+const investorApprovalsUrl = computed(() =>
+    slug.value ? investorApprovalsIndex(slug.value).url : '/',
+);
+const investorPortalUrl = computed(() =>
+    slug.value ? investorPortalIndex(slug.value).url : '/',
+);
+const aiSummariesUrl = computed(() =>
+    slug.value ? aiSummariesIndex(slug.value).url : '/',
+);
+
+const homeUrl = computed(() =>
+    investorOnly.value ? myInvestments.url() : dashboardUrl.value,
+);
+const investmentsNavItem: NavItem = {
+    title: 'My Investments',
+    href: myInvestments.url(),
+    icon: LayoutGrid,
+};
 
 const mainNavItems = computed<NavItem[]>(() => {
     const permissions = currentPermissions.value;
+    const access = page.props.platformAccess;
+
+    if (access) {
+        return [
+            {
+                title: 'Dashboard',
+                href: dashboard(access.team_slug).url,
+                icon: LayoutGrid,
+            },
+            {
+                title: 'Farms',
+                href: farmsIndex(access.team_slug).url,
+                icon: Tractor,
+            },
+            {
+                title: 'Field Diary',
+                href: fieldDiaryIndex(access.team_slug).url,
+                icon: ClipboardList,
+            },
+            {
+                title: 'Inventory',
+                href: inventoryIndex(access.team_slug).url,
+                icon: Package,
+            },
+            {
+                title: 'Health & Vet',
+                href: healthIndex(access.team_slug).url,
+                icon: HeartPulse,
+            },
+            {
+                title: 'Finance',
+                href: financeIndex(access.team_slug).url,
+                icon: Landmark,
+            },
+            {
+                title: 'Investors',
+                href: investorsIndex(access.team_slug).url,
+                icon: Handshake,
+            },
+            {
+                title: 'Approvals',
+                href: investorApprovalsIndex(access.team_slug).url,
+                icon: ShieldCheck,
+            },
+        ];
+    }
 
     if (investorOnly.value) {
         return [
+            investmentsNavItem,
             {
                 title: 'Investor Portal',
                 href: investorPortalUrl.value,
@@ -121,13 +185,31 @@ const mainNavItems = computed<NavItem[]>(() => {
         },
     ];
 
+    if (page.props.teams?.some((team) => team.role === 'investor')) {
+        items.push(investmentsNavItem);
+    }
+
     if (permissions?.canViewFarmOperations) {
+        items.push({
+            title: 'Farms',
+            href: farmsUrl.value,
+            icon: Tractor,
+        });
+    }
+
+    if (
+        permissions?.canManageFarmOperations &&
+        page.props.currentTeamFeatures?.canAddFarm !== false
+    ) {
+        items.push({
+            title: 'Onboard Farm',
+            href: onboardingUrl.value,
+            icon: PlusCircle,
+        });
+    }
+
+    if (permissions?.canViewFarmOperations || permissions?.canManageFieldWork) {
         items.push(
-            {
-                title: 'Farms',
-                href: farmsUrl.value,
-                icon: Tractor,
-            },
             {
                 title: 'Field Diary',
                 href: fieldDiaryUrl.value,
@@ -139,11 +221,32 @@ const mainNavItems = computed<NavItem[]>(() => {
                 icon: ListTodo,
             },
             {
-                title: 'WhatsApp Intake',
-                href: whatsappIntakesUrl.value,
-                icon: MessageSquare,
+                title: 'Stock & Feed',
+                href: inventoryUrl.value,
+                icon: Package,
+            },
+            {
+                title: 'Health & Vaccines',
+                href: healthUrl.value,
+                icon: HeartPulse,
             },
         );
+    }
+
+    if (permissions?.canViewFarmOperations) {
+        items.push({
+            title: 'WhatsApp Intake',
+            href: whatsappIntakesUrl.value,
+            icon: MessageSquare,
+        });
+    }
+
+    if (permissions?.canViewFarmOperations || permissions?.canViewFinance) {
+        items.push({
+            title: 'Harvests & Sales',
+            href: harvestsUrl.value,
+            icon: Sprout,
+        });
     }
 
     if (permissions?.canViewFinance) {
@@ -154,15 +257,19 @@ const mainNavItems = computed<NavItem[]>(() => {
         });
     }
 
-    if (permissions?.canViewFarmOperations || permissions?.canViewFinance) {
+    if (
+        page.props.currentTeamFeatures?.plan?.allowsAiSummaries !== false &&
+        (permissions?.canManageInvestorAgreements ||
+            permissions?.canManageFarmOperations)
+    ) {
         items.push({
-            title: 'Harvests',
-            href: harvestsUrl.value,
-            icon: Sprout,
+            title: 'AI Summaries',
+            href: aiSummariesUrl.value,
+            icon: FileText,
         });
     }
 
-    if (permissions?.canViewInvestorAgreements) {
+    if (investorMode.value && permissions?.canViewInvestorAgreements) {
         items.push({
             title: 'Investors',
             href: investorsUrl.value,
@@ -170,7 +277,7 @@ const mainNavItems = computed<NavItem[]>(() => {
         });
     }
 
-    if (permissions?.canViewApprovalRequests) {
+    if (investorMode.value && permissions?.canViewApprovalRequests) {
         items.push({
             title: 'Approvals',
             href: investorApprovalsUrl.value,
@@ -180,19 +287,6 @@ const mainNavItems = computed<NavItem[]>(() => {
 
     return items;
 });
-
-const footerNavItems: NavItem[] = [
-    {
-        title: 'Repository',
-        href: 'https://github.com/laravel/vue-starter-kit',
-        icon: FolderGit2,
-    },
-    {
-        title: 'Documentation',
-        href: 'https://laravel.com/docs/starter-kits#vue',
-        icon: BookOpen,
-    },
-];
 </script>
 
 <template>
@@ -209,17 +303,44 @@ const footerNavItems: NavItem[] = [
             </SidebarMenu>
             <SidebarMenu>
                 <SidebarMenuItem>
-                    <TeamSwitcher />
+                    <p
+                        v-if="page.props.platformAccess"
+                        class="px-2 py-3 text-sm font-medium"
+                    >
+                        {{ page.props.platformAccess.team_name
+                        }}<span class="block text-xs text-muted-foreground"
+                            >Admin session · read only</span
+                        >
+                    </p>
+                    <TeamSwitcher v-else />
                 </SidebarMenuItem>
             </SidebarMenu>
         </SidebarHeader>
 
         <SidebarContent>
-            <NavMain :items="mainNavItems" />
+            <NavMain
+                :items="mainNavItems"
+                :label="investorOnly ? 'Investments' : 'Platform'"
+            />
+            <NavMain
+                v-if="page.props.canManagePlatform"
+                label="Administration"
+                :items="[
+                    {
+                        title: 'Platform admin',
+                        href: platformIndex().url,
+                        icon: ShieldCheck,
+                    },
+                    {
+                        title: 'AI Usage',
+                        href: platformAiUsageIndex().url,
+                        icon: BarChart3,
+                    },
+                ]"
+            />
         </SidebarContent>
 
         <SidebarFooter>
-            <NavFooter :items="footerNavItems" />
             <NavUser />
         </SidebarFooter>
     </Sidebar>

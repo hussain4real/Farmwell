@@ -6,6 +6,7 @@ use App\Actions\Finance\ResolveTeamFinanceCurrency;
 use App\Enums\DistributionStatus;
 use App\Enums\HarvestRecordStatus;
 use App\Enums\HarvestStage;
+use App\Enums\HealthEventStatus;
 use App\Enums\InvestorAgreementStatus;
 use App\Enums\InvestorVisibilityStatus;
 use App\Enums\SalePaymentStatus;
@@ -13,6 +14,7 @@ use App\Models\Commodity;
 use App\Models\DistributionRecord;
 use App\Models\Farm;
 use App\Models\HarvestRecord;
+use App\Models\HealthEvent;
 use App\Models\InvestorAgreement;
 use App\Models\SaleRecord;
 use App\Models\Team;
@@ -51,6 +53,19 @@ class BuildHarvestPageData
             'distributionRecords' => $canViewFinance
                 ? $this->distributionRecords($team)->map(fn (DistributionRecord $distribution) => $this->distributionPayload($distribution))
                 : [],
+            'activeWithdrawals' => $team->healthEvents()
+                ->with(['farm', 'productionCycle'])
+                ->where('status', HealthEventStatus::Completed->value)
+                ->get()
+                ->filter(fn (HealthEvent $event): bool => $event->isUnderWithdrawal())
+                ->map(fn (HealthEvent $event): array => [
+                    'id' => $event->id,
+                    'title' => $event->title,
+                    'productName' => $event->product_name,
+                    'farmName' => $event->farm->name,
+                    'cycleName' => $event->productionCycle?->name,
+                    'withdrawalEndsOn' => $event->withdrawalEndsOn()?->toDateString(),
+                ])->values(),
             'options' => $this->options(),
         ];
     }
@@ -68,12 +83,14 @@ class BuildHarvestPageData
      */
     private function summary(Team $team): array
     {
-        $saleNetMinor = (int) $team->saleRecords()->sum('net_amount_minor');
-        $capitalRecoveredMinor = (int) $team->distributionRecords()->sum('capital_recovered_minor');
-        $investorShareMinor = (int) $team->distributionRecords()->sum('investor_share_minor');
-        $farmShareMinor = (int) $team->distributionRecords()->sum('farm_share_minor');
+        $currency = $this->resolveTeamFinanceCurrency->handle($team);
+        $saleNetMinor = (int) $team->saleRecords()->where('currency', $currency)->sum('net_amount_minor');
+        $capitalRecoveredMinor = (int) $team->distributionRecords()->where('currency', $currency)->sum('capital_recovered_minor');
+        $investorShareMinor = (int) $team->distributionRecords()->where('currency', $currency)->sum('investor_share_minor');
+        $farmShareMinor = (int) $team->distributionRecords()->where('currency', $currency)->sum('farm_share_minor');
         $unrecoveredCapitalMinor = (int) $team->investorAgreements()
-            ->withSum('distributionRecords', 'capital_recovered_minor')
+            ->where('currency', $currency)
+            ->withSum(['distributionRecords' => fn ($query) => $query->where('currency', $currency)], 'capital_recovered_minor')
             ->get()
             ->sum(function (InvestorAgreement $agreement): int {
                 $capitalRecoveredMinor = (int) $agreement->getAttribute('distribution_records_sum_capital_recovered_minor');
@@ -82,6 +99,7 @@ class BuildHarvestPageData
             });
 
         return [
+            'currency' => $currency,
             'harvestRecords' => $team->harvestRecords()->count(),
             'saleRecords' => $team->saleRecords()->count(),
             'distributionRecords' => $team->distributionRecords()->count(),

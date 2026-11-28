@@ -1,5 +1,7 @@
 <?php
 
+use App\Enums\TeamRole;
+use App\Models\Team;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -71,6 +73,40 @@ test('users can not authenticate with invalid password', function () {
     $this->assertGuest();
 });
 
+test('login rejects a non-string email with a field validation error', function () {
+    $this->postJson(route('login.store'), [
+        'email' => ['drill@example.test'],
+        'password' => 'password',
+    ])->assertUnprocessable()->assertOnlyInvalid(['email']);
+
+    $this->assertGuest();
+});
+
+test('a malformed login form redirects back with the email error', function () {
+    $this->from(route('login'))->post(route('login.store'), [
+        'email' => ['drill@example.test'],
+        'password' => 'password',
+    ])->assertRedirect(route('login'))->assertSessionHasErrors('email');
+
+    $this->assertGuest();
+});
+
+test('changing a malformed email does not bypass the login rate limit', function () {
+    for ($attempt = 1; $attempt <= 5; $attempt++) {
+        $this->postJson(route('login.store'), [
+            'email' => ["user{$attempt}@example.test"],
+            'password' => 'password',
+        ])->assertUnprocessable();
+    }
+
+    $this->postJson(route('login.store'), [
+        'email' => ['another@example.test'],
+        'password' => 'password',
+    ])->assertTooManyRequests();
+
+    $this->assertGuest();
+});
+
 test('users can logout', function () {
     $user = User::factory()->create();
 
@@ -91,4 +127,26 @@ test('users are rate limited', function () {
     ]);
 
     $response->assertTooManyRequests();
+});
+
+test('investor-only users land on their investor portal after login even when the dashboard was intended', function () {
+    $investor = User::factory()->create();
+    $team = Team::factory()->create();
+    $team->members()->attach($investor, ['role' => TeamRole::Investor->value]);
+    $investor->switchTeam($team);
+
+    $this->withSession(['url.intended' => route('dashboard', ['current_team' => $team])])
+        ->post(route('login.store'), ['email' => $investor->email, 'password' => 'password'])
+        ->assertRedirect(route('investor-portal.index', ['current_team' => $team]));
+});
+
+test('investor login discards a previous admin page as the intended destination', function () {
+    $investor = User::factory()->create();
+    $team = Team::factory()->create();
+    $team->members()->attach($investor, ['role' => TeamRole::Investor->value]);
+    $investor->switchTeam($team);
+
+    $this->withSession(['url.intended' => "/{$team->slug}/ai-summaries"])
+        ->post(route('login.store'), ['email' => $investor->email, 'password' => 'password'])
+        ->assertRedirect(route('investor-portal.index', ['current_team' => $team]));
 });

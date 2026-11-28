@@ -11,6 +11,8 @@ use App\Support\Money;
 
 class CalculateCarryForwardBalance
 {
+    public function __construct(private ResolveTeamFinanceCurrency $resolveTeamFinanceCurrency) {}
+
     /**
      * @return array<string, mixed>
      */
@@ -20,9 +22,11 @@ class CalculateCarryForwardBalance
         $releasedMinor = 0;
         $spentMinor = 0;
 
+        $currency = $this->resolveTeamFinanceCurrency->handle($team);
         $phases = FundingPhase::query()
             ->where('team_id', $team->id)
-            ->withSum(['expenses as spent_minor' => fn ($query) => $query->whereIn('status', ExpenseStatus::spendableValues())], 'amount_minor')
+            ->where('currency', $currency)
+            ->withSum(['expenses as spent_minor' => fn ($query) => $query->where('currency', $currency)->whereIn('status', ExpenseStatus::spendableValues())], 'amount_minor')
             ->when($farm, fn ($query) => $query->where('farm_id', $farm->id))
             ->when($cycle, fn ($query) => $query->where('production_cycle_id', $cycle->id))
             ->orderBy('expected_on')

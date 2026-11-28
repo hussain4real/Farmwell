@@ -1,0 +1,25 @@
+{
+    "id": "/",
+    "name": "Farmwell",
+    "short_name": "Farmwell",
+    "start_url": "/",
+    "scope": "/",
+    "display": "standalone",
+    "orientation": "portrait-primary",
+    "theme_color": "#1b4d3e",
+    "background_color": "#f6faf7",
+    "icons": [
+        {
+            "src": "/farmwell-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "/farmwell-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ]
+}

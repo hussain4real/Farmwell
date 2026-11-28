@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Teams;
 
 use App\Actions\Teams\CreateTeam;
+use App\Actions\Teams\ResolveInvestorMode;
+use App\Actions\Teams\ResolveWorkspacePlan;
 use App\Enums\TeamRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Teams\DeleteTeamRequest;
@@ -10,7 +12,11 @@ use App\Http\Requests\Teams\SaveTeamRequest;
 use App\Models\Membership;
 use App\Models\Team;
 use App\Models\TeamInvitation;
+use App\Models\TeamSetting;
 use App\Models\User;
+use App\Services\InfobipVerification;
+use App\Support\PhoneCallingCode;
+use App\Support\PilotPhone;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -50,6 +56,22 @@ class TeamController extends Controller
     public function edit(Request $request, Team $team): Response
     {
         $user = $request->user();
+        abort_if($user->teamRole($team) === TeamRole::Operator, 403);
+
+        $permissions = $user->toTeamPermissions($team);
+        $plans = app(ResolveWorkspacePlan::class);
+        $plan = $plans->handle($team);
+
+        $dailyRemindersSetting = TeamSetting::query()
+            ->where('team_id', $team->id)
+            ->where('setting_group', 'operations')
+            ->where('setting_key', 'daily_reminders')
+            ->first();
+
+        $availableRoles = array_values(array_filter(
+            TeamRole::assignable(),
+            static fn (array $role): bool => $plan->allowsInvestorMode() || $role['value'] !== TeamRole::Investor->value,
+        ));
 
         return Inertia::render('teams/Edit', [
             'team' => [
@@ -68,16 +90,27 @@ class TeamController extends Controller
             ]),
             'invitations' => $team->invitations()
                 ->whereNull('accepted_at')
+                ->when(! $permissions->canCreateInvitation && ! $permissions->canCancelInvitation, fn ($query) => $query->whereNull('phone'))
                 ->get()
                 ->map(fn (TeamInvitation $invitation) => [
                     'code' => $invitation->code,
                     'email' => $invitation->email,
+                    'phone' => $invitation->phone,
+                    'phone_url' => $invitation->phone ? PilotPhone::invitationUrl($invitation) : null,
                     'role' => $invitation->role->value,
                     'role_label' => $invitation->role->label(),
                     'created_at' => $invitation->created_at->toISOString(),
                 ]),
-            'permissions' => $user->toTeamPermissions($team),
-            'availableRoles' => TeamRole::assignable(),
+            'permissions' => $permissions,
+            'plan' => $plan->summary(),
+            'canAddMember' => $plans->canAddMember($team),
+            'usedSeatCount' => $plans->usedSeatCount($team),
+            'investorMode' => app(ResolveInvestorMode::class)->handle($team),
+            'dailyRemindersEnabled' => (bool) ($dailyRemindersSetting?->value['enabled'] ?? true),
+            'callingCode' => PhoneCallingCode::forRecipient(),
+            'phoneCountries' => config('services.phone_login.pilot_host') ? PilotPhone::Countries : null,
+            'phoneLoginEnabled' => InfobipVerification::enabled() && $plan->allowsPhoneInvitations(),
+            'availableRoles' => $availableRoles,
         ]);
     }
 
@@ -126,7 +159,7 @@ class TeamController extends Controller
         DB::transaction(function () use ($user, $team) {
             User::where('current_team_id', $team->id)
                 ->where('id', '!=', $user->id)
-                ->each(fn (User $affectedUser) => $affectedUser->switchTeam($affectedUser->personalTeam()));
+                ->each(fn (User $affectedUser) => $affectedUser->switchAfterLeaving($team));
 
             $team->invitations()->delete();
             $team->memberships()->delete();

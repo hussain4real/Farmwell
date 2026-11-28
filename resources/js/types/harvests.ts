@@ -2,6 +2,7 @@ import type { Evidence, FarmOption } from './farm-operations';
 import type { TeamPermissions } from './teams';
 
 export type HarvestSummary = {
+    currency?: string;
     harvestRecords: number;
     saleRecords: number | null;
     distributionRecords: number | null;

@@ -3,14 +3,20 @@
 namespace App\Actions\FarmOperations;
 
 use App\Actions\Finance\BuildFinancePageData;
+use App\Actions\Finance\ResolveTeamFinanceCurrency;
 use App\Actions\Harvests\BuildHarvestPageData;
 use App\Enums\CommodityRole;
+use App\Enums\CropGrowthStage;
+use App\Enums\EnterpriseSubtype;
 use App\Enums\FarmActivityStatus;
 use App\Enums\FarmTaskStatus;
 use App\Enums\FarmType;
+use App\Enums\HealthEventStatus;
 use App\Enums\InvestorAgreementStatus;
 use App\Enums\InvestorVisibilityStatus;
+use App\Enums\PestPressure;
 use App\Enums\ProductionCycleStatus;
+use App\Enums\ProductionLogDomain;
 use App\Enums\ProductionPlanChangeType;
 use App\Enums\ProductionUnitType;
 use App\Enums\WhatsappIntakeStatus;
@@ -18,6 +24,8 @@ use App\Models\Commodity;
 use App\Models\Farm;
 use App\Models\FarmActivity;
 use App\Models\FarmTask;
+use App\Models\HealthEvent;
+use App\Models\InventoryItem;
 use App\Models\InvestorAgreement;
 use App\Models\ProductionCycle;
 use App\Models\ProductionPlanChange;
@@ -32,8 +40,10 @@ use Spatie\MediaLibrary\MediaCollections\Models\Media;
 class BuildFarmOperationsPageData
 {
     public function __construct(
+        private BuildDailyOperationalReminders $buildDailyOperationalReminders,
         private BuildFinancePageData $financePageData,
         private BuildHarvestPageData $harvestPageData,
+        private ResolveTeamFinanceCurrency $resolveTeamFinanceCurrency,
     ) {
         //
     }
@@ -45,13 +55,117 @@ class BuildFarmOperationsPageData
      */
     public function dashboard(Team $team, User $user): array
     {
+        $farmHighlights = $team->farms()
+            ->with([
+                'productionUnits' => fn ($query) => $query->orderBy('name'),
+                'productionCycles' => fn ($query) => $query
+                    ->whereIn('status', [ProductionCycleStatus::Active->value, ProductionCycleStatus::Planned->value])
+                    ->latest(),
+            ])
+            ->withCount(['productionUnits', 'productionCycles'])
+            ->orderBy('name')
+            ->limit(6)
+            ->get()
+            ->map(fn (Farm $farm) => [
+                'id' => $farm->id,
+                'name' => $farm->name,
+                'farmType' => $farm->farm_type->value,
+                'farmTypeLabel' => $farm->farm_type->label(),
+                'domain' => ProductionLogDomain::fromFarmType($farm->farm_type)->value,
+                'location' => $farm->location,
+                'status' => $farm->status,
+                'productionUnitsCount' => $farm->production_units_count,
+                'productionCyclesCount' => $farm->production_cycles_count,
+                'liveStockTotal' => (int) $farm->productionCycles->sum(fn (ProductionCycle $cycle): int => $cycle->current_stock_count ?? 0),
+                'productionUnits' => $farm->productionUnits->map(fn (ProductionUnit $unit) => [
+                    'id' => $unit->id,
+                    'name' => $unit->name,
+                ])->values()->all(),
+                'activeCycles' => $farm->productionCycles->map(fn (ProductionCycle $cycle) => [
+                    'id' => $cycle->id,
+                    'name' => $cycle->name,
+                    'status' => $cycle->status->value,
+                    'statusLabel' => $cycle->status->label(),
+                    'currentStockCount' => $cycle->current_stock_count,
+                    'currentGrowthStage' => $cycle->current_growth_stage?->value,
+                    'currentGrowthStageLabel' => $cycle->current_growth_stage?->label(),
+                ])->values()->all(),
+            ])->values()->all();
+
+        $lowStockItems = $team->inventoryItems()
+            ->where('is_active', true)
+            ->get()
+            ->filter(fn (InventoryItem $item): bool => $item->isLowStock())
+            ->values();
+
+        $dueHealthEvents = $team->healthEvents()
+            ->with(['farm', 'productionCycle'])
+            ->where('status', HealthEventStatus::Scheduled->value)
+            ->whereDate('scheduled_on', '<=', now()->addDays(7)->toDateString())
+            ->orderBy('scheduled_on')
+            ->limit(6)
+            ->get()
+            ->map(fn (HealthEvent $event): array => [
+                'id' => $event->id,
+                'title' => $event->title,
+                'farmName' => $event->farm->name,
+                'cycleName' => $event->productionCycle?->name,
+                'scheduledOn' => $event->scheduled_on->toDateString(),
+                'isOverdue' => $event->isOverdue(),
+            ])->values();
+
+        $activeWithdrawalCount = $team->healthEvents()
+            ->where('status', HealthEventStatus::Completed->value)
+            ->get()
+            ->filter(fn (HealthEvent $event): bool => $event->isUnderWithdrawal())
+            ->count();
+
+        $overdueTaskCount = $team->farmTasks()
+            ->whereNotIn('status', [FarmTaskStatus::Completed->value, FarmTaskStatus::Cancelled->value])
+            ->whereDate('due_on', '<', today()->toDateString())
+            ->count();
+
+        $reminders = $this->buildDailyOperationalReminders->handle($team);
+
         return [
             'permissions' => $user->toTeamPermissions($team),
             'stats' => $this->stats($team),
+            'farmHighlights' => $farmHighlights,
+            'alerts' => [
+                'overdueTasks' => $overdueTaskCount,
+                'lowStockCount' => $lowStockItems->count(),
+                'lowStockNames' => $lowStockItems->take(4)->map(fn (InventoryItem $item): array => [
+                    'id' => $item->id,
+                    'name' => $item->name,
+                    'currentQuantity' => $item->current_quantity,
+                    'unit' => $item->unit,
+                ])->values(),
+                'upcomingHealthCount' => $dueHealthEvents->count(),
+                'upcomingHealthEvents' => $dueHealthEvents,
+                'activeWithdrawals' => $activeWithdrawalCount,
+                'waterQualityAlertCount' => count($reminders['waterQualityAlerts']),
+                'whatsappDigestText' => $reminders['hasAlerts'] ? $reminders['whatsappText'] : null,
+            ],
+            'quickLogInventory' => $team->inventoryItems()
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get()
+                ->map(fn (InventoryItem $item): array => [
+                    'id' => $item->id,
+                    'farmId' => $item->farm_id,
+                    'name' => $item->name,
+                    'category' => $item->category->value,
+                    'unit' => $item->unit,
+                    'currentQuantity' => $item->current_quantity,
+                ])->values(),
+            'quickLogOptions' => [
+                'cropGrowthStages' => CropGrowthStage::options(),
+                'pestPressures' => PestPressure::options(),
+            ],
             'latestActivities' => $this->latestActivities($team, 4)->map(fn (FarmActivity $activity) => $this->activityPayload($activity, $team)),
             'upcomingTasks' => $this->upcomingTasks($team, 5)->map(fn (FarmTask $task) => $this->taskPayload($task)),
-            'pendingIntakes' => $this->pendingIntakes($team, 4)->map(fn (WhatsappIntake $intake) => $this->intakePayload($intake, $team)),
-            'latestPlanChanges' => $this->latestPlanChanges($team, 4)->map(fn (ProductionPlanChange $planChange) => $this->planChangePayload($planChange)),
+            'pendingIntakes' => $user->can('viewFarmOperations', $team) ? $this->pendingIntakes($team, 4)->map(fn (WhatsappIntake $intake) => $this->intakePayload($intake, $team)) : collect(),
+            'latestPlanChanges' => $user->can('viewFarmOperations', $team) ? $this->latestPlanChanges($team, 4)->map(fn (ProductionPlanChange $planChange) => $this->planChangePayload($planChange)) : collect(),
             'financeSummary' => $user->can('viewFinance', $team) ? $this->financePageData->dashboardSummary($team) : null,
             'harvestSummary' => $user->can('viewFinance', $team) ? $this->harvestPageData->dashboardSummary($team) : null,
         ];
@@ -84,6 +198,8 @@ class BuildFarmOperationsPageData
             'latestPlanChanges' => $this->latestPlanChanges($team)->map(fn (ProductionPlanChange $planChange) => $this->planChangePayload($planChange)),
             'options' => [
                 'farmTypes' => FarmType::options(),
+                'enterpriseSubtypes' => EnterpriseSubtype::options(),
+                'cropGrowthStages' => CropGrowthStage::options(),
                 'productionUnitTypes' => ProductionUnitType::options(),
                 'productionCycleStatuses' => ProductionCycleStatus::options(),
                 'commodityRoles' => CommodityRole::options(),
@@ -101,6 +217,7 @@ class BuildFarmOperationsPageData
     public function fieldDiary(Team $team, User $user): array
     {
         return [
+            'currency' => $this->resolveTeamFinanceCurrency->handle($team),
             'permissions' => $user->toTeamPermissions($team),
             'farms' => $this->farms($team)->map(fn (Farm $farm) => $this->farmPayload($farm)),
             'commodities' => $this->commodities($team)->map(fn (Commodity $commodity) => $this->commodityPayload($commodity)),
@@ -349,6 +466,11 @@ class BuildFarmOperationsPageData
                 'season' => $cycle->season,
                 'farmType' => $cycle->farm_type->value,
                 'farmTypeLabel' => $cycle->farm_type->label(),
+                'enterpriseSubtype' => $cycle->enterprise_subtype?->value,
+                'enterpriseSubtypeLabel' => $cycle->enterprise_subtype?->label(),
+                'breedOrVariety' => $cycle->breed_or_variety,
+                'currentStockCount' => $cycle->current_stock_count,
+                'currentGrowthStageLabel' => $cycle->current_growth_stage?->label(),
                 'productionMethod' => $cycle->production_method,
                 'plannedStartOn' => $cycle->planned_start_on->toDateString(),
                 'plannedEndOn' => $cycle->planned_end_on?->toDateString(),
@@ -476,6 +598,8 @@ class BuildFarmOperationsPageData
      */
     private function mediaPayload(Media $media, Team $team): array
     {
+        $isPhoto = in_array($media->mime_type, FarmActivity::InvestorPhotoMimeTypes, true);
+
         return [
             'id' => $media->id,
             'name' => $media->name,
@@ -486,6 +610,8 @@ class BuildFarmOperationsPageData
             'visibility' => $media->getCustomProperty('visibility', 'private'),
             'capturedOn' => $media->getCustomProperty('captured_on'),
             'downloadUrl' => route('farm-evidence.show', [$team, $media]),
+            'thumbnailUrl' => $isPhoto ? route('farm-evidence.show', [$team, $media, 'thumb' => 1]) : null,
+            'previewUrl' => $isPhoto ? route('farm-evidence.show', [$team, $media, 'preview' => 1]) : null,
         ];
     }
 

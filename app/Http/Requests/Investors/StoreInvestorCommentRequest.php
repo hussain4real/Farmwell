@@ -46,7 +46,7 @@ class StoreInvestorCommentRequest extends FormRequest
     {
         return [
             'body' => ['required', 'string', 'max:2000'],
-            'subject_type' => ['nullable', 'string', Rule::in(['expense', 'funding_phase', 'external_transfer', 'activity', 'task', 'plan_change', 'approval_request'])],
+            'subject_type' => ['nullable', 'string', Rule::in(['expense', 'funding_phase', 'external_transfer', 'harvest', 'sale', 'distribution', 'activity', 'task', 'plan_change', 'approval_request'])],
             'subject_id' => ['nullable', 'integer'],
         ];
     }

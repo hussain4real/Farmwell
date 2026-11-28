@@ -2,7 +2,14 @@
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}"  @class(['dark' => ($appearance ?? 'system') == 'dark'])>
     <head>
         <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+        <meta name="apple-mobile-web-app-title" content="Farmwell">
+        <meta name="theme-color" content="#1b4d3e" media="(prefers-color-scheme: light)">
+        <meta name="theme-color" content="#0f2920" media="(prefers-color-scheme: dark)">
+        <link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials">
 
         {{-- Inline script to detect system dark mode preference and apply it immediately --}}
         <script>
@@ -30,18 +37,40 @@
             }
         </style>
 
-        <link rel="icon" href="/favicon.ico" sizes="any">
-        <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+        <link rel="icon" href="/favicon.ico?v=2" sizes="any">
+        <link rel="icon" href="/favicon.svg?v=2" type="image/svg+xml">
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
 
         @fonts
 
         @vite(['resources/css/app.css', 'resources/js/app.ts', "resources/js/pages/{$page['component']}.vue"])
         <x-inertia::head>
-            <title>{{ config('app.name', 'Laravel') }}</title>
+            <title>{{ config('app.name', 'Farmwell') }}</title>
         </x-inertia::head>
     </head>
     <body class="font-sans antialiased">
         <x-inertia::app />
+        <aside
+            id="farmwell-install"
+            aria-label="Install Farmwell"
+            hidden
+            class="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+5rem)] z-50 mx-auto max-w-sm rounded-xl border bg-background p-4 text-foreground shadow-lg md:bottom-4"
+        >
+            <div class="flex items-center gap-3">
+                <img src="/farmwell-192.png" alt="" width="40" height="40" class="rounded-lg">
+                <div>
+                    <p class="font-semibold">Install Farmwell</p>
+                    <p class="text-sm text-muted-foreground">Open it from your home screen.</p>
+                </div>
+            </div>
+            <div class="mt-3 flex justify-end gap-2">
+                <button type="button" data-dismiss class="rounded-md px-3 py-2 text-sm font-medium hover:bg-muted">
+                    Not now
+                </button>
+                <button type="button" data-install class="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+                    Install
+                </button>
+            </div>
+        </aside>
     </body>
 </html>
