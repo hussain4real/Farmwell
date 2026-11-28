@@ -13,7 +13,6 @@ use App\Models\ApprovalRequest;
 use App\Models\Expense;
 use App\Models\Team;
 use App\Models\User;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 
 class RequestExpenseApprovals
@@ -111,35 +110,94 @@ class RequestExpenseApprovals
 
     private function refreshRelatedOverrunRequests(Team $team, User $actor, Expense $expense, int $overrunMinor): void
     {
-        $requests = $team->approvalRequests()
-            ->where('request_type', ApprovalRequestType::BudgetOverrun)
-            ->whereIn('status', [ApprovalRequestStatus::Pending, ApprovalRequestStatus::ClarificationRequested])
-            ->whereHasMorph('subject', Expense::class, fn (Builder $related) => $related
+        $openStatuses = [ApprovalRequestStatus::Pending, ApprovalRequestStatus::ClarificationRequested];
+        $relatedExpenses = $team->expenses()
+            ->where('budget_line_id', $expense->budget_line_id)
+            ->whereKeyNot($expense->id)
+            ->whereHas('approvalRequests', fn ($query) => $query
+                ->where('approval_requests.team_id', $team->id)
+                ->whereColumn('approval_requests.investor_agreement_id', 'expenses.investor_agreement_id')
+                ->where('request_type', ApprovalRequestType::BudgetOverrun)
+                ->whereIn('status', $openStatuses))
+            ->with(['approvalRequests' => fn ($query) => $query
                 ->where('team_id', $team->id)
-                ->where('budget_line_id', $expense->budget_line_id)
-                ->whereColumn('expenses.investor_agreement_id', 'approval_requests.investor_agreement_id')
-                ->whereKeyNot($expense->id))
-            ->when($overrunMinor > 0, fn ($query) => $query->where('requested_amount_minor', '!=', $overrunMinor))
+                ->whereIn('request_type', [ApprovalRequestType::Expense, ApprovalRequestType::BudgetOverrun])
+                ->where('status', '!=', ApprovalRequestStatus::Cancelled)
+                ->latest('id')
+                ->lockForUpdate()])
             ->orderBy('id')
             ->lockForUpdate()
             ->get();
 
-        foreach ($requests as $request) {
-            if ($overrunMinor === 0) {
-                $this->supersede($team, $actor, $request);
+        foreach ($relatedExpenses as $related) {
+            $approvals = $related->approvalRequests->where('investor_agreement_id', $related->investor_agreement_id);
+            $overruns = $approvals
+                ->where('request_type', ApprovalRequestType::BudgetOverrun)
+                ->whereIn('status', $openStatuses)
+                ->when($overrunMinor > 0, fn ($requests) => $requests->where('requested_amount_minor', '!=', $overrunMinor));
 
-                continue;
+            foreach ($overruns as $request) {
+                if ($overrunMinor === 0) {
+                    $this->supersede($team, $actor, $request);
+
+                    continue;
+                }
+
+                $previousMinor = $request->requested_amount_minor;
+                $request->update(['requested_amount_minor' => $overrunMinor]);
+                $this->audit->handle(
+                    team: $team, actor: $actor, action: 'approval_request.revised', subject: $request,
+                    oldValues: ['requested_amount_minor' => $previousMinor],
+                    newValues: ['requested_amount_minor' => $overrunMinor],
+                    metadata: ['corrected_expense_id' => $expense->id],
+                );
             }
 
-            $previousMinor = $request->requested_amount_minor;
-            $request->update(['requested_amount_minor' => $overrunMinor]);
+            if ($overrunMinor === 0 && $overruns->isNotEmpty()) {
+                $this->restoreRelatedVisibility($team, $actor, $related, $approvals);
+            }
+        }
+    }
+
+    /** @param Collection<int, ApprovalRequest> $approvals */
+    private function restoreRelatedVisibility(Team $team, User $actor, Expense $expense, Collection $approvals): void
+    {
+        $remaining = $approvals
+            ->where('status', '!=', ApprovalRequestStatus::Cancelled)
+            ->unique('request_type')
+            ->pluck('status');
+
+        $visibility = match (true) {
+            $remaining->contains(ApprovalRequestStatus::ClarificationRequested) => InvestorVisibilityStatus::ClarificationRequested,
+            $remaining->contains(ApprovalRequestStatus::Pending) => InvestorVisibilityStatus::PendingApproval,
+            $remaining->contains(ApprovalRequestStatus::Rejected) => InvestorVisibilityStatus::Rejected,
+            $remaining->contains(ApprovalRequestStatus::Approved) => InvestorVisibilityStatus::Approved,
+            default => $this->recordedVisibility($team, $expense),
+        };
+
+        $previous = $expense->investor_visibility_status;
+        if ($previous !== $visibility) {
+            $expense->update(['investor_visibility_status' => $visibility]);
             $this->audit->handle(
-                team: $team, actor: $actor, action: 'approval_request.revised', subject: $request,
-                oldValues: ['requested_amount_minor' => $previousMinor],
-                newValues: ['requested_amount_minor' => $overrunMinor],
-                metadata: ['corrected_expense_id' => $expense->id],
+                team: $team, actor: $actor, action: 'expense.investor_visibility_reconciled', subject: $expense,
+                oldValues: ['investor_visibility_status' => $previous->value],
+                newValues: ['investor_visibility_status' => $visibility->value],
             );
         }
+    }
+
+    private function recordedVisibility(Team $team, Expense $expense): InvestorVisibilityStatus
+    {
+        $recording = $team->auditEvents()
+            ->where('subject_type', $expense->getMorphClass())
+            ->where('subject_id', $expense->id)
+            ->where('action', 'expense.recorded')
+            ->oldest('id')
+            ->first(['new_values']);
+
+        return ($recording?->new_values['investor_visibility_status'] ?? null) === InvestorVisibilityStatus::Approved->value
+            ? InvestorVisibilityStatus::Approved
+            : InvestorVisibilityStatus::Private;
     }
 
     private function supersede(Team $team, User $actor, ApprovalRequest $approval): void
