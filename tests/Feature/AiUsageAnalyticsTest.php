@@ -35,11 +35,13 @@ use Laravel\Ai\Prompts\AgentPrompt;
 use Laravel\Ai\Responses\AgentResponse;
 use Laravel\Ai\Responses\Data\Meta;
 use Laravel\Ai\Responses\Data\TextUsage;
+use Laravel\Ai\Responses\TextResponse;
 
 use function Laravel\Ai\agent;
 
 beforeEach(function () {
     $this->withoutVite();
+    Http::preventStrayRequests();
 });
 
 test('models.dev sync upserts normalized pricing, handles invalid payloads, and retroactively reprices unpriced events', function () {
@@ -130,9 +132,11 @@ test('models.dev sync upserts normalized pricing, handles invalid payloads, and 
         ->expectsOutputToContain('Synced 3 models from models.dev and repriced 1 usage events.')
         ->assertExitCode(0);
 
+    $calculator = app(CalculateAiUsageCost::class);
+
     expect(AiModelPrice::query()->count())->toBe(3)
-        ->and(AiModelPrice::query()->where('provider', 'gemini')->where('model_id', 'gemini-2.5-pro')->exists())->toBeTrue()
-        ->and(AiModelPrice::query()->where('provider', 'bedrock')->where('model_id', 'claude-sonnet-4-5')->exists())->toBeTrue();
+        ->and($calculator->resolvePrice(' Google ', ' gemini-2.5-pro ')?->provider)->toBe('gemini')
+        ->and($calculator->resolvePrice(' AMAZON-BEDROCK ', 'claude-sonnet-4-5-2025-09-29')?->provider)->toBe('bedrock');
 
     $unpricedEvent->refresh();
     // 150,000 uncached * 2 = 300,000; 50,000 * 0.1 = 5,000; 40,000 * 10 = 400,000 => 705,000 microdollars ($0.705)
@@ -146,7 +150,7 @@ test('models.dev sync upserts normalized pricing, handles invalid payloads, and 
     expect(fn () => app(SyncModelsDevPricing::class)->handle())->toThrow(RuntimeException::class);
 });
 
-test('cost calculator supports cache tokens, reasoning rates, context tiers, and date/canonical fallbacks', function () {
+test('cost calculator supports cache tokens, reasoning rates, context tiers, and date-stripped models', function () {
     $calculator = app(CalculateAiUsageCost::class);
 
     AiModelPrice::factory()->create([
@@ -202,8 +206,61 @@ test('cost calculator supports cache tokens, reasoning rates, context tiers, and
     expect($dated['pricing_status'])->toBe('priced')
         ->and($dated['output_cost_microdollars'])->toBe(50_000);
 
-    // Provider fallback by model_id when provider alias differs (e.g. openrouter / custom)
-    expect($calculator->resolvePrice('custom-proxy', 'gpt-6.2-sol'))->not->toBeNull();
+    expect($calculator->resolvePrice('custom-proxy', 'gpt-6.2-sol'))->toBeNull();
+});
+
+test('usage stays unpriced with a foreign canonical rate until the invocation provider rate syncs', function () {
+    Http::fake([
+        'https://models.dev/api.json' => Http::sequence()
+            ->push([
+                'openrouter' => [
+                    'models' => [
+                        'openai/gpt-pricing-fixture' => [
+                            'canonical_model_id' => 'openai/gpt-pricing-fixture',
+                            'cost' => ['input' => 9, 'output' => 15],
+                        ],
+                    ],
+                ],
+            ])
+            ->push([
+                'openai' => [
+                    'models' => [
+                        'gpt-pricing-fixture-version' => [
+                            'canonical_model_id' => 'openai/gpt-pricing-fixture',
+                            'cost' => ['input' => 2, 'output' => 4],
+                        ],
+                    ],
+                ],
+            ]),
+    ]);
+
+    $this->artisan('ai:sync-model-prices')
+        ->expectsOutputToContain('Synced 1 models from models.dev and repriced 0 usage events.')
+        ->assertExitCode(0);
+
+    $agent = agent(instructions: 'Reply with a fixed response.');
+    $agent::fake([
+        new TextResponse('OK', new TextUsage(100, 50), new Meta('openai', 'gpt-pricing-fixture')),
+    ])->preventStrayPrompts();
+
+    $agent->prompt('Test usage pricing', provider: 'openai', model: 'gpt-pricing-fixture');
+
+    $usage = AiUsageEvent::query()->sole();
+    expect($usage->provider)->toBe('openai')
+        ->and($usage->pricing_status)->toBe('unpriced')
+        ->and($usage->cost_microdollars)->toBe(0);
+
+    $this->artisan('ai:sync-model-prices')
+        ->expectsOutputToContain('Synced 1 models from models.dev and repriced 1 usage events.')
+        ->assertExitCode(0);
+
+    $usage->refresh();
+    expect($usage->pricing_status)->toBe('priced')
+        ->and($usage->input_cost_microdollars)->toBe(200)
+        ->and($usage->output_cost_microdollars)->toBe(200)
+        ->and($usage->cost_microdollars)->toBe(400);
+
+    Http::assertSentCount(2);
 });
 
 test('telemetry listener automatically records assistant streams with impersonation, summary jobs, failures, and anonymous calls', function () {
