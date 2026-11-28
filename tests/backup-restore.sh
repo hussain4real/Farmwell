@@ -49,16 +49,20 @@ php -r '
     $zip->setPassword(getenv("BACKUP_ARCHIVE_PASSWORD"));
     if (!$zip->extractTo($argv[2], ["database.dump", "media/1/receipt.txt"])) { exit(4); }
 ' "${archives[0]}" "$work/recovered"
-restore_scope=()
+restore_options=(--exit-on-error --single-transaction --no-owner --no-privileges)
 if [[ "$FARMWELL_BACKUP_DATABASE_PROFILE" == supabase ]]; then
-    restore_scope+=(--schema=public)
+    restore_options+=(--schema=public)
 fi
-pg_restore "${restore_scope[@]}" --exit-on-error --single-transaction --no-owner --no-privileges --dbname=farmwell_restored "$work/recovered/database.dump"
+pg_restore "${restore_options[@]}" --dbname=farmwell_restored "$work/recovered/database.dump"
 query="SELECT f.name, m.id || '/' || m.file_name, m.size FROM farms f JOIN media m ON m.model_id = f.id WHERE f.team_id = 1 AND m.disk = 'farmwell_private'"
 [[ "$(psql -XAt -d farmwell_restored -c "$query")" == 'Recovery farm|1/receipt.txt|22' ]]
 [[ "$(psql -XAt -c 'SELECT count(*) FROM migrations')" == "$(psql -XAt -d farmwell_restored -c 'SELECT count(*) FROM migrations')" ]]
 [[ "$(psql -XAt -d farmwell_restored -c "SELECT convert_from(decode(document, 'base64'), 'UTF8') FROM report_artifacts WHERE status = 'ready' AND farm_id = 1")" == drill ]]
 cmp "$FARMWELL_PRIVATE_ROOT/1/receipt.txt" "$work/recovered/media/1/receipt.txt"
+bash .github/scripts/restore-backup.sh "${archives[0]}"
+if BACKUP_ARCHIVE_PASSWORD=incorrect bash .github/scripts/restore-backup.sh "${archives[0]}" > "$work/restore-rejected.log" 2>&1; then
+    echo 'An existing archive restored with an incorrect password.' >&2; exit 1
+fi
 if BACKUP_ARCHIVE_PASSWORD=incorrect php .github/scripts/extract-backup.php "${archives[0]}" "$work/rejected" "$work/recovered" > "$work/rejected.log" 2>&1; then
     echo 'Restore verification accepted an incorrect archive password.' >&2; exit 1
 fi

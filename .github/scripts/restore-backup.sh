@@ -9,7 +9,7 @@ case "$profile" in
     *) echo 'Unknown backup database profile.' >&2; exit 1 ;;
 esac
 archive=${1:?}
-source=${2:?}
+source=${2:-}
 work=$(mktemp -d)
 export PATH="${PG_BINDIR:-$(pg_config --bindir)}:$PATH"
 export PGHOST="$work" PGPORT=5432 PGDATABASE=farmwell_recovery PGUSER=drill
@@ -22,6 +22,7 @@ cleanup() {
 trap cleanup EXIT
 mkdir "$work/recovered"
 php .github/scripts/extract-backup.php "$archive" "$work/recovered" "$source"
+mkdir -p "$work/recovered/media"
 initdb -D "$work/cluster" -U drill -A trust >/dev/null
 pg_ctl -D "$work/cluster" -l "$work/postgres.log" -o "-k '$work' -c listen_addresses='' -p 5432" -w start >/dev/null
 createdb "$PGDATABASE"
@@ -72,4 +73,4 @@ SELECT json_build_object(
 \endif
 SQL
 fi
-echo 'Restore passed: downloaded encrypted archive, identical database dump and private file hashes, complete PostgreSQL restore and media inventory.'
+echo 'Restore passed: encrypted archive, complete PostgreSQL restore and private media inventory.'
