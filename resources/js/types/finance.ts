@@ -131,6 +131,7 @@ export type FundingPhase = {
     currency: string;
     milestone?: string | null;
     fundingApprovalExists?: boolean;
+    canEditRequest?: boolean;
     milestoneEvidence?: { id: number; fileName: string; downloadUrl: string }[];
     plannedAmountMinor?: number;
     requestedAmountMinor?: number;
@@ -174,6 +175,7 @@ export type Expense = {
     expenseCategoryName: string;
     farmActivityId: number | null;
     farmActivityType: string | null;
+    canCorrect?: boolean;
     amountMinor: number;
     amount: string;
     currency: string;

@@ -9,6 +9,7 @@ use Database\Factories\ApprovalRequestFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Support\Carbon;
 
@@ -98,6 +99,31 @@ class ApprovalRequest extends Model
     public function decidedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'decided_by_id');
+    }
+
+    public function reviewToken(): ?string
+    {
+        if (! in_array($this->request_type, [ApprovalRequestType::FundingRelease, ApprovalRequestType::Expense, ApprovalRequestType::BudgetOverrun], true)) {
+            return null;
+        }
+
+        $subject = $this->subject;
+        if ((! $subject instanceof FundingPhase && ! $subject instanceof Expense)
+            || $subject->team_id !== $this->team_id || $subject->investor_agreement_id !== $this->investor_agreement_id) {
+            return null;
+        }
+
+        $details = $subject instanceof FundingPhase
+            ? [$subject->name, $subject->milestone, $subject->expected_on?->toDateString()]
+            : [$subject->description, $subject->incurred_on->toDateString(), $subject->vendor, $subject->amount_minor];
+
+        return hash('sha256', serialize([$this->status->value, $this->requested_amount_minor, $details]));
+    }
+
+    /** @return MorphMany<InvestorComment, $this> */
+    public function clarificationReplies(): MorphMany
+    {
+        return $this->morphMany(InvestorComment::class, 'subject');
     }
 
     /**
