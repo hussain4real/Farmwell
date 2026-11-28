@@ -8,6 +8,7 @@ import {
     XCircle,
 } from 'lucide-vue-next';
 import { computed, reactive, ref } from 'vue';
+import ApprovalClarificationReplies from '@/components/ApprovalClarificationReplies.vue';
 import EmptyState from '@/components/farm/EmptyState.vue';
 import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
@@ -237,6 +238,13 @@ function selectDecision(requestId: number, value: DecisionValue): void {
                     {{ request.milestone }}
                 </p>
 
+                <p v-if="request.expectedOn" class="mt-3 text-muted-foreground">
+                    Expected on
+                    <time :datetime="request.expectedOn">{{
+                        formatInvestorDate(request.expectedOn)
+                    }}</time>
+                </p>
+
                 <div v-if="request.milestoneEvidence.length" class="mt-3">
                     <p class="text-xs font-medium text-muted-foreground">
                         Milestone evidence
@@ -288,6 +296,11 @@ function selectDecision(requestId: number, value: DecisionValue): void {
                     </p>
                 </div>
 
+                <ApprovalClarificationReplies
+                    :replies="request.clarificationReplies"
+                    class="mt-3"
+                />
+
                 <Form
                     v-if="isActionable(request) && currentTeamSlug"
                     v-bind="
@@ -299,6 +312,12 @@ function selectDecision(requestId: number, value: DecisionValue): void {
                     class="mt-4 space-y-4 border-t pt-4"
                     v-slot="{ errors, processing }"
                 >
+                    <input
+                        v-if="request.reviewToken"
+                        type="hidden"
+                        name="review_token"
+                        :value="request.reviewToken"
+                    />
                     <div class="space-y-2">
                         <Label :for="`portal-decision-${request.id}`">
                             Choose a decision

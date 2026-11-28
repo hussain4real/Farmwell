@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Form, Head, usePage } from '@inertiajs/vue3';
+import { Form, Head, Link, usePage } from '@inertiajs/vue3';
 import { Plus, ReceiptText } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
 import EmptyState from '@/components/farm/EmptyState.vue';
@@ -18,6 +18,7 @@ import { index as financeIndex } from '@/routes/finance';
 import {
     index as expensesIndex,
     store as storeExpense,
+    update as updateExpense,
 } from '@/routes/finance/expenses';
 import type {
     Budget,
@@ -46,6 +47,7 @@ type Props = {
     investorAgreements: FinanceInvestorAgreement[];
     activities: FinanceActivity[];
     expenses: Expense[];
+    expenseSearch: string;
     variance: FinanceVariance;
     options: Pick<
         FinanceOptions,
@@ -84,6 +86,7 @@ defineOptions({
 const currentTeam = computed(() => page.props.currentTeam as Team | null);
 const currentTeamSlug = computed(() => currentTeam.value?.slug ?? '');
 const drawerOpen = ref(false);
+const editingRecord = ref<Expense | null>(null);
 const farmFilter = ref('all');
 const categoryFilter = ref('all');
 const statusFilter = ref('all');
@@ -214,7 +217,11 @@ watch(expenseCycleId, () => {
             </template>
             <template #metrics>
                 <div class="px-4 py-3 sm:px-6">
-                    <p class="text-xs text-emerald-100/75">Expenses</p>
+                    <p class="text-xs text-emerald-100/75">
+                        {{
+                            expenseSearch ? 'Search results' : 'Recent expenses'
+                        }}
+                    </p>
                     <p class="mt-0.5 text-lg font-semibold tabular-nums">
                         {{ expenses.length }}
                     </p>
@@ -239,6 +246,40 @@ watch(expenseCycleId, () => {
                 </div>
             </template>
         </PageHero>
+
+        <search v-if="currentTeamSlug">
+            <Form
+                v-bind="expensesIndex.form(currentTeamSlug)"
+                aria-label="Find an expense"
+                class="flex flex-wrap items-end gap-2"
+            >
+                <div class="grid min-w-52 flex-1 gap-2 sm:max-w-sm">
+                    <Label for="expense-search">Find an expense</Label>
+                    <Input
+                        id="expense-search"
+                        name="search"
+                        type="search"
+                        :model-value="expenseSearch"
+                        placeholder="Description or expense ID"
+                        maxlength="200"
+                        class="min-h-12"
+                    />
+                </div>
+                <Button type="submit" variant="outline" class="min-h-12"
+                    >Search</Button
+                >
+                <Button
+                    v-if="expenseSearch"
+                    variant="ghost"
+                    class="min-h-12"
+                    as-child
+                >
+                    <Link :href="expensesIndex(currentTeamSlug)"
+                        >Clear search</Link
+                    >
+                </Button>
+            </Form>
+        </search>
 
         <div class="flex flex-wrap items-center gap-2">
             <select
@@ -354,12 +395,25 @@ watch(expenseCycleId, () => {
                             compact
                             dialog-title="Expense receipts"
                         />
+                        <Button
+                            v-if="
+                                permissions.canManageFinance &&
+                                currentTeamSlug &&
+                                expense.canCorrect
+                            "
+                            type="button"
+                            variant="outline"
+                            class="min-h-12"
+                            @click="editingRecord = expense"
+                        >
+                            Correct expense
+                        </Button>
                     </article>
                 </div>
                 <EmptyState
                     v-else
                     title="No matching expenses"
-                    description="Record an expense or adjust your farm, category, and status filters."
+                    description="Try another search or adjust the filters."
                     :icon="ReceiptText"
                 />
             </div>
@@ -426,6 +480,158 @@ watch(expenseCycleId, () => {
                 </p>
             </aside>
         </section>
+
+        <SlideOverForm
+            v-if="editingRecord && currentTeamSlug"
+            :open="true"
+            title="Correct expense"
+            :description="editingRecord.description"
+            @update:open="if (!$event) editingRecord = null;"
+        >
+            <Form
+                :key="editingRecord.id"
+                v-bind="updateExpense.form([currentTeamSlug, editingRecord.id])"
+                class="grid gap-4"
+                aria-label="Correct expense"
+                :options="{ preserveScroll: true }"
+                v-slot="{ errors, processing }"
+                @success="editingRecord = null"
+            >
+                <div aria-live="polite" class="grid gap-4">
+                    <div class="grid gap-2">
+                        <Label for="expense-edit-description"
+                            >Description</Label
+                        >
+                        <textarea
+                            id="expense-edit-description"
+                            name="description"
+                            :value="editingRecord.description ?? ''"
+                            required
+                            maxlength="4000"
+                            :aria-invalid="Boolean(errors.description)"
+                            aria-describedby="expense-edit-description-error"
+                            class="rounded-md border bg-background px-3 py-2 text-base"
+                            rows="3"
+                        ></textarea>
+                        <InputError
+                            id="expense-edit-description-error"
+                            :message="errors.description"
+                        />
+                    </div>
+                    <div class="grid gap-2">
+                        <Label for="expense-edit-amount"
+                            >Amount ({{ editingRecord.currency }})</Label
+                        >
+                        <Input
+                            id="expense-edit-amount"
+                            name="amount"
+                            :model-value="editingRecord.amount"
+                            required
+                            inputmode="decimal"
+                            :aria-invalid="Boolean(errors.amount)"
+                            aria-describedby="expense-edit-amount-error"
+                            class="min-h-12 text-base"
+                        />
+                        <InputError
+                            id="expense-edit-amount-error"
+                            :message="errors.amount"
+                        />
+                    </div>
+                    <div class="grid gap-2">
+                        <Label for="expense-edit-incurred-on"
+                            >Expense date</Label
+                        >
+                        <Input
+                            id="expense-edit-incurred-on"
+                            name="incurred_on"
+                            :model-value="editingRecord.incurredOn"
+                            required
+                            type="date"
+                            :aria-invalid="Boolean(errors.incurred_on)"
+                            aria-describedby="expense-edit-incurred-on-error"
+                            class="min-h-12 text-base"
+                        />
+                        <InputError
+                            id="expense-edit-incurred-on-error"
+                            :message="errors.incurred_on"
+                        />
+                    </div>
+                    <div class="grid gap-2">
+                        <Label for="expense-edit-vendor">Vendor</Label>
+                        <Input
+                            id="expense-edit-vendor"
+                            name="vendor"
+                            :model-value="editingRecord.vendor ?? ''"
+                            maxlength="255"
+                            :aria-invalid="Boolean(errors.vendor)"
+                            aria-describedby="expense-edit-vendor-error"
+                            class="min-h-12 text-base"
+                        />
+                        <InputError
+                            id="expense-edit-vendor-error"
+                            :message="errors.vendor"
+                        />
+                    </div>
+                    <div class="grid gap-2">
+                        <Label for="expense-edit-payment-method"
+                            >Payment method</Label
+                        >
+                        <Input
+                            id="expense-edit-payment-method"
+                            name="payment_method"
+                            :model-value="editingRecord.paymentMethod ?? ''"
+                            maxlength="255"
+                            :aria-invalid="Boolean(errors.payment_method)"
+                            aria-describedby="expense-edit-payment-method-error"
+                            class="min-h-12 text-base"
+                        />
+                        <InputError
+                            id="expense-edit-payment-method-error"
+                            :message="errors.payment_method"
+                        />
+                    </div>
+                    <div class="grid gap-2">
+                        <Label for="expense-edit-notes">Notes</Label>
+                        <textarea
+                            id="expense-edit-notes"
+                            name="notes"
+                            :value="editingRecord.notes ?? ''"
+                            maxlength="4000"
+                            :aria-invalid="Boolean(errors.notes)"
+                            aria-describedby="expense-edit-notes-error"
+                            class="rounded-md border bg-background px-3 py-2 text-base"
+                            rows="3"
+                        ></textarea>
+                        <InputError
+                            id="expense-edit-notes-error"
+                            :message="errors.notes"
+                        />
+                    </div>
+                    <div class="grid gap-2">
+                        <Label for="expense-edit-reason"
+                            >Reason for correction</Label
+                        >
+                        <textarea
+                            id="expense-edit-reason"
+                            name="reason"
+                            required
+                            maxlength="2000"
+                            :aria-invalid="Boolean(errors.reason)"
+                            aria-describedby="expense-edit-reason-error"
+                            class="rounded-md border bg-background px-3 py-2 text-base"
+                            rows="3"
+                        ></textarea>
+                        <InputError
+                            id="expense-edit-reason-error"
+                            :message="errors.reason"
+                        />
+                    </div>
+                </div>
+                <Button type="submit" class="min-h-12" :disabled="processing">
+                    Save correction
+                </Button>
+            </Form>
+        </SlideOverForm>
 
         <SlideOverForm
             :open="drawerOpen"

@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Investors;
 
 use App\Actions\Investors\RecordInvestorComment;
+use App\Actions\Investors\ReplyToClarification;
 use App\Enums\InvestorVisibilityStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Investors\ReplyToClarificationRequest;
 use App\Http\Requests\Investors\StoreInvestorCommentRequest;
 use App\Models\ApprovalRequest;
 use App\Models\DistributionRecord;
@@ -53,6 +55,15 @@ class InvestorCommentController extends Controller
         );
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Comment recorded.')]);
+
+        return back();
+    }
+
+    public function reply(ReplyToClarificationRequest $request, Team $currentTeam, ApprovalRequest $approvalRequest, ReplyToClarification $reply): RedirectResponse
+    {
+        $reply->handle($currentTeam, $request->user(), $approvalRequest->id, $request->validated('body'));
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Clarification reply sent.')]);
 
         return back();
     }

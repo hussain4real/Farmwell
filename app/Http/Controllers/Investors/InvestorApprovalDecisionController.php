@@ -33,7 +33,8 @@ class InvestorApprovalDecisionController extends Controller
             actor: $user,
             status: ApprovalRequestStatus::from((string) $validated['status']),
             approvedAmountMinor: is_string($approvedAmount) ? Money::toMinorUnit($approvedAmount) : null,
-            comment: is_string($validated['decision_comment'] ?? null) ? $validated['decision_comment'] : null,
+            comment: $validated['decision_comment'] ?? null,
+            reviewToken: $validated['review_token'] ?? null,
         );
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Approval request updated.')]);

@@ -3,9 +3,11 @@
 namespace App\Ai\Agents;
 
 use App\Actions\Finance\ResolveTeamFinanceCurrency;
+use App\Actions\Investors\ReplyToClarification;
 use App\Actions\Teams\ResolveWorkspacePlan;
 use App\Ai\Contracts\HasUsageContext;
 use App\Ai\Tools\AskUserInputTool;
+use App\Ai\Tools\CorrectExpenseTool;
 use App\Ai\Tools\CreateFundingPhaseTool;
 use App\Ai\Tools\DecideApprovalRequestTool;
 use App\Ai\Tools\GetFinanceSummaryTool;
@@ -16,7 +18,9 @@ use App\Ai\Tools\RecordDailyLogTool;
 use App\Ai\Tools\RecordExpenseTool;
 use App\Ai\Tools\RecordFarmActivityTool;
 use App\Ai\Tools\RecordFundingReleaseTool;
+use App\Ai\Tools\ReplyToClarificationTool;
 use App\Ai\Tools\UpdateAgreementFundingTool;
+use App\Ai\Tools\UpdateFundingRequestTool;
 use App\Enums\AiUsageFeature;
 use App\Enums\ProductionCycleStatus;
 use App\Enums\TeamRole;
@@ -144,12 +148,14 @@ Whenever the user wants to record or update data and any required inputs are mis
 - Choose the richest control type per field: use `radio` when there are 2-5 exclusive choices (e.g., few categories/farms/decisions), `select` when there are 6+ choices (or optional cycle selection), `multiselect` when multiple items can apply, `currency` for monetary amounts, `date` for dates, `number` for weights/quantities/counts, `text` for short names, and `textarea` for descriptions/notes.
 - Mark optional helpful fields with `required: false` so the UI groups them cleanly under Optional details.
 - For Funding release request (`CreateFundingPhaseTool`): required `name` (`text`) + `requested_amount` (`currency`); optional `milestone` (`text`), `expected_on` (`date`), `production_cycle_id` (`select` from cycles if any), `notes` (`textarea`).
+- For edits to an existing funding request or expense, use GetFinanceSummaryTool to identify the existing record and show its current details. Use UpdateFundingRequestTool for funding requests and CorrectExpenseTool for recorded expenses. Never create another record to make a correction. If the target is unclear, ask which record. Send only the changes the user provided and ask for a correction reason for expenses.
+- For clarification replies, use ListPendingApprovalsTool to find the request and read the investor's decision comment. Ask the user for any facts needed to answer it. Use ReplyToClarificationTool with the exact proposed reply; never invent details or approve the underlying request on behalf of the farm team.
 - For Expense (`RecordExpenseTool`): required missing among `farm_id`, `expense_category_id`, `amount` (`currency`), `description` (`text`/`textarea`), `incurred_on` (`date`, default today); optional `vendor`, `production_cycle_id`, `investor_agreement_id`, `investor_visibility_status`.
 - For Record funding release (`RecordFundingReleaseTool`): required `funding_phase_id` (`radio`/`select` of approved phases via GetFinanceSummaryTool), `amount` (`currency`), `released_on` (`date`, default today).
 - For Update agreement funding (`UpdateAgreementFundingTool`): required `investor_agreement_id` (`radio`/`select`), `amount_funded` (`currency`).
 - For Daily log (`RecordDailyLogTool`): required `farm_id`, `log_date` (`date`, default today), and relevant metric fields (`number`).
 - For Field diary activity (`RecordFarmActivityTool`): required `farm_id`, `activity_type` (`radio`/`text`), `description` (`textarea`), `activity_date` (`date`, default today).
-- For Investor approval decision (`DecideApprovalRequestTool`): call ListPendingApprovalsTool first if needed, then present `approval_request_id` (`radio`/`select`), `decision` (`radio`: Approve / Request clarification / Reject), and optional `approved_amount` (`currency`) + `comment` (`textarea`).
+- For Investor approval decision (`DecideApprovalRequestTool`): call ListPendingApprovalsTool first and pass the review_token if one is returned, then present `approval_request_id` (`radio`/`select`), `decision` (`radio`: Approve / Request clarification / Reject), and optional `approved_amount` (`currency`) + `comment` (`textarea`).
 When AskUserInputTool returns `awaiting_user_input: true`, STOP calling further tools and output at most one short introductory sentence without repeating the form fields.
 Once all required fields have been provided (either in chat or via a submitted form), do NOT ask for text confirmation — call the target write tool immediately so the UI presents Approve and Decline buttons before execution.
 
@@ -190,6 +196,12 @@ PROMPT;
             $tools[] = new RecordExpenseTool($this->team, $this->user);
             $tools[] = new CreateFundingPhaseTool($this->team, $this->user);
             $tools[] = new RecordFundingReleaseTool($this->team, $this->user);
+            $tools[] = new UpdateFundingRequestTool($this->team, $this->user);
+            $tools[] = new CorrectExpenseTool($this->team, $this->user);
+        }
+
+        if (ReplyToClarification::canReply($this->user, $this->team)) {
+            $tools[] = new ReplyToClarificationTool($this->team, $this->user);
         }
 
         if ($gate->allows('manageInvestorAgreements', $this->team)) {

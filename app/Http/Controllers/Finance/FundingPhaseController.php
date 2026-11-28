@@ -6,10 +6,12 @@ use App\Actions\Finance\BuildFinancePageData;
 use App\Actions\Finance\CreateFundingPhase;
 use App\Actions\Finance\RecordFundingRelease;
 use App\Actions\Finance\SubmitFundingRequest as SubmitFundingRequestAction;
+use App\Actions\Finance\UpdateFundingRequest as UpdateFundingRequestAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Finance\RecordFundingReleaseRequest;
 use App\Http\Requests\Finance\StoreFundingPhaseRequest;
 use App\Http\Requests\Finance\SubmitFundingRequest;
+use App\Http\Requests\Finance\UpdateFundingRequest;
 use App\Models\FundingPhase;
 use App\Models\Team;
 use App\Models\User;
@@ -58,5 +60,14 @@ class FundingPhaseController extends Controller
         $submit->handle($currentTeam, $request->user(), $fundingPhase, $request->file('milestone_evidence', []));
 
         return to_route('finance.funding-phases.index', ['current_team' => $currentTeam]);
+    }
+
+    public function update(UpdateFundingRequest $request, Team $currentTeam, FundingPhase $fundingPhase, UpdateFundingRequestAction $updateFundingRequest): RedirectResponse
+    {
+        $updateFundingRequest->handle($currentTeam, $request->user(), $fundingPhase->id, $request->validated());
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Funding request updated.')]);
+
+        return back();
     }
 }

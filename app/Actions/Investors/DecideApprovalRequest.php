@@ -10,6 +10,7 @@ use App\Enums\FundingPhaseStatus;
 use App\Enums\InvestorVisibilityStatus;
 use App\Models\ApprovalRequest;
 use App\Models\DistributionRecord;
+use App\Models\Expense;
 use App\Models\FundingPhase;
 use App\Models\Team;
 use App\Models\User;
@@ -24,15 +25,29 @@ class DecideApprovalRequest
         //
     }
 
-    public function handle(Team $team, ApprovalRequest $approvalRequest, User $actor, ApprovalRequestStatus $status, ?int $approvedAmountMinor = null, ?string $comment = null): ApprovalRequest
+    public function handle(Team $team, ApprovalRequest $approvalRequest, User $actor, ApprovalRequestStatus $status, ?int $approvedAmountMinor = null, ?string $comment = null, ?string $reviewToken = null): ApprovalRequest
     {
-        return DB::transaction(function () use ($team, $approvalRequest, $actor, $status, $approvedAmountMinor, $comment): ApprovalRequest {
+        return DB::transaction(function () use ($team, $approvalRequest, $actor, $status, $approvedAmountMinor, $comment, $reviewToken): ApprovalRequest {
+            $subject = match ($approvalRequest->subject_type) {
+                (new FundingPhase)->getMorphClass() => $team->fundingPhases()->lockForUpdate()->find($approvalRequest->subject_id),
+                (new Expense)->getMorphClass() => $team->expenses()->lockForUpdate()->find($approvalRequest->subject_id),
+                default => null,
+            };
+
             $approvalRequest = ApprovalRequest::query()
                 ->where('team_id', $team->id)
                 ->lockForUpdate()
                 ->findOrFail($approvalRequest->id);
 
+            if ($subject !== null) {
+                $approvalRequest->setRelation('subject', $subject);
+            }
+
             $this->validateStatusTransition($approvalRequest->status, $status);
+
+            if ($reviewToken !== null && $reviewToken !== $approvalRequest->reviewToken()) {
+                throw ValidationException::withMessages(['status' => 'This request changed. Review the updated request before deciding.']);
+            }
 
             if ($approvalRequest->request_type === ApprovalRequestType::FundingRelease && $status === ApprovalRequestStatus::Approved
                 && ($approvedAmountMinor !== null && ($approvedAmountMinor <= 0 || $approvedAmountMinor > $approvalRequest->requested_amount_minor))) {

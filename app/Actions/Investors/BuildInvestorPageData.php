@@ -3,6 +3,7 @@
 namespace App\Actions\Investors;
 
 use App\Actions\AiSummaries\InvestorSummaryEligibility;
+use App\Actions\Finance\UpdateFundingRequest;
 use App\Enums\ApprovalRequestStatus;
 use App\Enums\ApprovalRequestType;
 use App\Enums\ApprovalTriggerType;
@@ -125,14 +126,14 @@ class BuildInvestorPageData
     public function approvals(Team $team, User $user): array
     {
         $requests = $team->approvalRequests()
-            ->with(['investorAgreement.investor', 'investorAgreement.farm', 'requestedBy', 'decidedBy', 'subject'])
+            ->with(['investorAgreement.investor', 'investorAgreement.farm', 'investorAgreement.team', 'requestedBy', 'decidedBy', 'subject', 'clarificationReplies.author'])
             ->latest()
             ->get();
 
         return [
             'permissions' => $user->toTeamPermissions($team),
             'approvalRequests' => $requests
-                ->map(fn (ApprovalRequest $approvalRequest) => $this->approvalRequestPayload($approvalRequest)),
+                ->map(fn (ApprovalRequest $approvalRequest) => $this->approvalRequestPayload($approvalRequest, $user)),
             'counts' => [
                 'total' => $requests->count(),
                 'pending' => $requests->where('status', ApprovalRequestStatus::Pending)->count(),
@@ -158,6 +159,7 @@ class BuildInvestorPageData
                 'productionCycle',
                 'approvalRequests.investorAgreement.investor',
                 'approvalRequests.investorAgreement.farm',
+                'approvalRequests.clarificationReplies.author',
                 'investorComments.author',
                 'investorComments.subject' => fn (MorphTo $subject) => $subject->morphWith([
                     Expense::class => ['expenseCategory'],
@@ -860,7 +862,7 @@ class BuildInvestorPageData
     /**
      * @return array<string, mixed>
      */
-    private function approvalRequestPayload(ApprovalRequest $approvalRequest): array
+    private function approvalRequestPayload(ApprovalRequest $approvalRequest, ?User $requester = null): array
     {
         $subject = $approvalRequest->subject;
 
@@ -886,11 +888,32 @@ class BuildInvestorPageData
                 ? $subject->description : null,
             'milestone' => $subject instanceof FundingPhase && $subject->team_id === $approvalRequest->team_id
                 && $subject->investor_agreement_id === $approvalRequest->investor_agreement_id ? $subject->milestone : null,
+            'expectedOn' => $subject instanceof FundingPhase && $subject->team_id === $approvalRequest->team_id
+                && $subject->investor_agreement_id === $approvalRequest->investor_agreement_id ? $subject->expected_on?->toDateString() : null,
             'milestoneEvidence' => $subject instanceof FundingPhase && $subject->team_id === $approvalRequest->team_id
                 && $subject->investor_agreement_id === $approvalRequest->investor_agreement_id
                 ? $subject->getMedia(FundingPhase::EvidenceCollection)->map(fn (Media $media) => $this->mediaPayload($media, $approvalRequest->investorAgreement->team))->values() : collect(),
             'requesterComment' => $approvalRequest->requester_comment,
             'decisionComment' => $approvalRequest->decision_comment,
+            'reviewToken' => $approvalRequest->reviewToken(),
+            'editableFundingPhaseId' => $requester !== null && $requester->can('manageFinance', $approvalRequest->investorAgreement->team)
+                && $approvalRequest->request_type === ApprovalRequestType::FundingRelease && $subject instanceof FundingPhase
+                && $subject->team_id === $approvalRequest->team_id && $subject->investor_agreement_id === $approvalRequest->investor_agreement_id
+                && UpdateFundingRequest::isEditable($subject, $approvalRequest) ? $subject->id : null,
+            'canReplyToClarification' => $requester !== null
+                && $approvalRequest->status === ApprovalRequestStatus::ClarificationRequested
+                && ReplyToClarification::canReply($requester, $approvalRequest->investorAgreement->team),
+            'clarificationReplies' => $approvalRequest->clarificationReplies
+                ->where('team_id', $approvalRequest->team_id)
+                ->where('investor_agreement_id', $approvalRequest->investor_agreement_id)
+                ->sortBy('id')
+                ->values()
+                ->map(fn (InvestorComment $comment) => [
+                    'id' => $comment->id,
+                    'authorName' => $comment->author?->name,
+                    'body' => $comment->body,
+                    'createdAt' => $comment->created_at?->toISOString(),
+                ]),
             'requestedAt' => $approvalRequest->requested_at->toISOString(),
             'decidedAt' => $approvalRequest->decided_at?->toISOString(),
         ];
