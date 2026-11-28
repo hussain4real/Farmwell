@@ -3,10 +3,7 @@
 namespace App\Actions\Finance;
 
 use App\Actions\Audit\RecordAuditEvent;
-use App\Enums\ApprovalRequestStatus;
-use App\Enums\ApprovalRequestType;
 use App\Enums\ExpenseStatus;
-use App\Enums\InvestorVisibilityStatus;
 use App\Models\Expense;
 use App\Models\Team;
 use App\Models\User;
@@ -69,26 +66,7 @@ class CorrectExpense
             $before = array_intersect_key($expense->getRawOriginal(), $updated);
             $expense->save();
 
-            $approvals = $expense->approvalRequests()
-                ->where('team_id', $team->id)
-                ->whereIn('request_type', [ApprovalRequestType::Expense, ApprovalRequestType::BudgetOverrun])
-                ->whereIn('status', [ApprovalRequestStatus::Pending, ApprovalRequestStatus::ClarificationRequested, ApprovalRequestStatus::Approved, ApprovalRequestStatus::Rejected])
-                ->lockForUpdate()->get();
-
-            $openExpenseApproval = $approvals->first(fn ($approval) => $approval->request_type === ApprovalRequestType::Expense
-                && $approval->investor_agreement_id === $expense->investor_agreement_id
-                && in_array($approval->status, [ApprovalRequestStatus::Pending, ApprovalRequestStatus::ClarificationRequested], true));
-            $returnForReview = $approvals->isNotEmpty()
-                || $expense->investor_visibility_status !== InvestorVisibilityStatus::Private;
-            foreach ($approvals->except($openExpenseApproval?->id ?? []) as $approval) {
-                $oldStatus = $approval->status->value;
-                $approval->update(['status' => ApprovalRequestStatus::Cancelled]);
-                $this->audit->handle(
-                    team: $team, actor: $actor, action: 'approval_request.superseded', subject: $approval,
-                    oldValues: ['status' => $oldStatus], newValues: ['status' => ApprovalRequestStatus::Cancelled->value],
-                );
-            }
-            $this->requestExpenseApprovals->handle($team, $actor, $expense, $returnForReview, $openExpenseApproval);
+            $this->requestExpenseApprovals->handle($team, $actor, $expense, correcting: true);
 
             $this->audit->handle(
                 team: $team, actor: $actor, action: 'expense.corrected', subject: $expense,

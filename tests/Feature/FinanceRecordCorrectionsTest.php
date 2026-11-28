@@ -13,6 +13,8 @@ use App\Enums\InvestorVisibilityStatus;
 use App\Enums\TeamRole;
 use App\Models\ApprovalRequest;
 use App\Models\AuditEvent;
+use App\Models\Budget;
+use App\Models\BudgetLine;
 use App\Models\Expense;
 use App\Models\Farm;
 use App\Models\FundingPhase;
@@ -75,9 +77,9 @@ test('funding revisions update the same approval and stale investor decisions ar
 
     $this->actingAs($this->operator)->patch($updateUrl, ['requested_amount' => '125000.00'])->assertForbidden();
     $this->actingAs($this->owner)->patch($updateUrl, ['requested_amount' => '0.00'])->assertSessionHasErrors('requested_amount');
-    $this->actingAs($this->owner)->patch($updateUrl, [
-        'requested_amount' => '125000.50', 'name' => 'Irrigation pipes', 'milestone' => 'Installation',
-    ])->assertRedirect()->assertSessionHasNoErrors();
+    $changes = ['requested_amount' => '125000.50', 'name' => 'Irrigation pipes', 'milestone' => 'Installation'];
+    $this->actingAs($this->owner)->patch($updateUrl, $changes)->assertRedirect()->assertSessionHasNoErrors();
+    $this->patch($updateUrl, $changes)->assertRedirect()->assertSessionHasNoErrors();
 
     expect($approval->fresh()->requested_amount_minor)->toBe(125_000_50)
         ->and($approval->fresh()->decision_comment)->toBe('What does the amount cover?')
@@ -205,6 +207,9 @@ test('expense search finds older records in the current workspace in both the pa
     $tool = new GetFinanceSummaryTool($this->team, $this->owner);
     $result = json_decode($tool->handle(new ToolRequest(['record_search' => 'PVC pipes'])), true);
     expect(array_column($result['recent_expenses'], 'id'))->toBe([$oldExpense->id]);
+
+    $result = json_decode($tool->handle(new ToolRequest(['record_search' => (string) $oldExpense->id])), true);
+    expect(array_column($result['recent_expenses'], 'id'))->toBe([$oldExpense->id]);
 });
 
 test('correcting an expense under clarification preserves the request and its discussion', function () {
@@ -231,4 +236,82 @@ test('correcting an expense under clarification preserves the request and its di
         ->and($approval->fresh()->decision_comment)->toBe('Can you check the amount?')
         ->and($approval->fresh()->reviewToken())->not->toBe($token)
         ->and($approval->clarificationReplies()->count())->toBe(1);
+});
+
+test('an expense correction preserves an open overrun discussion until the overrun clears', function () {
+    $budget = Budget::factory()->for($this->team)->for($this->farm)->create();
+    $line = BudgetLine::factory()->for($budget)->create(['planned_amount_minor' => 20_000_00]);
+    $expense = Expense::factory()->for($this->team)->for($this->farm)->for($this->agreement)
+        ->for($budget)->for($line)->for($line->expenseCategory)->create([
+            'amount_minor' => 25_000_00, 'investor_visibility_status' => InvestorVisibilityStatus::ClarificationRequested,
+        ]);
+    $approval = ApprovalRequest::factory()->for($this->team)->for($this->agreement)->for($expense, 'subject')->create([
+        'request_type' => ApprovalRequestType::BudgetOverrun,
+        'status' => ApprovalRequestStatus::ClarificationRequested,
+        'decision_comment' => 'Can you explain the overrun?',
+        'requested_amount_minor' => 5_000_00,
+    ]);
+    $updateUrl = route('finance.expenses.update', [$this->team, $expense]);
+    $replyUrl = route('investors.approvals.replies.store', [$this->team, $approval]);
+
+    $this->actingAs($this->owner)->post($replyUrl, ['body' => 'I am checking the receipt.'])
+        ->assertRedirect()->assertSessionHasNoErrors();
+    $this->patch($updateUrl, ['amount' => '23000.00', 'reason' => 'Updated the amount from the receipt.'])
+        ->assertRedirect()->assertSessionHasNoErrors();
+
+    $overrunRequests = $expense->approvalRequests()->where('request_type', ApprovalRequestType::BudgetOverrun);
+    expect($overrunRequests->sole()->is($approval))->toBeTrue()
+        ->and($approval->fresh()->requested_amount_minor)->toBe(3_000_00)
+        ->and($approval->fresh()->status)->toBe(ApprovalRequestStatus::ClarificationRequested)
+        ->and($approval->fresh()->decision_comment)->toBe('Can you explain the overrun?');
+
+    $this->post($replyUrl, ['body' => 'The corrected overrun is 3,000.'])->assertRedirect()->assertSessionHasNoErrors();
+    expect($approval->clarificationReplies()->count())->toBe(2);
+
+    $this->patch($updateUrl, ['amount' => '20000.00', 'reason' => 'Removed a line listed on a different receipt.'])
+        ->assertRedirect()->assertSessionHasNoErrors();
+    expect($overrunRequests->sole()->status)->toBe(ApprovalRequestStatus::Cancelled)
+        ->and($approval->clarificationReplies()->count())->toBe(2);
+});
+
+test('assistant finance edits require a change and return validation errors without mutating records', function () {
+    $approval = fundingRequestForCorrection($this->agreement);
+    $expense = Expense::factory()->for($this->team)->for($this->farm)->create();
+
+    $funding = new UpdateFundingRequestTool($this->team, $this->owner);
+    $expenseCorrection = new CorrectExpenseTool($this->team, $this->owner);
+    $reply = new ReplyToClarificationTool($this->team, $this->owner);
+
+    $phaseId = $approval->subject_id;
+    $unchangedFunding = json_decode($funding->handle(new ToolRequest(['funding_phase_id' => $phaseId])), true);
+    $unchangedExpense = json_decode($expenseCorrection->handle(new ToolRequest(['expense_id' => $expense->id, 'reason' => 'Receipt review'])), true);
+    expect($unchangedFunding['error'])->toBe('Provide at least one funding request detail to change.')
+        ->and($unchangedExpense['error'])->toBe('Provide at least one expense detail to correct.');
+
+    $badFunding = json_decode($funding->handle(new ToolRequest(['funding_phase_id' => $phaseId, 'requested_amount' => '0'])), true);
+    $badExpense = json_decode($expenseCorrection->handle(new ToolRequest(['expense_id' => $expense->id, 'amount' => '25'])), true);
+    $emptyReply = json_decode($reply->handle(new ToolRequest(['approval_request_id' => $approval->id, 'body' => ''])), true);
+
+    expect($badFunding['fields'])->toHaveKey('requested_amount')
+        ->and($badExpense['fields'])->toHaveKey('reason')
+        ->and($emptyReply['fields'])->toHaveKey('body');
+    expect($approval->fresh()->requested_amount_minor)->toBe(123_000_00)
+        ->and($expense->fresh()->amount_minor)->toBe($expense->amount_minor)
+        ->and($approval->clarificationReplies()->count())->toBe(0);
+});
+
+test('assistant corrections and clarification replies reject records from another workspace', function () {
+    $approval = fundingRequestForCorrection(InvestorAgreement::factory()->create());
+    $expense = Expense::factory()->create();
+
+    $cases = [
+        [new UpdateFundingRequestTool($this->team, $this->owner), ['funding_phase_id' => $approval->subject_id, 'requested_amount' => '100.00']],
+        [new CorrectExpenseTool($this->team, $this->owner), ['expense_id' => $expense->id, 'amount' => '1500.00', 'reason' => 'Invoice']],
+        [new ReplyToClarificationTool($this->team, $this->owner), ['approval_request_id' => $approval->id, 'body' => 'See the receipt.']],
+    ];
+
+    foreach ($cases as [$tool, $arguments]) {
+        $result = json_decode($tool->handle(new ToolRequest($arguments)), true);
+        expect($result)->toBe(['error' => 'Record not found in this workspace.']);
+    }
 });
