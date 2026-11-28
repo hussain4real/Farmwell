@@ -14,6 +14,9 @@ on:
       - main
       - workos
 
+permissions:
+  contents: read
+
 jobs:
   ci:
     runs-on: ubuntu-latest
@@ -96,3 +99,51 @@ jobs:
             --mount "type=bind,src=$RUNNER_TEMP/farmwell-test-node,dst=/tmp/test-node,readonly" \
             --entrypoint /tmp/test-node farmwell-queue-test \
             --input-type=module < tests/upload-limits-image.mjs
+
+  release-lint:
+    if: github.repository == 'hussain4real/Farmwell' && github.event_name == 'push' && (github.ref == 'refs/heads/stage' || github.ref == 'refs/heads/main')
+    uses: ./.github/workflows/lint.yml
+
+  deploy:
+    if: github.repository == 'hussain4real/Farmwell' && github.event_name == 'push' && (github.ref == 'refs/heads/stage' || github.ref == 'refs/heads/main')
+    needs: [ci, queue-timeout-image, release-lint]
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: ${{ github.ref_name == 'stage' && 'farmwell-staging' || 'farmwell-production' }}
+    concurrency:
+      group: farmwell-deploy-${{ github.ref_name }}
+      cancel-in-progress: false
+    steps:
+      - name: Check deployment opt-in
+        id: enabled
+        env:
+          FARMWELL_CD_ENABLED: ${{ vars.FARMWELL_CD_ENABLED }}
+        run: |
+          if [[ "$FARMWELL_CD_ENABLED" == 'true' ]]; then
+            echo 'enabled=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'Deployment is disabled in this environment.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Checkout the tested commit
+        if: steps.enabled.outputs.enabled == 'true'
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Set up Node
+        if: steps.enabled.outputs.enabled == 'true'
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Install the release Wrangler version
+        if: steps.enabled.outputs.enabled == 'true'
+        run: npm install --prefix "$RUNNER_TEMP/farmwell-wrangler" --no-audit --no-fund wrangler@4.169.0
+      - name: Deploy and verify
+        if: steps.enabled.outputs.enabled == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.FARMWELL_CLOUDFLARE_API_TOKEN }}
+          FARMWELL_ACCESS_CLIENT_ID: ${{ secrets.FARMWELL_ACCESS_CLIENT_ID }}
+          FARMWELL_ACCESS_CLIENT_SECRET: ${{ secrets.FARMWELL_ACCESS_CLIENT_SECRET }}
+        run: bash .github/scripts/deploy-farmwell.sh
