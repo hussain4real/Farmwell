@@ -21,6 +21,7 @@ import {
     release as releaseFundingPhase,
     store as storeFundingPhase,
     submit as submitFundingPhase,
+    update as updateFundingPhase,
 } from '@/routes/finance/funding-phases';
 import type {
     Budget,
@@ -78,6 +79,15 @@ defineOptions({
 const currentTeam = computed(() => page.props.currentTeam as Team | null);
 const currentTeamSlug = computed(() => currentTeam.value?.slug ?? '');
 const drawerOpen = ref(false);
+const requestedEditId = new URLSearchParams(page.url.split('?')[1]).get('edit');
+const editingRecord = ref<FundingPhase | null>(
+    props.permissions.canManageFinance
+        ? (props.fundingPhases.find(
+              (phase) =>
+                  phase.canEditRequest && String(phase.id) === requestedEditId,
+          ) ?? null)
+        : null,
+);
 const farmFilter = ref('all');
 const statusFilter = ref('all');
 const phaseFarmId = ref(props.farms[0]?.id ? String(props.farms[0].id) : '');
@@ -343,6 +353,19 @@ watch(phaseCycleId, () => {
                             dialog-title="Milestone evidence"
                         />
                     </div>
+                    <Button
+                        v-if="
+                            permissions.canManageFinance &&
+                            currentTeamSlug &&
+                            phase.canEditRequest
+                        "
+                        type="button"
+                        variant="outline"
+                        class="min-h-12"
+                        @click="editingRecord = phase"
+                    >
+                        Edit funding request
+                    </Button>
                     <Form
                         v-if="
                             permissions.canManageFinance &&
@@ -433,6 +456,126 @@ watch(phaseCycleId, () => {
                 :icon="Banknote"
             />
         </section>
+
+        <SlideOverForm
+            v-if="editingRecord && currentTeamSlug"
+            :open="true"
+            title="Edit funding request"
+            :description="editingRecord.name"
+            @update:open="if (!$event) editingRecord = null;"
+        >
+            <Form
+                :key="editingRecord.id"
+                v-bind="
+                    updateFundingPhase.form([currentTeamSlug, editingRecord.id])
+                "
+                class="grid gap-4"
+                aria-label="Edit funding request"
+                :options="{ preserveScroll: true }"
+                v-slot="{ errors, processing }"
+                @success="editingRecord = null"
+            >
+                <p class="text-sm text-muted-foreground">
+                    The investor will see the updated request.
+                </p>
+                <div aria-live="polite" class="grid gap-4">
+                    <div class="grid gap-2">
+                        <Label for="fundingPhase-edit-name">Request name</Label>
+                        <Input
+                            id="fundingPhase-edit-name"
+                            name="name"
+                            :model-value="editingRecord.name"
+                            required
+                            maxlength="255"
+                            :aria-invalid="Boolean(errors.name)"
+                            aria-describedby="fundingPhase-edit-name-error"
+                            class="min-h-12 text-base"
+                        />
+                        <InputError
+                            id="fundingPhase-edit-name-error"
+                            :message="errors.name"
+                        />
+                    </div>
+                    <div class="grid gap-2">
+                        <Label for="fundingPhase-edit-requested-amount"
+                            >Requested amount ({{
+                                editingRecord.currency
+                            }})</Label
+                        >
+                        <Input
+                            id="fundingPhase-edit-requested-amount"
+                            name="requested_amount"
+                            :model-value="editingRecord.requestedAmount"
+                            required
+                            inputmode="decimal"
+                            :aria-invalid="Boolean(errors.requested_amount)"
+                            aria-describedby="fundingPhase-edit-requested-amount-error"
+                            class="min-h-12 text-base"
+                        />
+                        <InputError
+                            id="fundingPhase-edit-requested-amount-error"
+                            :message="errors.requested_amount"
+                        />
+                    </div>
+                    <div class="grid gap-2">
+                        <Label for="fundingPhase-edit-milestone"
+                            >Milestone</Label
+                        >
+                        <Input
+                            id="fundingPhase-edit-milestone"
+                            name="milestone"
+                            :model-value="editingRecord.milestone ?? ''"
+                            maxlength="255"
+                            :aria-invalid="Boolean(errors.milestone)"
+                            aria-describedby="fundingPhase-edit-milestone-error"
+                            class="min-h-12 text-base"
+                        />
+                        <InputError
+                            id="fundingPhase-edit-milestone-error"
+                            :message="errors.milestone"
+                        />
+                    </div>
+                    <div class="grid gap-2">
+                        <Label for="fundingPhase-edit-expected-on"
+                            >Expected on</Label
+                        >
+                        <Input
+                            id="fundingPhase-edit-expected-on"
+                            name="expected_on"
+                            :model-value="editingRecord.expectedOn ?? ''"
+                            type="date"
+                            :aria-invalid="Boolean(errors.expected_on)"
+                            aria-describedby="fundingPhase-edit-expected-on-error"
+                            class="min-h-12 text-base"
+                        />
+                        <InputError
+                            id="fundingPhase-edit-expected-on-error"
+                            :message="errors.expected_on"
+                        />
+                    </div>
+                    <div class="grid gap-2">
+                        <Label for="fundingPhase-edit-notes">Notes</Label>
+                        <textarea
+                            id="fundingPhase-edit-notes"
+                            name="notes"
+                            :value="editingRecord.notes ?? ''"
+                            maxlength="4000"
+                            :aria-invalid="Boolean(errors.notes)"
+                            aria-describedby="fundingPhase-edit-notes-error"
+                            class="rounded-md border bg-background px-3 py-2 text-base"
+                            rows="3"
+                        ></textarea>
+                        <InputError
+                            id="fundingPhase-edit-notes-error"
+                            :message="errors.notes"
+                        />
+                    </div>
+                </div>
+                <Button type="submit" class="min-h-12" :disabled="processing">
+                    Save changes
+                </Button>
+            </Form>
+        </SlideOverForm>
 
         <SlideOverForm
             :open="drawerOpen"

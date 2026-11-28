@@ -3,6 +3,7 @@
 use App\Actions\Finance\RecordExpense;
 use App\Ai\Agents\FarmwellAssistant;
 use App\Ai\Tools\AskUserInputTool;
+use App\Ai\Tools\CorrectExpenseTool;
 use App\Ai\Tools\CreateFundingPhaseTool;
 use App\Ai\Tools\DecideApprovalRequestTool;
 use App\Ai\Tools\GetFinanceSummaryTool;
@@ -13,7 +14,9 @@ use App\Ai\Tools\RecordDailyLogTool;
 use App\Ai\Tools\RecordExpenseTool;
 use App\Ai\Tools\RecordFarmActivityTool;
 use App\Ai\Tools\RecordFundingReleaseTool;
+use App\Ai\Tools\ReplyToClarificationTool;
 use App\Ai\Tools\UpdateAgreementFundingTool;
+use App\Ai\Tools\UpdateFundingRequestTool;
 use App\Enums\ApprovalRequestStatus;
 use App\Enums\FarmTaskStatus;
 use App\Enums\FarmType;
@@ -148,9 +151,12 @@ test('assistant instructions and tools adapt strictly to user role', function ()
         GetInvestorSummaryTool::class,
         ListPendingApprovalsTool::class,
         RecordExpenseTool::class,
+        CorrectExpenseTool::class,
         CreateFundingPhaseTool::class,
         RecordFundingReleaseTool::class,
+        ReplyToClarificationTool::class,
         UpdateAgreementFundingTool::class,
+        UpdateFundingRequestTool::class,
         RecordDailyLogTool::class,
         RecordFarmActivityTool::class,
     ]);

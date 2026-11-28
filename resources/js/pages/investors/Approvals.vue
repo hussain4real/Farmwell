@@ -10,6 +10,7 @@ import {
     XCircle,
 } from 'lucide-vue-next';
 import { computed, reactive, ref } from 'vue';
+import ApprovalClarificationReplies from '@/components/ApprovalClarificationReplies.vue';
 import EmptyState from '@/components/farm/EmptyState.vue';
 import MetricCard from '@/components/farm/MetricCard.vue';
 import PageHero from '@/components/farm/PageHero.vue';
@@ -21,9 +22,11 @@ import { Label } from '@/components/ui/label';
 import { formatCurrency } from '@/lib/currency';
 import { formatInvestorDate } from '@/lib/investor-portal';
 import { dashboard } from '@/routes';
+import { index as fundingPhasesIndex } from '@/routes/finance/funding-phases';
 import { index as investorsIndex } from '@/routes/investors';
 import { index as approvalsIndex } from '@/routes/investors/approvals';
 import { store as storeDecision } from '@/routes/investors/approvals/decisions';
+import { store as storeReply } from '@/routes/investors/approvals/replies';
 import type {
     InvestorApprovalRequest,
     InvestorOptions,
@@ -386,6 +389,12 @@ function decisionOptionsFor(request: InvestorApprovalRequest): Array<{
                         </div>
                     </dl>
 
+                    <p v-if="request.expectedOn" class="text-muted-foreground">
+                        Expected on
+                        <time :datetime="request.expectedOn">{{
+                            formatInvestorDate(request.expectedOn)
+                        }}</time>
+                    </p>
                     <p v-if="request.expenseDescription" class="break-words">
                         {{ request.expenseDescription }}
                     </p>
@@ -420,6 +429,71 @@ function decisionOptionsFor(request: InvestorApprovalRequest): Array<{
                         </a>
                     </div>
 
+                    <ApprovalClarificationReplies
+                        :replies="request.clarificationReplies"
+                    />
+
+                    <div
+                        v-if="request.editableFundingPhaseId && currentTeamSlug"
+                    >
+                        <Button variant="outline" class="min-h-12" as-child>
+                            <Link
+                                :href="
+                                    fundingPhasesIndex(currentTeamSlug, {
+                                        query: {
+                                            edit: request.editableFundingPhaseId,
+                                        },
+                                    })
+                                "
+                            >
+                                Edit funding request
+                            </Link>
+                        </Button>
+                    </div>
+
+                    <Form
+                        v-if="
+                            request.canReplyToClarification && currentTeamSlug
+                        "
+                        v-bind="storeReply.form([currentTeamSlug, request.id])"
+                        :options="{ preserveScroll: true }"
+                        :error-bag="`clarification-reply-${request.id}`"
+                        :aria-labelledby="`clarification-reply-${request.id}-label`"
+                        reset-on-success
+                        class="grid gap-3 border-t pt-4"
+                        v-slot="{ errors, processing }"
+                    >
+                        <div class="grid gap-2">
+                            <Label
+                                :id="`clarification-reply-${request.id}-label`"
+                                :for="`clarification-reply-${request.id}`"
+                            >
+                                Reply to clarification
+                            </Label>
+                            <textarea
+                                :id="`clarification-reply-${request.id}`"
+                                name="body"
+                                required
+                                maxlength="2000"
+                                rows="3"
+                                :aria-invalid="Boolean(errors.body)"
+                                :aria-describedby="`clarification-reply-${request.id}-error`"
+                                class="rounded-md border bg-background px-3 py-2 text-base"
+                            />
+                            <InputError
+                                :id="`clarification-reply-${request.id}-error`"
+                                :message="errors.body"
+                                aria-live="polite"
+                            />
+                        </div>
+                        <Button
+                            type="submit"
+                            class="min-h-12 justify-self-start"
+                            :disabled="processing"
+                            >Send reply</Button
+                        >
+                    </Form>
+
                     <p
                         v-if="
                             request.requestType === 'funding_release' &&
@@ -442,6 +516,12 @@ function decisionOptionsFor(request: InvestorApprovalRequest): Array<{
                         class="space-y-4 border-t pt-4"
                         v-slot="{ errors, processing }"
                     >
+                        <input
+                            v-if="request.reviewToken"
+                            type="hidden"
+                            name="review_token"
+                            :value="request.reviewToken"
+                        />
                         <div class="space-y-2">
                             <Label :for="`decision-status-${request.id}`">
                                 Decision

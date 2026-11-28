@@ -197,9 +197,11 @@ Route::prefix('{current_team}')
         Route::post('finance/budgets', [BudgetController::class, 'store'])->name('finance.budgets.store');
         Route::post('finance/budgets/{budget}/lines', [BudgetLineController::class, 'store'])->name('finance.budget-lines.store');
         Route::post('finance/funding-phases', [FundingPhaseController::class, 'store'])->name('finance.funding-phases.store');
+        Route::patch('finance/funding-phases/{funding_phase}', [FundingPhaseController::class, 'update'])->name('finance.funding-phases.update');
         Route::post('finance/funding-phases/{funding_phase}/submit', [FundingPhaseController::class, 'submit'])->name('finance.funding-phases.submit');
         Route::post('finance/funding-phases/{funding_phase}/release', [FundingPhaseController::class, 'release'])->name('finance.funding-phases.release');
         Route::post('finance/expenses', [ExpenseController::class, 'store'])->name('finance.expenses.store');
+        Route::patch('finance/expenses/{expense}', [ExpenseController::class, 'update'])->name('finance.expenses.update');
         Route::post('finance/external-transfers', [ExternalTransferController::class, 'store'])->name('finance.external-transfers.store');
         Route::post('finance/external-transfers/{external_transfer}/reconciliations', [TransferReconciliationController::class, 'store'])
             ->name('finance.external-transfers.reconciliations.store');
@@ -210,6 +212,7 @@ Route::prefix('{current_team}')
         Route::post('investors/agreements/{investor_agreement}/documents', [InvestorAgreementDocumentController::class, 'store'])->name('investors.agreements.documents.store');
         Route::patch('investors/approval-settings', [InvestorApprovalSettingController::class, 'update'])->name('investors.approval-settings.update');
         Route::post('investors/approvals/{approval_request}/decisions', [InvestorApprovalDecisionController::class, 'store'])->middleware('throttle:approval-decisions')->name('investors.approvals.decisions.store');
+        Route::post('investors/approvals/{approval_request}/replies', [InvestorCommentController::class, 'reply'])->name('investors.approvals.replies.store');
         Route::post('investor-agreements/{investor_agreement}/comments', [InvestorCommentController::class, 'store'])->name('investor-comments.store');
         Route::get('evidence/{media}', [EvidenceController::class, 'show'])
             ->withoutScopedBindings()

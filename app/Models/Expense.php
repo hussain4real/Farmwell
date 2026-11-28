@@ -5,9 +5,13 @@ namespace App\Models;
 use App\Enums\ExpenseStatus;
 use App\Enums\InvestorVisibilityStatus;
 use Database\Factories\ExpenseFactory;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Support\Carbon;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
@@ -70,6 +74,35 @@ class Expense extends Model implements HasMedia
         'investor_visibility_status',
         'notes',
     ];
+
+    /** @param Builder<Expense> $query */
+    #[Scope]
+    protected function matchingRecord(Builder $query, string $search): void
+    {
+        if ($search !== '') {
+            ctype_digit($search)
+                ? $query->whereKey((int) $search)
+                : $query->whereLike('description', '%'.$search.'%');
+        }
+    }
+
+    /** @return MorphMany<ApprovalRequest, $this> */
+    public function approvalRequests(): MorphMany
+    {
+        return $this->morphMany(ApprovalRequest::class, 'subject');
+    }
+
+    /** @return HasMany<InventoryMovement, $this> */
+    public function inventoryMovements(): HasMany
+    {
+        return $this->hasMany(InventoryMovement::class);
+    }
+
+    /** @return HasMany<ExternalTransfer, $this> */
+    public function externalTransfers(): HasMany
+    {
+        return $this->hasMany(ExternalTransfer::class);
+    }
 
     /**
      * @return BelongsTo<Team, $this>
