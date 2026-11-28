@@ -13,6 +13,7 @@ use App\Models\ApprovalRequest;
 use App\Models\Expense;
 use App\Models\Team;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 
 class RequestExpenseApprovals
@@ -26,6 +27,13 @@ class RequestExpenseApprovals
     public function handle(Team $team, User $actor, Expense $expense, bool $correcting = false): void
     {
         $agreement = $expense->investorAgreement;
+        $refreshRelatedOverruns = $correcting && $expense->budget_line_id !== null && $expense->wasChanged('amount_minor');
+        $overrunMinor = $agreement !== null || $refreshRelatedOverruns ? $this->budgetOverrunMinor($team, $expense) : 0;
+
+        if ($refreshRelatedOverruns) {
+            $this->refreshRelatedOverrunRequests($team, $actor, $expense, $overrunMinor);
+        }
+
         if ($agreement === null) {
             return;
         }
@@ -44,18 +52,13 @@ class RequestExpenseApprovals
         foreach ([ApprovalRequestType::Expense, ApprovalRequestType::BudgetOverrun] as $type) {
             $amountMinor = $type === ApprovalRequestType::Expense
                 ? $expense->amount_minor
-                : $this->budgetOverrunMinor($team, $expense);
+                : $overrunMinor;
             $applies = $type === ApprovalRequestType::Expense || $amountMinor > 0;
             $existing = $approvals->where('request_type', $type);
             $open = $applies ? $this->openApproval($existing, $agreement->id) : null;
 
             foreach ($existing->except($open?->id) as $approval) {
-                $oldStatus = $approval->status->value;
-                $approval->update(['status' => ApprovalRequestStatus::Cancelled]);
-                $this->audit->handle(
-                    team: $team, actor: $actor, action: 'approval_request.superseded', subject: $approval,
-                    oldValues: ['status' => $oldStatus], newValues: ['status' => ApprovalRequestStatus::Cancelled->value],
-                );
+                $this->supersede($team, $actor, $approval);
             }
 
             if (! $applies) {
@@ -104,6 +107,49 @@ class RequestExpenseApprovals
 
         return $matching->firstWhere('status', ApprovalRequestStatus::ClarificationRequested)
             ?? $matching->firstWhere('status', ApprovalRequestStatus::Pending);
+    }
+
+    private function refreshRelatedOverrunRequests(Team $team, User $actor, Expense $expense, int $overrunMinor): void
+    {
+        $requests = $team->approvalRequests()
+            ->where('request_type', ApprovalRequestType::BudgetOverrun)
+            ->whereIn('status', [ApprovalRequestStatus::Pending, ApprovalRequestStatus::ClarificationRequested])
+            ->whereHasMorph('subject', Expense::class, fn (Builder $related) => $related
+                ->where('team_id', $team->id)
+                ->where('budget_line_id', $expense->budget_line_id)
+                ->whereColumn('expenses.investor_agreement_id', 'approval_requests.investor_agreement_id')
+                ->whereKeyNot($expense->id))
+            ->when($overrunMinor > 0, fn ($query) => $query->where('requested_amount_minor', '!=', $overrunMinor))
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->get();
+
+        foreach ($requests as $request) {
+            if ($overrunMinor === 0) {
+                $this->supersede($team, $actor, $request);
+
+                continue;
+            }
+
+            $previousMinor = $request->requested_amount_minor;
+            $request->update(['requested_amount_minor' => $overrunMinor]);
+            $this->audit->handle(
+                team: $team, actor: $actor, action: 'approval_request.revised', subject: $request,
+                oldValues: ['requested_amount_minor' => $previousMinor],
+                newValues: ['requested_amount_minor' => $overrunMinor],
+                metadata: ['corrected_expense_id' => $expense->id],
+            );
+        }
+    }
+
+    private function supersede(Team $team, User $actor, ApprovalRequest $approval): void
+    {
+        $oldStatus = $approval->status->value;
+        $approval->update(['status' => ApprovalRequestStatus::Cancelled]);
+        $this->audit->handle(
+            team: $team, actor: $actor, action: 'approval_request.superseded', subject: $approval,
+            oldValues: ['status' => $oldStatus], newValues: ['status' => ApprovalRequestStatus::Cancelled->value],
+        );
     }
 
     private function budgetOverrunMinor(Team $team, Expense $expense): int
