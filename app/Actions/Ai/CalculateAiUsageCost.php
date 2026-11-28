@@ -50,8 +50,8 @@ class CalculateAiUsageCost
         }
 
         return AiModelPrice::query()
+            ->where('provider', $normalizedProvider)
             ->where('canonical_id', $normalizedProvider.'/'.$cleanModel)
-            ->orWhere('model_id', $cleanModel)
             ->first();
     }
 
